@@ -170,13 +170,17 @@ const UI = {
     const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
     container.innerHTML = days.map((day, idx) => {
-      const mainPlate = RECIPES_DB[2 + (idx % 2)];
-      const dinnerPlate = RECIPES_DB[6 + (idx % 2)];
+      const breakfast = RECIPES_DB[0 + (idx % 2)];
+      const lunch = RECIPES_DB[2 + (idx % 2)];
+      const snack = RECIPES_DB[4 + (idx % 2)];
+      const dinner = RECIPES_DB[6 + (idx % 2)];
       return `
         <div class="card" style="margin-bottom:12px;">
           <h3 style="color:var(--primary); margin-bottom:6px;">${day}</h3>
-          <p style="font-size:14px; color:var(--text);"><b>Almuerzo:</b> ${mainPlate.name} (${mainPlate.kcal} kcal)</p>
-          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Cena:</b> ${dinnerPlate.name} (${dinnerPlate.kcal} kcal)</p>
+          <p style="font-size:14px; color:var(--text);"><b>Desayuno:</b> ${breakfast.name} (${breakfast.kcal} kcal)</p>
+          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Almuerzo:</b> ${lunch.name} (${lunch.kcal} kcal)</p>
+          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Merienda:</b> ${snack.name} (${snack.kcal} kcal)</p>
+          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Cena:</b> ${dinner.name} (${dinner.kcal} kcal)</p>
         </div>
       `;
     }).join('');
