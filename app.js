@@ -1,18 +1,5 @@
-// BASE DE DATOS DE RECETAS AMPLIADA Y CORREGIDA
-const RECIPES_DB = [
-  // Desayunos (0 y 1)
-  { id: "d1", name: "Pancakes de Avena y Claras", category: "desayuno", kcal: 350, ingredients: ["40g Avena", "3 Claras de huevo", "100g Frutillas"] },
-  { id: "d2", name: "Tostadas con Huevo y Aguacate", category: "desayuno", kcal: 450, ingredients: ["2 panes integrales", "1 Huevo entero", "Media palta (aguacate)"] },
-  // Almuerzos (2 y 3)
-  { id: "a1", name: "Pechuga Grillé con Arroz Integral", category: "almuerzo", kcal: 550, ingredients: ["150g Pechuga de pollo", "70g Arroz integral", "Mix de vegetales verdes"] },
-  { id: "a2", name: "Filete de Carne con Puré de Calabaza", category: "almuerzo", kcal: 650, ingredients: ["180g Carne magra de res", "200g Calabaza", "1 cdita Aceite de oliva"] },
-  // Meriendas (4 y 5)
-  { id: "m1", name: "Yogur Griego con Nueces y Banana", category: "meriendas", kcal: 300, ingredients: ["200g Yogur natural descremado", "15g Nueces", "Media banana"] },
-  { id: "m2", name: "Batido Proteico con Avena", category: "meriendas", kcal: 380, ingredients: ["1 scoop Proteína en polvo", "30g Avena", "250ml Leche descremada"] },
-  // Cenas (6 y 7)
-  { id: "c1", name: "Filete de Pescado con Ensalada Completa", category: "cena", kcal: 400, ingredients: ["150g Pescado blanco", "Tomate", "Lechuga", "Zanahoria"] },
-  { id: "c2", name: "Salteado de Pollo y Cubos de Zucchini", category: "cena", kcal: 500, ingredients: ["150g Pollo", "1 Zucchini grande", "Cebolla", "Morrón"] }
-];
+// NOTA: RECIPES_DB, getRecipesByCategory y CATEGORY_META viven en js/data.js
+// (antes estaba duplicado acá también, lo que rompía la app con un error de JS)
 
 const Onboarding = {
   currentStep: 0,
@@ -113,7 +100,7 @@ const UI = {
 
     document.getElementById('onboarding').style.display = 'none';
     document.getElementById('app').style.display = 'block';
-    
+
     this.renderHome();
     this.renderWeeklyPlan();
     this.renderCart();
@@ -136,7 +123,7 @@ const UI = {
   goto(viewName) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.dock-item').forEach(b => b.classList.remove('active'));
-    
+
     const targetView = document.getElementById(`view-${viewName}`);
     if (targetView) targetView.classList.add('active');
 
@@ -148,6 +135,12 @@ const UI = {
     document.getElementById('chatInputBar').style.display = viewName === 'chat' ? 'block' : 'none';
   },
 
+  // Devuelve un índice "del día" estable (0-6) para rotar recetas sin repetir siempre las mismas
+  getDayOffset() {
+    const jsDay = new Date().getDay(); // 0 = domingo ... 6 = sábado
+    return (jsDay + 6) % 7; // reacomodado para que 0 = lunes
+  },
+
   renderHome() {
     const profile = StorageApp.getProfile();
     if (!profile) return;
@@ -157,19 +150,34 @@ const UI = {
     const container = document.getElementById('dayMealsContainer');
     if (!container) return;
 
-    // Selección segura de índices basada en calorías (Evita el error de índice fuera de rango)
-    const isHigh = profile.targetKcal > 1700;
-    const breakfast = isHigh ? RECIPES_DB[1] : RECIPES_DB[0];
-    const lunch = isHigh ? RECIPES_DB[3] : RECIPES_DB[2];
-    const snack = isHigh ? RECIPES_DB[5] : RECIPES_DB[4];
-    const dinner = isHigh ? RECIPES_DB[7] : RECIPES_DB[6];
+    const dayIdx = this.getDayOffset();
+    const desayunos = getRecipesByCategory('desayuno');
+    const almuerzos = getRecipesByCategory('almuerzo');
+    const meriendas = getRecipesByCategory('meriendas');
+    const cenas = getRecipesByCategory('cena');
+
+    const breakfast = desayunos[dayIdx % desayunos.length];
+    const lunch = almuerzos[dayIdx % almuerzos.length];
+    const snack = meriendas[dayIdx % meriendas.length];
+    const dinner = cenas[dayIdx % cenas.length];
+
+    const meals = [
+      { r: breakfast, slot: 'desayuno' },
+      { r: lunch, slot: 'almuerzo' },
+      { r: snack, slot: 'meriendas' },
+      { r: dinner, slot: 'cena' }
+    ];
 
     container.innerHTML = `
       <div class="card">
-        <div class="meal-slot"><div class="meal-title">Desayuno</div><h3>${breakfast.name}</h3><p style="font-size:13px; color:var(--text-muted);">${breakfast.kcal} kcal • ${breakfast.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Almuerzo</div><h3>${lunch.name}</h3><p style="font-size:13px; color:var(--text-muted);">${lunch.kcal} kcal • ${lunch.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Merienda</div><h3>${snack.name}</h3><p style="font-size:13px; color:var(--text-muted);">${snack.kcal} kcal • ${snack.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Cena</div><h3>${dinner.name}</h3><p style="font-size:13px; color:var(--text-muted);">${dinner.kcal} kcal • ${dinner.ingredients.join(', ')}</p></div>
+        ${meals.map(m => `
+          <div class="meal-slot" onclick="UI.showRecipe('${m.r.id}')">
+            <div class="meal-title">${CATEGORY_META[m.slot].icon} ${CATEGORY_META[m.slot].label}</div>
+            <h3>${m.r.name}</h3>
+            <p style="font-size:13px; color:var(--text-muted);">${m.r.kcal} kcal • ${m.r.ingredients.join(', ')}</p>
+            <span class="tap-hint">Ver receta →</span>
+          </div>
+        `).join('')}
       </div>
     `;
   },
@@ -179,15 +187,23 @@ const UI = {
     if (!container) return;
 
     const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-    
+    const almuerzos = getRecipesByCategory('almuerzo');
+    const cenas = getRecipesByCategory('cena');
+
     container.innerHTML = days.map((day, idx) => {
-      const mainPlate = RECIPES_DB[2 + (idx % 2)]; 
-      const dinnerPlate = RECIPES_DB[6 + (idx % 2)]; 
+      const mainPlate = almuerzos[idx % almuerzos.length];
+      const dinnerPlate = cenas[idx % cenas.length];
       return `
         <div class="card" style="margin-bottom:12px;">
           <h3 style="color:var(--primary); margin-bottom:6px;">${day}</h3>
-          <p style="font-size:14px; color:var(--text);"><b>Almuerzo:</b> ${mainPlate.name} (${mainPlate.kcal} kcal)</p>
-          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Cena:</b> ${dinnerPlate.name} (${dinnerPlate.kcal} kcal)</p>
+          <div class="meal-slot" onclick="UI.showRecipe('${mainPlate.id}')">
+            <p style="font-size:14px; color:var(--text);"><b>${CATEGORY_META.almuerzo.icon} Almuerzo:</b> ${mainPlate.name} (${mainPlate.kcal} kcal)</p>
+            <span class="tap-hint">Ver receta →</span>
+          </div>
+          <div class="meal-slot" onclick="UI.showRecipe('${dinnerPlate.id}')">
+            <p style="font-size:14px; color:var(--text);"><b>${CATEGORY_META.cena.icon} Cena:</b> ${dinnerPlate.name} (${dinnerPlate.kcal} kcal)</p>
+            <span class="tap-hint">Ver receta →</span>
+          </div>
         </div>
       `;
     }).join('');
@@ -215,16 +231,42 @@ const UI = {
     document.getElementById('profileMetaDisplay').innerText = `Meta diaria asignada: ${profile.targetKcal} calorías semanales adaptadas a tu cuerpo.`;
   },
 
+  // Abre el modal con ingredientes y preparación de una receta
+  showRecipe(id) {
+    const r = RECIPES_DB.find(x => x.id === id);
+    if (!r) return;
+    const modal = document.getElementById('recipeModal');
+    const content = document.getElementById('recipeModalContent');
+    const meta = CATEGORY_META[r.category] || { icon: '🍴', label: r.category };
+
+    content.innerHTML = `
+      <div class="recipe-modal-header">
+        <span class="recipe-badge">${meta.icon} ${meta.label} • ${r.kcal} kcal</span>
+        <button class="modal-close" onclick="UI.closeRecipeModal()">✕</button>
+      </div>
+      <h2>${r.name}</h2>
+      <h3 style="margin-top:16px;">Ingredientes</h3>
+      <ul class="recipe-list">${r.ingredients.map(i => `<li>${i}</li>`).join('')}</ul>
+      <h3 style="margin-top:16px;">Preparación</h3>
+      <ol class="recipe-list">${(r.instructions && r.instructions.length ? r.instructions : ['Sin instrucciones detalladas para esta receta.']).map(s => `<li>${s}</li>`).join('')}</ol>
+    `;
+    modal.classList.add('active');
+  },
+
+  closeRecipeModal() {
+    document.getElementById('recipeModal').classList.remove('active');
+  },
+
   sendChat() {
     const input = document.getElementById('chatInput');
     if (!input || !input.value.trim()) return;
     const msg = input.value.trim();
-    
+
     const scroll = document.getElementById('chatScroll');
     scroll.innerHTML += `<div style="text-align:right; margin-bottom:10px;"><span style="background:var(--primary-dim); color:var(--primary); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${msg}</span></div>`;
-    
+
     input.value = '';
-    
+
     setTimeout(() => {
       const response = ChatApp.getBotResponse(msg);
       scroll.innerHTML += `<div style="text-align:left; margin-bottom:10px;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${response}</span></div>`;
