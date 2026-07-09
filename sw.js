@@ -11,14 +11,12 @@ const ASSETS = [
   "./icons/icon-192.png",
   "./icons/icon-512.png",
 ];
-
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).catch(() => {})
   );
   self.skipWaiting();
 });
-
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -27,19 +25,16 @@ self.addEventListener("activate", (event) => {
   );
   self.clients.claim();
 });
-
 // Estrategia: network-first para navegación (HTML), cache-first para el resto.
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
-
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request).catch(() => caches.match("./index.html"))
     );
     return;
   }
-
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
