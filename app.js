@@ -1,14 +1,6 @@
 // NOTA: RECIPES_DB, getRecipesByCategory y CATEGORY_META viven en js/data.js
 // (antes estaba duplicado acá también, lo que rompía la app con un error de JS)
 
-// Factor de actividad física para el cálculo de calorías (Harris-Benedict / Mifflin adaptado)
-const ACTIVITY_FACTORS = {
-  sedentario: 1.2,
-  ligero: 1.375,
-  moderado: 1.55,
-  intenso: 1.725
-};
-
 // Devuelve recetas de una categoría filtradas según el perfil del usuario
 // (restricciones alimentarias + ingredientes que no le gustan). Si el filtro
 // deja la lista vacía, se devuelve la lista completa sin filtrar para no
@@ -70,6 +62,34 @@ const Onboarding = {
     }
   },
 
+  // Muestra un mensaje de error dentro del paso actual en vez de usar alert(),
+  // que puede quedar "colgado" o no mostrarse en ciertos WebViews/PWA instaladas.
+  showError(message) {
+    const steps = document.querySelectorAll('.onb-step');
+    const current = steps[this.currentStep];
+    if (!current) return;
+    let errEl = current.querySelector('.field-error');
+    if (!errEl) {
+      errEl = document.createElement('p');
+      errEl.className = 'field-error';
+      const nav = current.querySelector('.onb-nav');
+      if (nav) {
+        current.insertBefore(errEl, nav);
+      } else {
+        current.appendChild(errEl);
+      }
+    }
+    errEl.textContent = message;
+    errEl.classList.add('show');
+  },
+
+  clearError() {
+    const steps = document.querySelectorAll('.onb-step');
+    const current = steps[this.currentStep];
+    const errEl = current && current.querySelector('.field-error');
+    if (errEl) errEl.classList.remove('show');
+  },
+
   validateStep1() {
     const name = document.getElementById('fName').value;
     const age = document.getElementById('fAge').value;
@@ -77,9 +97,10 @@ const Onboarding = {
     const height = document.getElementById('fHeight').value;
 
     if (!name || !age || !weight || !height) {
-      alert('Por favor, completa todos los casilleros obligatorios.');
+      this.showError('Por favor, completá todos los casilleros obligatorios.');
       return;
     }
+    this.clearError();
     this.data.name = name;
     this.data.age = parseInt(age);
     this.data.weight = parseFloat(weight);
@@ -88,19 +109,12 @@ const Onboarding = {
     this.next();
   },
 
-  validateActivity() {
-    if (!this.data.activity) {
-      alert('Selecciona tu nivel de actividad física.');
-      return;
-    }
-    this.next();
-  },
-
   validateStep2() {
     if (!this.data.goals || this.data.goals.length === 0) {
-      alert('Selecciona un objetivo para tus platos.');
+      this.showError('Seleccioná un objetivo para tus platos.');
       return;
     }
+    this.clearError();
     this.next();
   },
 
@@ -117,8 +131,7 @@ const Onboarding = {
     let tmb = 10 * this.data.weight + 6.25 * this.data.height - 5 * this.data.age;
     tmb = this.data.sex === 'masculino' ? tmb + 5 : tmb - 161;
 
-    const activityFactor = ACTIVITY_FACTORS[this.data.activity] || 1.375;
-    let targetKcal = Math.round(tmb * activityFactor);
+    let targetKcal = Math.round(tmb * 1.3);
 
     if (this.data.goals[0] === 'bajar_peso') targetKcal -= 400;
     if (this.data.goals[0] === 'subir_peso') targetKcal += 400;
@@ -165,7 +178,6 @@ const UI = {
 
   bindChips() {
     this.bindSingleSelect('goalChips', (val) => { Onboarding.data.goals = [val]; });
-    this.bindSingleSelect('activityChips', (val) => { Onboarding.data.activity = val; });
     this.bindMultiSelect('restrictionChips', (vals) => { Onboarding.data.restrictions = vals; });
   },
 
@@ -302,7 +314,7 @@ const UI = {
     const profile = StorageApp.getProfile();
     if (!profile) return;
     document.getElementById('profileNameDisplay').innerText = profile.name;
-    document.getElementById('profileMetaDisplay').innerText = `Meta diaria asignada: ${profile.targetKcal} calorías, según tu nivel de actividad (${profile.activity || 'no especificado'}).`;
+    document.getElementById('profileMetaDisplay').innerText = `Meta diaria asignada: ${profile.targetKcal} calorías semanales adaptadas a tu cuerpo.`;
 
     const prefsEl = document.getElementById('profilePrefsDisplay');
     if (prefsEl) {
