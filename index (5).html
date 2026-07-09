@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Nutrio — Tu nutricionista personal</title>
+<meta name="description" content="Tu nutricionista personal: recetas, chat con IA y carrito de compras, pensado para la comida de Latinoamérica.">
+
+<!-- PWA -->
+<meta name="theme-color" content="#060a0c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Nutrio">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="ambient"><div class="blob"></div></div>
+
+<!-- ============ ONBOARDING ============ -->
+<div id="onboarding">
+  <div class="progress-dots" id="onbDots"></div>
+
+  <!-- Paso 0: bienvenida -->
+  <section class="onb-step active" data-step="0">
+    <div class="onb-hero">
+      <div class="glass">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.6-9.5-9.2C.7 8.1 2.3 4.5 6 4c2-.3 3.6.6 4.9 2.1C12.3 4.6 13.9 3.7 15.9 4c3.7.5 5.3 4.1 3.5 7.8C16.9 16.4 12 21 12 21Z" stroke="currentColor" stroke-width="1.4"/></svg>
+      </div>
+      <h1>Hola, soy Nutrio</h1>
+      <p>Tu nutricionista personal. Armemos tu perfil en un minuto para acompañarte con recetas, un chat con IA y tu lista de compras, todo pensado para la comida de Latinoamérica.</p>
+    </div>
+    <button class="btn btn-primary" onclick="Onboarding.next()">Empezar</button>
+  </section>
+
+  <!-- Paso 1: datos básicos -->
+  <section class="onb-step" data-step="1">
+    <div class="eyebrow">Paso 1 de 5</div>
+    <h2>Contame sobre vos</h2>
+    <p>Con esto calculamos tu gasto energético diario.</p>
+    <label for="fName">Nombre</label>
+    <input type="text" id="fName" placeholder="Tu nombre">
+    <div class="row">
+      <div>
+        <label for="fAge">Edad</label>
+        <input type="number" id="fAge" placeholder="Años" min="14" max="100">
+      </div>
+      <div>
+        <label for="fSex">Sexo biológico</label>
+        <select id="fSex">
+          <option value="femenino">Femenino</option>
+          <option value="masculino">Masculino</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="fWeight">Peso (kg)</label>
+        <input type="number" id="fWeight" placeholder="Ej: 68">
+      </div>
+      <div>
+        <label for="fHeight">Altura (cm)</label>
+        <input type="number" id="fHeight" placeholder="Ej: 165">
+      </div>
+    </div>
+    <div class="onb-nav">
+      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
+      <button class="btn btn-primary" onclick="Onboarding.validateStep1()">Continuar</button>
+    </div>
+  </section>
+
+  <!-- Paso 2: país + actividad -->
+  <section class="onb-step" data-step="2">
+    <div class="eyebrow">Paso 2 de 5</div>
+    <h2>Tu país y actividad</h2>
+    <p>Así te sugerimos ingredientes y recetas de tu región.</p>
+    <label for="fCountry">País</label>
+    <select id="fCountry">
+      <option>México</option><option>Guatemala</option><option>Honduras</option>
+      <option>El Salvador</option><option>Nicaragua</option><option>Costa Rica</option>
+      <option>Panamá</option><option>Colombia</option><option>Venezuela</option>
+      <option>Ecuador</option><option>Perú</option><option>Bolivia</option>
+      <option>Chile</option><option>Argentina</option><option>Uruguay</option>
+      <option>Paraguay</option><option>República Dominicana</option><option>Cuba</option>
+      <option>Otro</option>
+    </select>
+    <label for="fActivity">Nivel de actividad física</label>
+    <select id="fActivity">
+      <option value="sedentario">Sedentario (poco o nada de ejercicio)</option>
+      <option value="ligero">Ligero (1-3 días/semana)</option>
+      <option value="moderado">Moderado (3-5 días/semana)</option>
+      <option value="activo">Activo (6-7 días/semana)</option>
+      <option value="muy_activo">Muy activo (trabajo físico o 2x/día)</option>
+    </select>
+    <div class="onb-nav">
+      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
+      <button class="btn btn-primary" onclick="Onboarding.next()">Continuar</button>
+    </div>
+  </section>
+
+  <!-- Paso 3: objetivo -->
+  <section class="onb-step" data-step="3">
+    <div class="eyebrow">Paso 3 de 5</div>
+    <h2>¿Cuál es tu objetivo?</h2>
+    <div class="chip-group" id="goalChips">
+      <div class="chip" data-val="bajar_peso">Bajar de peso</div>
+      <div class="chip" data-val="mantener">Mantener mi peso</div>
+      <div class="chip" data-val="subir_peso">Subir de peso</div>
+      <div class="chip" data-val="ganar_musculo">Ganar músculo</div>
+      <div class="chip" data-val="comer_mejor">Comer más saludable</div>
+    </div>
+    <div class="onb-nav">
+      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
+      <button class="btn btn-primary" onclick="Onboarding.validateStep3()">Continuar</button>
+    </div>
+  </section>
+
+  <!-- Paso 4: restricciones -->
+  <section class="onb-step" data-step="4">
+    <div class="eyebrow">Paso 4 de 5</div>
+    <h2>¿Alguna restricción alimentaria?</h2>
+    <p>Elegí todas las que apliquen, o ninguna.</p>
+    <div class="chip-group" id="restrictChips">
+      <div class="chip" data-val="vegetariano">Vegetariano</div>
+      <div class="chip" data-val="vegano">Vegano</div>
+      <div class="chip" data-val="sin_gluten">Sin gluten</div>
+      <div class="chip" data-val="sin_lactosa">Sin lactosa</div>
+      <div class="chip" data-val="diabetes">Diabetes</div>
+      <div class="chip" data-val="hipertension">Hipertensión</div>
+    </div>
+    <div class="onb-nav">
+      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
+      <button class="btn btn-primary" onclick="Onboarding.next()">Continuar</button>
+    </div>
+  </section>
+
+  <!-- Paso 5: comidas por día -->
+  <section class="onb-step" data-step="5">
+    <div class="eyebrow">Paso 5 de 5</div>
+    <h2>¿Cuántas comidas hacés al día?</h2>
+    <div class="chip-group" id="mealsChips">
+      <div class="chip" data-val="3">3 comidas</div>
+      <div class="chip" data-val="4">4 comidas</div>
+      <div class="chip" data-val="5">5 comidas</div>
+      <div class="chip" data-val="6">6 comidas</div>
+    </div>
+    <div class="onb-nav">
+      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
+      <button class="btn btn-primary" onclick="Onboarding.finish()">Crear mi perfil</button>
+    </div>
+  </section>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+
+  <!-- ---- INICIO ---- -->
+  <div class="view" id="view-inicio">
+    <div class="eyebrow" id="homeDate"></div>
+    <h1 id="homeGreeting">Hola</h1>
+
+    <div class="glass card" style="margin-top:16px;">
+      <h3 class="mt-0">Tu día en números</h3>
+      <div class="rings-wrap">
+        <div class="rings">
+          <svg viewBox="0 0 132 132">
+            <circle class="ring-track" cx="66" cy="66" r="58"></circle>
+            <circle class="ring-val" id="ringKcal" cx="66" cy="66" r="58" stroke="#8fbf9f"></circle>
+          </svg>
+          <div class="rings-center">
+            <b id="ringKcalText">0</b>
+            <span>kcal hoy</span>
+          </div>
+        </div>
+        <div class="macro-legend">
+          <div class="macro-row"><span class="macro-name"><span class="dot" style="background:#ff9a76"></span>Proteína</span><span class="macro-val" id="macroProtein">0 / 0 g</span></div>
+          <div class="macro-row"><span class="macro-name"><span class="dot" style="background:#7fb8d6"></span>Carbohidratos</span><span class="macro-val" id="macroCarbs">0 / 0 g</span></div>
+          <div class="macro-row"><span class="macro-name"><span class="dot" style="background:#8fbf9f"></span>Grasas</span><span class="macro-val" id="macroFat">0 / 0 g</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-head">
+      <h2>Registro de hoy</h2>
+      <button class="link-btn" onclick="UI.openQuickAdd()">+ Agregar</button>
+    </div>
+    <div class="glass card" id="todayLogCard"></div>
+
+    <div class="section-head">
+      <h2>Receta de hoy</h2>
+      <button class="link-btn" onclick="UI.goto('recetas')">Ver todas</button>
+    </div>
+    <div id="homeRecipeSlot"></div>
+  </div>
+
+  <!-- ---- RECETAS ---- -->
+  <div class="view" id="view-recetas">
+    <div class="eyebrow">Recetas de hoy</div>
+    <h1>Para cocinar hoy</h1>
+    <p>Elegidas según tu perfil y objetivo. Tocá una para ver la preparación completa.</p>
+    <div class="filter-row" id="recipeFilters"></div>
+    <div id="recipeList" style="margin-top:14px;"></div>
+  </div>
+
+  <!-- ---- CHAT ---- -->
+  <div class="view" id="view-chat">
+    <div class="eyebrow">Asistente</div>
+    <h1>Chat nutricional</h1>
+    <div class="chat-scroll" id="chatScroll"></div>
+    <div class="chat-suggestions" id="chatSuggestions"></div>
+  </div>
+
+  <!-- ---- CARRITO ---- -->
+  <div class="view" id="view-carrito">
+    <div class="eyebrow">Compras</div>
+    <h1>Tu carrito</h1>
+    <p>Se arma solo con los ingredientes de tus recetas guardadas. Sumá lo que quieras a mano.</p>
+    <div class="glass card" id="cartCard"></div>
+    <div class="add-item-row">
+      <input type="text" id="cartInput" placeholder="Agregar ítem, ej: limones">
+      <button class="btn btn-glass btn-sm" onclick="UI.addCartItem()">Agregar</button>
+    </div>
+  </div>
+
+  <!-- ---- PERFIL ---- -->
+  <div class="view" id="view-perfil">
+    <div class="eyebrow">Tu cuenta</div>
+    <h1>Perfil</h1>
+    <div class="glass card" style="margin-top:16px;">
+      <div class="profile-header">
+        <div class="avatar" id="avatarInitial">N</div>
+        <div>
+          <h3 style="margin-bottom:2px;" id="profileName">—</h3>
+          <span class="muted" id="profileMeta">—</span>
+        </div>
+      </div>
+      <div class="stat-grid">
+        <div class="glass card-sm stat-box"><b id="statKcal">0</b><span>kcal / día</span></div>
+        <div class="glass card-sm stat-box"><b id="statGoal">—</b><span>objetivo</span></div>
+        <div class="glass card-sm stat-box"><b id="statWater">0 L</b><span>agua / día</span></div>
+      </div>
+    </div>
+
+    <div class="section-head"><h2>Datos</h2></div>
+    <div class="glass card" id="profileDetails"></div>
+
+    <div class="section-head"><h2>Preferencias</h2></div>
+    <div class="glass card">
+      <div class="list-row"><span>Recetas favoritas</span><span class="muted" id="favCount">0</span></div>
+      <div class="list-row"><span>Editar mi perfil</span><button class="link-btn" onclick="UI.editProfile()">Editar</button></div>
+      <div class="list-row"><span>Borrar todos mis datos</span><button class="link-btn" style="color:#e08585" onclick="UI.resetAll()">Borrar</button></div>
+    </div>
+    <p class="muted text-center" style="margin-top:18px;">Todos tus datos se guardan solo en este dispositivo.</p>
+  </div>
+
+</div>
+
+<!-- ---- CHAT INPUT (fijo) ---- -->
+<div class="chat-input-bar" id="chatInputBar" style="display:none;">
+  <div class="chat-input-inner">
+    <input type="text" id="chatInput" placeholder="Preguntame lo que quieras...">
+    <button class="send-btn" onclick="UI.sendChat()">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 12h15M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ---- DOCK ---- -->
+<div class="dock-wrap">
+  <nav class="dock" id="dock">
+    <button class="dock-item active" data-view="inicio">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Inicio</span>
+    </button>
+    <button class="dock-item" data-view="recetas">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 10c0-3.3 3.6-6 8-6s8 2.7 8 6M4 10h16M4 10l1.2 8.4A2 2 0 0 0 7.2 20h9.6a2 2 0 0 0 2-1.6L20 10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Recetas</span>
+    </button>
+    <button class="dock-item" data-view="chat">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M21 11.5a8.4 8.4 0 0 1-8.9 8.4A9 9 0 0 1 8 19l-4.5 1 1.2-4A8.4 8.4 0 1 1 21 11.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Chat</span>
+    </button>
+    <button class="dock-item" data-view="carrito">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M3 4h2l2.4 12.2A2 2 0 0 0 9.4 18h7.2a2 2 0 0 0 2-1.6L20 8H6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.5" cy="21" r="1.4" fill="currentColor"/><circle cx="16.5" cy="21" r="1.4" fill="currentColor"/></svg>
+      <span>Carrito</span>
+      <span class="badge hidden" id="cartBadge">0</span>
+    </button>
+    <button class="dock-item" data-view="perfil">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.7"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      <span>Perfil</span>
+    </button>
+  </nav>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/chat.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
