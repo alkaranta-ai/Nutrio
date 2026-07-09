@@ -1,106 +1,144 @@
-// ARMADO DE PERFIL — reescrito desde cero.
+// ARMADO DE PERFIL — pantalla única, sin pasos.
 //
-// Bug que estaba roto: el botón del Paso 3 (restricciones) llama en el HTML a
-// Onboarding.validateRestrictions(), pero esa función no existía acá, así que
-// al tocar "Continuar" no pasaba nada y quedabas trabado sin poder terminar
-// de crear el perfil. Tampoco había ningún listener para los chips de
-// restricciones, así que ni siquiera se guardaban aunque los tocaras.
+// Antes el formulario estaba dividido en varios "onb-step" y se trababa en el
+// paso de restricciones porque faltaba una función. Ahora todo el perfil se
+// completa y se valida en una sola pantalla con Onboarding.finish().
 //
 // RECIPES_DB vive en js/data.js (se carga antes que este archivo).
 
 const Onboarding = {
-  currentStep: 0,
-  data: { goals: [], restrictions: [] },
-
-  next() {
-    const steps = document.querySelectorAll('.onb-step');
-    if (!steps[this.currentStep]) return;
-    steps[this.currentStep].classList.remove('active');
-    this.currentStep++;
-    if (steps[this.currentStep]) {
-      steps[this.currentStep].classList.add('active');
-    }
-    this.updateDots();
+  // Selecciones de chips en memoria (selección única para actividad/objetivo,
+  // selección múltiple para salud/restricciones).
+  selected: {
+    activity: null,
+    goal: null,
+    health: [],
+    restrictions: []
   },
 
-  prev() {
-    if (this.currentStep === 0) return;
-    const steps = document.querySelectorAll('.onb-step');
-    steps[this.currentStep].classList.remove('active');
-    this.currentStep--;
-    steps[this.currentStep].classList.add('active');
-    this.updateDots();
+  // Un chip por grupo (actividad, objetivo): al tocarlo se desactivan los demás.
+  _bindSingleSelect(groupId, stateKey) {
+    const group = document.getElementById(groupId);
+    if (!group) return;
+    group.addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      this.selected[stateKey] = chip.dataset.val;
+    });
   },
 
-  updateDots() {
-    const dotsContainer = document.getElementById('onbDots');
-    if (!dotsContainer) return;
-    dotsContainer.innerHTML = '';
-    const totalSteps = document.querySelectorAll('.onb-step').length;
-    for (let i = 0; i < totalSteps; i++) {
-      const dot = document.createElement('div');
-      dot.className = `dot ${i === this.currentStep ? 'active' : ''}`;
-      dotsContainer.appendChild(dot);
-    }
+  // Varios chips por grupo (salud, restricciones): se pueden marcar varios a la vez.
+  // Si el chip se llama "ninguna", al tocarlo se desmarcan los demás del grupo
+  // (y viceversa: si tocás otro, se desmarca "ninguna").
+  _bindMultiSelect(groupId, stateKey) {
+    const group = document.getElementById(groupId);
+    if (!group) return;
+    group.addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      const val = chip.dataset.val;
+
+      if (val === 'ninguna') {
+        group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        this.selected[stateKey] = ['ninguna'];
+        return;
+      }
+
+      chip.classList.toggle('active');
+      const ningunaChip = group.querySelector('[data-val="ninguna"]');
+      if (ningunaChip) ningunaChip.classList.remove('active');
+
+      const list = this.selected[stateKey].filter(v => v !== 'ninguna');
+      const idx = list.indexOf(val);
+      if (chip.classList.contains('active') && idx === -1) {
+        list.push(val);
+      } else if (!chip.classList.contains('active') && idx !== -1) {
+        list.splice(idx, 1);
+      }
+      this.selected[stateKey] = list;
+    });
   },
 
-  // Paso 1: datos personales
-  validateStep1() {
+  bindAllChips() {
+    this._bindSingleSelect('activityChips', 'activity');
+    this._bindSingleSelect('goalChips', 'goal');
+    this._bindMultiSelect('healthChips', 'health');
+    this._bindMultiSelect('restrictionChips', 'restrictions');
+  },
+
+  finish() {
+    const errorBox = document.getElementById('onbError');
     const name = document.getElementById('fName').value.trim();
     const age = document.getElementById('fAge').value;
     const weight = document.getElementById('fWeight').value;
     const height = document.getElementById('fHeight').value;
+    const sex = document.getElementById('fSex').value;
+    const country = document.getElementById('fCountry').value;
 
-    if (!name || !age || !weight || !height) {
-      alert('Por favor, completá todos los casilleros obligatorios.');
+    const missingRequired =
+      !name || !age || !weight || !height ||
+      !this.selected.activity || !this.selected.goal;
+    const invalidNumbers =
+      Number(age) <= 0 || Number(weight) <= 0 || Number(height) <= 0;
+
+    if (missingRequired || invalidNumbers) {
+      errorBox.classList.add('show');
+      errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
-    if (Number(age) <= 0 || Number(weight) <= 0 || Number(height) <= 0) {
-      alert('Revisá los valores ingresados: tienen que ser mayores a cero.');
-      return;
-    }
+    errorBox.classList.remove('show');
 
-    this.data.name = name;
-    this.data.age = parseInt(age, 10);
-    this.data.weight = parseFloat(weight);
-    this.data.height = parseFloat(height);
-    this.data.sex = document.getElementById('fSex').value;
-    this.next();
-  },
-
-  // Paso 2: objetivo (selección única, vía chips)
-  validateStep2() {
-    if (!this.data.goals || this.data.goals.length === 0) {
-      alert('Elegí un objetivo para tus platos.');
-      return;
-    }
-    this.next();
-  },
-
-  // Paso 3: restricciones (selección múltiple, vía chips) + ingredientes a evitar
-  validateRestrictions() {
-    // Los chips de restricciones se van guardando solos en this.data.restrictions
-    // apenas se tocan (ver UI.bindChips). Acá solo falta sumar el texto libre.
+    const allergiesRaw = document.getElementById('fAllergies').value.trim();
     const dislikesRaw = document.getElementById('fDislikes').value.trim();
-    this.data.dislikes = dislikesRaw
-      ? dislikesRaw.split(',').map(s => s.trim()).filter(Boolean)
-      : [];
-    this.next();
-  },
 
-  finish() {
-    let tmb = 10 * this.data.weight + 6.25 * this.data.height - 5 * this.data.age;
-    tmb = this.data.sex === 'masculino' ? tmb + 5 : tmb - 161;
-    let targetKcal = Math.round(tmb * 1.3);
+    const profile = {
+      name,
+      age: parseInt(age, 10),
+      sex,
+      weight: parseFloat(weight),
+      height: parseFloat(height),
+      country,
+      activity: this.selected.activity,
+      goals: [this.selected.goal],
+      healthConditions: this.selected.health.filter(v => v !== 'ninguna'),
+      allergies: allergiesRaw ? allergiesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+      restrictions: this.selected.restrictions,
+      dislikes: dislikesRaw ? dislikesRaw.split(',').map(s => s.trim()).filter(Boolean) : []
+    };
 
-    if (this.data.goals[0] === 'bajar_peso') targetKcal -= 400;
-    if (this.data.goals[0] === 'subir_peso') targetKcal += 400;
+    profile.targetKcal = this._calculateTargetKcal(profile);
 
-    this.data.targetKcal = targetKcal;
-
-    StorageApp.saveProfile(this.data);
+    StorageApp.saveProfile(profile);
     this.autoGenerateCart();
     UI.init();
+  },
+
+  // Fórmula de Mifflin-St Jeor + factor de actividad + ajuste según objetivo.
+  _calculateTargetKcal(profile) {
+    let tmb = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age;
+    tmb = profile.sex === 'masculino' ? tmb + 5 : tmb - 161;
+
+    const activityFactors = {
+      sedentario: 1.2,
+      ligero: 1.375,
+      moderado: 1.55,
+      activo: 1.725,
+      muy_activo: 1.9
+    };
+    const factor = activityFactors[profile.activity] || 1.2;
+
+    let targetKcal = Math.round(tmb * factor);
+
+    const goal = profile.goals[0];
+    if (goal === 'bajar_peso') targetKcal -= 400;
+    if (goal === 'subir_peso') targetKcal += 400;
+    if (goal === 'ganar_musculo') targetKcal += 300;
+    // 'mantener' y 'comer_saludable' no ajustan las kcal base.
+
+    return targetKcal;
   },
 
   autoGenerateCart() {
@@ -117,10 +155,9 @@ const UI = {
   init() {
     const profile = StorageApp.getProfile();
     if (!profile) {
-      document.getElementById('onboarding').style.display = 'flex';
+      document.getElementById('onboarding').style.display = 'block';
       document.getElementById('app').style.display = 'none';
-      Onboarding.updateDots();
-      this.bindChips();
+      Onboarding.bindAllChips();
       return;
     }
 
@@ -132,39 +169,6 @@ const UI = {
     this.renderCart();
     this.renderProfile();
     this.goto('chat'); // Abre el chat primero
-  },
-
-  // Une los chips de objetivo (selección única) y de restricciones (selección
-  // múltiple) con el estado de Onboarding.data.
-  bindChips() {
-    const goalGroup = document.getElementById('goalChips');
-    if (goalGroup) {
-      goalGroup.addEventListener('click', (e) => {
-        const chip = e.target.closest('.chip');
-        if (!chip) return;
-        goalGroup.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        Onboarding.data.goals = [chip.dataset.val];
-      });
-    }
-
-    const restrictionGroup = document.getElementById('restrictionChips');
-    if (restrictionGroup) {
-      restrictionGroup.addEventListener('click', (e) => {
-        const chip = e.target.closest('.chip');
-        if (!chip) return;
-        chip.classList.toggle('active');
-
-        const val = chip.dataset.val;
-        const list = Onboarding.data.restrictions;
-        const idx = list.indexOf(val);
-        if (chip.classList.contains('active') && idx === -1) {
-          list.push(val);
-        } else if (!chip.classList.contains('active') && idx !== -1) {
-          list.splice(idx, 1);
-        }
-      });
-    }
   },
 
   goto(viewName) {
@@ -246,31 +250,50 @@ const UI = {
     const profile = StorageApp.getProfile();
     if (!profile) return;
     document.getElementById('profileNameDisplay').innerText = profile.name;
-    document.getElementById('profileMetaDisplay').innerText = `Meta diaria asignada: ${profile.targetKcal} kcal, adaptada a tu cuerpo y objetivo.`;
+    document.getElementById('profileMetaDisplay').innerText = `Meta diaria asignada: ${profile.targetKcal} kcal, adaptada a tu cuerpo, actividad y objetivo.`;
 
     const prefsEl = document.getElementById('profilePrefsDisplay');
-    if (prefsEl) {
-      const goalLabels = {
-        bajar_peso: 'Bajar de peso',
-        mantener: 'Mantener mi peso',
-        subir_peso: 'Subir de peso'
-      };
-      const restrictionLabels = {
-        vegetariano: 'Vegetariano',
-        sin_lactosa: 'Sin lactosa',
-        sin_carbo: 'Bajo en carbohidratos'
-      };
+    if (!prefsEl) return;
 
-      const goalText = goalLabels[profile.goals?.[0]] || '—';
-      const restrictionsText = (profile.restrictions || []).map(r => restrictionLabels[r] || r).join(', ') || 'Ninguna';
-      const dislikesText = (profile.dislikes || []).join(', ') || 'Ninguno';
+    const countryLabels = {
+      mexico: 'México', guatemala: 'Guatemala', honduras: 'Honduras', el_salvador: 'El Salvador',
+      nicaragua: 'Nicaragua', costa_rica: 'Costa Rica', panama: 'Panamá', colombia: 'Colombia',
+      venezuela: 'Venezuela', ecuador: 'Ecuador', peru: 'Perú', bolivia: 'Bolivia', chile: 'Chile',
+      argentina: 'Argentina', uruguay: 'Uruguay', paraguay: 'Paraguay',
+      republica_dominicana: 'República Dominicana', cuba: 'Cuba', otro: 'Otro'
+    };
+    const activityLabels = {
+      sedentario: 'Sedentario', ligero: 'Ligero', moderado: 'Moderado',
+      activo: 'Activo', muy_activo: 'Muy activo'
+    };
+    const goalLabels = {
+      bajar_peso: 'Bajar de peso', mantener: 'Mantener mi peso', subir_peso: 'Subir de peso',
+      ganar_musculo: 'Ganar músculo', comer_saludable: 'Comer más saludable'
+    };
+    const healthLabels = {
+      colesterol_alto: 'Colesterol alto', hipertension: 'Hipertensión', diabetes: 'Diabetes'
+    };
+    const restrictionLabels = {
+      vegetariano: 'Vegetariano', vegano: 'Vegano', sin_gluten: 'Sin gluten',
+      sin_lactosa: 'Sin lactosa', sin_carbo: 'Bajo en carbohidratos'
+    };
 
-      prefsEl.innerHTML = `
-        <b>Objetivo:</b> ${goalText}<br>
-        <b>Restricciones:</b> ${restrictionsText}<br>
-        <b>Evita:</b> ${dislikesText}
-      `;
-    }
+    const countryText = countryLabels[profile.country] || '—';
+    const activityText = activityLabels[profile.activity] || '—';
+    const goalText = goalLabels[profile.goals?.[0]] || '—';
+    const healthText = (profile.healthConditions || []).map(h => healthLabels[h] || h).join(', ') || 'Ninguna';
+    const allergiesText = (profile.allergies || []).join(', ') || 'Ninguna';
+    const restrictionsText = (profile.restrictions || []).map(r => restrictionLabels[r] || r).join(', ') || 'Ninguna';
+    const dislikesText = (profile.dislikes || []).join(', ') || 'Ninguno';
+
+    prefsEl.innerHTML = `
+      <b>País:</b> ${countryText} · <b>Actividad:</b> ${activityText}<br>
+      <b>Objetivo:</b> ${goalText}<br>
+      <b>Condiciones de salud:</b> ${healthText}<br>
+      <b>Alergias:</b> ${allergiesText}<br>
+      <b>Restricciones:</b> ${restrictionsText}<br>
+      <b>Evita:</b> ${dislikesText}
+    `;
   },
 
   sendChat() {
