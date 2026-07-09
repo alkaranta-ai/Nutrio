@@ -54,11 +54,6 @@
   .onb-step.active { display: flex; }
   .onb-hero { text-align: center; margin-bottom: 24px; }
 
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -66,7 +61,6 @@
     padding: 20px;
     margin-top: 16px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    animation: fadeInUp .35s ease both;
   }
 
   .meal-slot {
@@ -74,24 +68,13 @@
     padding-left: 12px;
     margin-top: 14px;
     margin-bottom: 14px;
-    cursor: pointer;
-    transition: transform .15s ease, background-color .15s ease;
-    border-radius: 0 10px 10px 0;
   }
-  .meal-slot:active { transform: scale(0.98); background-color: var(--primary-dim); }
   .meal-title {
     font-size: 14px;
     font-weight: 700;
     text-transform: uppercase;
     color: var(--text-muted);
     letter-spacing: 0.5px;
-  }
-  .tap-hint {
-    display: block;
-    font-size: 12px;
-    color: var(--primary);
-    font-weight: 600;
-    margin-top: 4px;
   }
 
   h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 12px; }
@@ -156,30 +139,9 @@
   .dock-item {
     background: none; border: none; color: var(--text-muted); display: flex; flex-direction: column;
     align-items: center; justify-content: center; padding: 8px; cursor: pointer; flex: 1; font-size: 11px; font-weight: 500;
-    transition: transform .15s ease;
   }
-  .dock-item:active { transform: scale(0.9); }
   .dock-item.active { color: var(--primary); }
   .dock-item svg { width: 22px; height: 22px; margin-bottom: 2px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-  /* Modal de receta */
-  #recipeModal {
-    position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 3000;
-    display: flex; align-items: flex-end; justify-content: center;
-    opacity: 0; pointer-events: none; transition: opacity .25s ease;
-  }
-  #recipeModal.active { opacity: 1; pointer-events: auto; }
-  .recipe-modal-card {
-    background: var(--surface); width: 100%; max-width: 460px; border-radius: 24px 24px 0 0;
-    padding: 24px; max-height: 80vh; overflow-y: auto;
-    transform: translateY(30px); transition: transform .25s ease;
-  }
-  #recipeModal.active .recipe-modal-card { transform: translateY(0); }
-  .recipe-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .recipe-badge { font-size: 12px; font-weight: 600; background: var(--primary-dim); color: var(--primary); padding: 4px 10px; border-radius: 20px; }
-  .modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-muted); padding: 4px 8px; }
-  .recipe-list { padding-left: 18px; margin-top: 8px; }
-  .recipe-list li { margin-bottom: 6px; font-size: 14px; color: var(--text); }
 </style>
 </head>
 <body>
@@ -275,7 +237,7 @@
 
   <div class="view" id="view-semana">
     <h1>Plan Semanal</h1>
-    <p style="margin-bottom: 16px;">Cronograma completo de comidas para la semana. Tocá cualquier comida para ver la receta:</p>
+    <p style="margin-bottom: 16px;">Cronograma completo de comidas para la semana:</p>
     <div id="weeklyPlanContainer"></div>
   </div>
 
@@ -326,11 +288,6 @@
       <span>Perfil</span>
     </button>
   </nav>
-</div>
-
-<!-- Modal de receta (ingredientes + preparación) -->
-<div id="recipeModal" onclick="if(event.target===this) UI.closeRecipeModal()">
-  <div class="recipe-modal-card" id="recipeModalContent"></div>
 </div>
 
 <script src="js/data.js"></script>
