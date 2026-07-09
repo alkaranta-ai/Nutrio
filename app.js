@@ -1,15 +1,15 @@
-// SIMULACIÓN DE RECETAS INTELIGENTES AMPLIADAS SEGÚN CALORÍAS
+// BASE DE DATOS DE RECETAS AMPLIADA Y CORREGIDA
 const RECIPES_DB = [
-  // Desayunos
+  // Desayunos (0 y 1)
   { id: "d1", name: "Pancakes de Avena y Claras", category: "desayuno", kcal: 350, ingredients: ["40g Avena", "3 Claras de huevo", "100g Frutillas"] },
   { id: "d2", name: "Tostadas con Huevo y Aguacate", category: "desayuno", kcal: 450, ingredients: ["2 panes integrales", "1 Huevo entero", "Media palta (aguacate)"] },
-  // Almuerzos
+  // Almuerzos (2 y 3)
   { id: "a1", name: "Pechuga Grillé con Arroz Integral", category: "almuerzo", kcal: 550, ingredients: ["150g Pechuga de pollo", "70g Arroz integral", "Mix de vegetales verdes"] },
   { id: "a2", name: "Filete de Carne con Puré de Calabaza", category: "almuerzo", kcal: 650, ingredients: ["180g Carne magra de res", "200g Calabaza", "1 cdita Aceite de oliva"] },
-  // Meriendas
+  // Meriendas (4 y 5)
   { id: "m1", name: "Yogur Griego con Nueces y Banana", category: "meriendas", kcal: 300, ingredients: ["200g Yogur natural descremado", "15g Nueces", "Media banana"] },
   { id: "m2", name: "Batido Proteico con Avena", category: "meriendas", kcal: 380, ingredients: ["1 scoop Proteína en polvo", "30g Avena", "250ml Leche descremada"] },
-  // Cenas
+  // Cenas (6 y 7)
   { id: "c1", name: "Filete de Pescado con Ensalada Completa", category: "cena", kcal: 400, ingredients: ["150g Pescado blanco", "Tomate", "Lechuga", "Zanahoria"] },
   { id: "c2", name: "Salteado de Pollo y Cubos de Zucchini", category: "cena", kcal: 500, ingredients: ["150g Pollo", "1 Zucchini grande", "Cebolla", "Morrón"] }
 ];
@@ -20,10 +20,13 @@ const Onboarding = {
 
   next() {
     const steps = document.querySelectorAll('.onb-step');
+    if (!steps[this.currentStep]) return;
     steps[this.currentStep].classList.remove('active');
     this.currentStep++;
-    steps[this.currentStep].classList.add('active');
-    Onboarding.updateDots();
+    if (steps[this.currentStep]) {
+      steps[this.currentStep].classList.add('active');
+    }
+    this.updateDots();
   },
 
   prev() {
@@ -32,7 +35,7 @@ const Onboarding = {
     steps[this.currentStep].classList.remove('active');
     this.currentStep--;
     steps[this.currentStep].classList.add('active');
-    Onboarding.updateDots();
+    this.updateDots();
   },
 
   updateDots() {
@@ -66,8 +69,8 @@ const Onboarding = {
   },
 
   validateStep2() {
-    if (this.data.goals.length === 0) {
-      alert('Selecciona un objetivo estratégico.');
+    if (!this.data.goals || this.data.goals.length === 0) {
+      alert('Selecciona un objetivo para tus platos.');
       return;
     }
     this.next();
@@ -84,15 +87,11 @@ const Onboarding = {
     this.data.targetKcal = targetKcal;
 
     StorageApp.saveProfile(this.data);
-    
-    // Generar automáticamente la lista del súper basada en su perfil calórico
-    this.autoGenerateCart(targetKcal);
-
+    this.autoGenerateCart();
     UI.init();
   },
 
-  autoGenerateCart(targetKcal) {
-    // Tomamos combinaciones fijas semanales ajustadas a sus rangos
+  autoGenerateCart() {
     let itemsSet = new Set();
     RECIPES_DB.forEach(r => {
       r.ingredients.forEach(ing => itemsSet.add(ing));
@@ -119,7 +118,7 @@ const UI = {
     this.renderWeeklyPlan();
     this.renderCart();
     this.renderProfile();
-    this.goto('chat'); // Ahora el Chat abre primero por defecto
+    this.goto('chat'); // Abre el chat primero
   },
 
   bindChips() {
@@ -141,7 +140,6 @@ const UI = {
     const targetView = document.getElementById(`view-${viewName}`);
     if (targetView) targetView.classList.add('active');
 
-    // Mapeo preciso de orden físico en el nuevo dock
     const viewsOrder = ['chat', 'inicio', 'semana', 'carrito', 'perfil'];
     const idx = viewsOrder.indexOf(viewName);
     const buttons = document.querySelectorAll('.dock-item');
@@ -152,24 +150,26 @@ const UI = {
 
   renderHome() {
     const profile = StorageApp.getProfile();
+    if (!profile) return;
     document.getElementById('homeGreeting').innerText = `¡Hola, ${profile.name}!`;
     document.getElementById('kcalDisplayTarget').innerText = `Tu requerimiento diario: ${profile.targetKcal} kcal / Objetivo Activo.`;
 
     const container = document.getElementById('dayMealsContainer');
     if (!container) return;
 
-    // Filtramos las recetas óptimas para armar el menú del día de Hoy
-    const breakfast = profile.targetKcal > 1700 ? RECIPES_DB[1] : RECIPES_DB[0];
-    const lunch = profile.targetKcal > 1700 ? RECIPES_DB[3] : RECIPES_DB[2];
-    const snack = profile.targetKcal > 1700 ? RECIPES_DB[5] : RECIPES_DB[4];
-    const dinner = profile.targetKcal > 1700 ? RECIPES_DB[7] : RECIPES_DB[6];
+    // Selección segura de índices basada en calorías (Evita el error de índice fuera de rango)
+    const isHigh = profile.targetKcal > 1700;
+    const breakfast = isHigh ? RECIPES_DB[1] : RECIPES_DB[0];
+    const lunch = isHigh ? RECIPES_DB[3] : RECIPES_DB[2];
+    const snack = isHigh ? RECIPES_DB[5] : RECIPES_DB[4];
+    const dinner = isHigh ? RECIPES_DB[7] : RECIPES_DB[6];
 
     container.innerHTML = `
       <div class="card">
-        <div class="meal-slot"><div class="meal-title">Desayuno</div><h3>${breakfast.name}</h3><p style="font-size:13px;">${breakfast.kcal} kcal • ${breakfast.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Almuerzo</div><h3>${lunch.name}</h3><p style="font-size:13px;">${lunch.kcal} kcal • ${lunch.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Merienda</div><h3>${snack.name}</h3><p style="font-size:13px;">${snack.kcal} kcal • ${snack.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Cena</div><h3>${dinner.name}</h3><p style="font-size:13px;">${dinner.kcal} kcal • ${dinner.ingredients.join(', ')}</p></div>
+        <div class="meal-slot"><div class="meal-title">Desayuno</div><h3>${breakfast.name}</h3><p style="font-size:13px; color:var(--text-muted);">${breakfast.kcal} kcal • ${breakfast.ingredients.join(', ')}</p></div>
+        <div class="meal-slot"><div class="meal-title">Almuerzo</div><h3>${lunch.name}</h3><p style="font-size:13px; color:var(--text-muted);">${lunch.kcal} kcal • ${lunch.ingredients.join(', ')}</p></div>
+        <div class="meal-slot"><div class="meal-title">Merienda</div><h3>${snack.name}</h3><p style="font-size:13px; color:var(--text-muted);">${snack.kcal} kcal • ${snack.ingredients.join(', ')}</p></div>
+        <div class="meal-slot"><div class="meal-title">Cena</div><h3>${dinner.name}</h3><p style="font-size:13px; color:var(--text-muted);">${dinner.kcal} kcal • ${dinner.ingredients.join(', ')}</p></div>
       </div>
     `;
   },
@@ -181,7 +181,6 @@ const UI = {
     const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
     
     container.innerHTML = days.map((day, idx) => {
-      // Rotamos platos básicos para simular la agenda completa de la semana de forma dinámica
       const mainPlate = RECIPES_DB[2 + (idx % 2)]; 
       const dinnerPlate = RECIPES_DB[6 + (idx % 2)]; 
       return `
@@ -201,7 +200,7 @@ const UI = {
 
     container.innerHTML = cart.length === 0
       ? `<p class="muted" style="text-align:center;">No hay ingredientes calculados.</p>`
-      : cart.map((item, idx) => `
+      : cart.map((item) => `
           <div class="cart-item">
             <input type="checkbox" style="transform: scale(1.1); accent-color: var(--primary);">
             <span style="flex:1;">${item}</span>
@@ -211,6 +210,7 @@ const UI = {
 
   renderProfile() {
     const profile = StorageApp.getProfile();
+    if (!profile) return;
     document.getElementById('profileNameDisplay').innerText = profile.name;
     document.getElementById('profileMetaDisplay').innerText = `Meta diaria asignada: ${profile.targetKcal} calorías semanales adaptadas a tu cuerpo.`;
   },
@@ -221,13 +221,13 @@ const UI = {
     const msg = input.value.trim();
     
     const scroll = document.getElementById('chatScroll');
-    scroll.innerHTML += `<div style="text-align:right;"><span style="background:var(--primary-dim); color:var(--primary); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${msg}</span></div>`;
+    scroll.innerHTML += `<div style="text-align:right; margin-bottom:10px;"><span style="background:var(--primary-dim); color:var(--primary); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${msg}</span></div>`;
     
     input.value = '';
     
     setTimeout(() => {
       const response = ChatApp.getBotResponse(msg);
-      scroll.innerHTML += `<div style="text-align:left;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${response}</span></div>`;
+      scroll.innerHTML += `<div style="text-align:left; margin-bottom:10px;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${response}</span></div>`;
       scroll.scrollTop = scroll.scrollHeight;
     }, 400);
   },
