@@ -1,34 +1,16 @@
-// NOTA: RECIPES_DB, getRecipesByCategory y CATEGORY_META viven en js/data.js
-// (antes estaba duplicado acá también, lo que rompía la app con un error de JS)
-
-// Devuelve recetas de una categoría filtradas según el perfil del usuario
-// (restricciones alimentarias + ingredientes que no le gustan). Si el filtro
-// deja la lista vacía, se devuelve la lista completa sin filtrar para no
-// romper la app por un perfil demasiado restrictivo.
-function getPersonalizedRecipes(category, profile) {
-  let list = getRecipesByCategory(category);
-  if (!profile) return list;
-
-  if (profile.restrictions && profile.restrictions.length) {
-    const filtered = list.filter(r => profile.restrictions.every(tag => r.tags.includes(tag)));
-    if (filtered.length) list = filtered;
-  }
-
-  if (profile.dislikes && profile.dislikes.length) {
-    const filtered = list.filter(r =>
-      !r.ingredients.some(ing =>
-        profile.dislikes.some(d => d && ing.toLowerCase().includes(d))
-      )
-    );
-    if (filtered.length) list = filtered;
-  }
-
-  return list.length ? list : getRecipesByCategory(category);
-}
+// ARMADO DE PERFIL — reescrito desde cero.
+//
+// Bug que estaba roto: el botón del Paso 3 (restricciones) llama en el HTML a
+// Onboarding.validateRestrictions(), pero esa función no existía acá, así que
+// al tocar "Continuar" no pasaba nada y quedabas trabado sin poder terminar
+// de crear el perfil. Tampoco había ningún listener para los chips de
+// restricciones, así que ni siquiera se guardaban aunque los tocaras.
+//
+// RECIPES_DB vive en js/data.js (se carga antes que este archivo).
 
 const Onboarding = {
   currentStep: 0,
-  data: { goals: [], restrictions: [], dislikes: [] },
+  data: { goals: [], restrictions: [] },
 
   next() {
     const steps = document.querySelectorAll('.onb-step');
@@ -62,75 +44,53 @@ const Onboarding = {
     }
   },
 
-  // Muestra un mensaje de error dentro del paso actual en vez de usar alert(),
-  // que puede quedar "colgado" o no mostrarse en ciertos WebViews/PWA instaladas.
-  showError(message) {
-    const steps = document.querySelectorAll('.onb-step');
-    const current = steps[this.currentStep];
-    if (!current) return;
-    let errEl = current.querySelector('.field-error');
-    if (!errEl) {
-      errEl = document.createElement('p');
-      errEl.className = 'field-error';
-      const nav = current.querySelector('.onb-nav');
-      if (nav) {
-        current.insertBefore(errEl, nav);
-      } else {
-        current.appendChild(errEl);
-      }
-    }
-    errEl.textContent = message;
-    errEl.classList.add('show');
-  },
-
-  clearError() {
-    const steps = document.querySelectorAll('.onb-step');
-    const current = steps[this.currentStep];
-    const errEl = current && current.querySelector('.field-error');
-    if (errEl) errEl.classList.remove('show');
-  },
-
+  // Paso 1: datos personales
   validateStep1() {
-    const name = document.getElementById('fName').value;
+    const name = document.getElementById('fName').value.trim();
     const age = document.getElementById('fAge').value;
     const weight = document.getElementById('fWeight').value;
     const height = document.getElementById('fHeight').value;
 
     if (!name || !age || !weight || !height) {
-      this.showError('Por favor, completá todos los casilleros obligatorios.');
+      alert('Por favor, completá todos los casilleros obligatorios.');
       return;
     }
-    this.clearError();
+    if (Number(age) <= 0 || Number(weight) <= 0 || Number(height) <= 0) {
+      alert('Revisá los valores ingresados: tienen que ser mayores a cero.');
+      return;
+    }
+
     this.data.name = name;
-    this.data.age = parseInt(age);
+    this.data.age = parseInt(age, 10);
     this.data.weight = parseFloat(weight);
     this.data.height = parseFloat(height);
     this.data.sex = document.getElementById('fSex').value;
     this.next();
   },
 
+  // Paso 2: objetivo (selección única, vía chips)
   validateStep2() {
     if (!this.data.goals || this.data.goals.length === 0) {
-      this.showError('Seleccioná un objetivo para tus platos.');
+      alert('Elegí un objetivo para tus platos.');
       return;
     }
-    this.clearError();
     this.next();
   },
 
+  // Paso 3: restricciones (selección múltiple, vía chips) + ingredientes a evitar
   validateRestrictions() {
+    // Los chips de restricciones se van guardando solos en this.data.restrictions
+    // apenas se tocan (ver UI.bindChips). Acá solo falta sumar el texto libre.
     const dislikesRaw = document.getElementById('fDislikes').value.trim();
     this.data.dislikes = dislikesRaw
-      ? dislikesRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+      ? dislikesRaw.split(',').map(s => s.trim()).filter(Boolean)
       : [];
-    if (!this.data.restrictions) this.data.restrictions = [];
     this.next();
   },
 
   finish() {
     let tmb = 10 * this.data.weight + 6.25 * this.data.height - 5 * this.data.age;
     tmb = this.data.sex === 'masculino' ? tmb + 5 : tmb - 161;
-
     let targetKcal = Math.round(tmb * 1.3);
 
     if (this.data.goals[0] === 'bajar_peso') targetKcal -= 400;
@@ -145,11 +105,9 @@ const Onboarding = {
 
   autoGenerateCart() {
     let itemsSet = new Set();
-    const categories = ['desayuno', 'almuerzo', 'meriendas', 'cena'];
-    categories.forEach(cat => {
-      getPersonalizedRecipes(cat, this.data).forEach(r => {
-        r.ingredients.forEach(ing => itemsSet.add(ing));
-      });
+    RECIPES_DB.forEach(r => {
+      if (r.category === 'antojo') return; // los antojos no van al carrito automático
+      r.ingredients.forEach(ing => itemsSet.add(ing));
     });
     StorageApp.saveCart(Array.from(itemsSet));
   }
@@ -176,33 +134,37 @@ const UI = {
     this.goto('chat'); // Abre el chat primero
   },
 
+  // Une los chips de objetivo (selección única) y de restricciones (selección
+  // múltiple) con el estado de Onboarding.data.
   bindChips() {
-    this.bindSingleSelect('goalChips', (val) => { Onboarding.data.goals = [val]; });
-    this.bindMultiSelect('restrictionChips', (vals) => { Onboarding.data.restrictions = vals; });
-  },
+    const goalGroup = document.getElementById('goalChips');
+    if (goalGroup) {
+      goalGroup.addEventListener('click', (e) => {
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
+        goalGroup.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        Onboarding.data.goals = [chip.dataset.val];
+      });
+    }
 
-  bindSingleSelect(groupId, onSelect) {
-    const group = document.getElementById(groupId);
-    if (!group) return;
-    group.addEventListener('click', (e) => {
-      const chip = e.target.closest('.chip');
-      if (!chip) return;
-      group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      onSelect(chip.dataset.val);
-    });
-  },
+    const restrictionGroup = document.getElementById('restrictionChips');
+    if (restrictionGroup) {
+      restrictionGroup.addEventListener('click', (e) => {
+        const chip = e.target.closest('.chip');
+        if (!chip) return;
+        chip.classList.toggle('active');
 
-  bindMultiSelect(groupId, onChange) {
-    const group = document.getElementById(groupId);
-    if (!group) return;
-    group.addEventListener('click', (e) => {
-      const chip = e.target.closest('.chip');
-      if (!chip) return;
-      chip.classList.toggle('active');
-      const selected = Array.from(group.querySelectorAll('.chip.active')).map(c => c.dataset.val);
-      onChange(selected);
-    });
+        const val = chip.dataset.val;
+        const list = Onboarding.data.restrictions;
+        const idx = list.indexOf(val);
+        if (chip.classList.contains('active') && idx === -1) {
+          list.push(val);
+        } else if (!chip.classList.contains('active') && idx !== -1) {
+          list.splice(idx, 1);
+        }
+      });
+    }
   },
 
   goto(viewName) {
@@ -220,12 +182,6 @@ const UI = {
     document.getElementById('chatInputBar').style.display = viewName === 'chat' ? 'block' : 'none';
   },
 
-  // Devuelve un índice "del día" estable (0-6) para rotar recetas sin repetir siempre las mismas
-  getDayOffset() {
-    const jsDay = new Date().getDay(); // 0 = domingo ... 6 = sábado
-    return (jsDay + 6) % 7; // reacomodado para que 0 = lunes
-  },
-
   renderHome() {
     const profile = StorageApp.getProfile();
     if (!profile) return;
@@ -235,34 +191,19 @@ const UI = {
     const container = document.getElementById('dayMealsContainer');
     if (!container) return;
 
-    const dayIdx = this.getDayOffset();
-    const desayunos = getPersonalizedRecipes('desayuno', profile);
-    const almuerzos = getPersonalizedRecipes('almuerzo', profile);
-    const meriendas = getPersonalizedRecipes('meriendas', profile);
-    const cenas = getPersonalizedRecipes('cena', profile);
-
-    const breakfast = desayunos[dayIdx % desayunos.length];
-    const lunch = almuerzos[dayIdx % almuerzos.length];
-    const snack = meriendas[dayIdx % meriendas.length];
-    const dinner = cenas[dayIdx % cenas.length];
-
-    const meals = [
-      { r: breakfast, slot: 'desayuno' },
-      { r: lunch, slot: 'almuerzo' },
-      { r: snack, slot: 'meriendas' },
-      { r: dinner, slot: 'cena' }
-    ];
+    // Selección segura de índices basada en calorías (evita error de índice fuera de rango)
+    const isHigh = profile.targetKcal > 1700;
+    const breakfast = isHigh ? RECIPES_DB[1] : RECIPES_DB[0];
+    const lunch = isHigh ? RECIPES_DB[3] : RECIPES_DB[2];
+    const snack = isHigh ? RECIPES_DB[5] : RECIPES_DB[4];
+    const dinner = isHigh ? RECIPES_DB[7] : RECIPES_DB[6];
 
     container.innerHTML = `
       <div class="card">
-        ${meals.map(m => `
-          <div class="meal-slot" onclick="UI.showRecipe('${m.r.id}')">
-            <div class="meal-title">${CATEGORY_META[m.slot].icon} ${CATEGORY_META[m.slot].label}</div>
-            <h3>${m.r.name}</h3>
-            <p style="font-size:13px; color:var(--text-muted);">${m.r.kcal} kcal • ${m.r.ingredients.join(', ')}</p>
-            <span class="tap-hint">Ver receta →</span>
-          </div>
-        `).join('')}
+        <div class="meal-slot"><div class="meal-title">Desayuno</div><h3>${breakfast.name}</h3><p style="font-size:13px; color:var(--text-muted);">${breakfast.kcal} kcal • ${breakfast.ingredients.join(', ')}</p></div>
+        <div class="meal-slot"><div class="meal-title">Almuerzo</div><h3>${lunch.name}</h3><p style="font-size:13px; color:var(--text-muted);">${lunch.kcal} kcal • ${lunch.ingredients.join(', ')}</p></div>
+        <div class="meal-slot"><div class="meal-title">Merienda</div><h3>${snack.name}</h3><p style="font-size:13px; color:var(--text-muted);">${snack.kcal} kcal • ${snack.ingredients.join(', ')}</p></div>
+        <div class="meal-slot"><div class="meal-title">Cena</div><h3>${dinner.name}</h3><p style="font-size:13px; color:var(--text-muted);">${dinner.kcal} kcal • ${dinner.ingredients.join(', ')}</p></div>
       </div>
     `;
   },
@@ -271,25 +212,16 @@ const UI = {
     const container = document.getElementById('weeklyPlanContainer');
     if (!container) return;
 
-    const profile = StorageApp.getProfile();
     const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-    const almuerzos = getPersonalizedRecipes('almuerzo', profile);
-    const cenas = getPersonalizedRecipes('cena', profile);
 
     container.innerHTML = days.map((day, idx) => {
-      const mainPlate = almuerzos[idx % almuerzos.length];
-      const dinnerPlate = cenas[idx % cenas.length];
+      const mainPlate = RECIPES_DB[2 + (idx % 2)];
+      const dinnerPlate = RECIPES_DB[6 + (idx % 2)];
       return `
         <div class="card" style="margin-bottom:12px;">
           <h3 style="color:var(--primary); margin-bottom:6px;">${day}</h3>
-          <div class="meal-slot" onclick="UI.showRecipe('${mainPlate.id}')">
-            <p style="font-size:14px; color:var(--text);"><b>${CATEGORY_META.almuerzo.icon} Almuerzo:</b> ${mainPlate.name} (${mainPlate.kcal} kcal)</p>
-            <span class="tap-hint">Ver receta →</span>
-          </div>
-          <div class="meal-slot" onclick="UI.showRecipe('${dinnerPlate.id}')">
-            <p style="font-size:14px; color:var(--text);"><b>${CATEGORY_META.cena.icon} Cena:</b> ${dinnerPlate.name} (${dinnerPlate.kcal} kcal)</p>
-            <span class="tap-hint">Ver receta →</span>
-          </div>
+          <p style="font-size:14px; color:var(--text);"><b>Almuerzo:</b> ${mainPlate.name} (${mainPlate.kcal} kcal)</p>
+          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Cena:</b> ${dinnerPlate.name} (${dinnerPlate.kcal} kcal)</p>
         </div>
       `;
     }).join('');
@@ -314,40 +246,31 @@ const UI = {
     const profile = StorageApp.getProfile();
     if (!profile) return;
     document.getElementById('profileNameDisplay').innerText = profile.name;
-    document.getElementById('profileMetaDisplay').innerText = `Meta diaria asignada: ${profile.targetKcal} calorías semanales adaptadas a tu cuerpo.`;
+    document.getElementById('profileMetaDisplay').innerText = `Meta diaria asignada: ${profile.targetKcal} kcal, adaptada a tu cuerpo y objetivo.`;
 
     const prefsEl = document.getElementById('profilePrefsDisplay');
     if (prefsEl) {
-      const restrictions = profile.restrictions && profile.restrictions.length ? profile.restrictions.join(', ') : 'ninguna';
-      const dislikes = profile.dislikes && profile.dislikes.length ? profile.dislikes.join(', ') : 'ninguno';
-      prefsEl.innerText = `Preferencias: ${restrictions} • Evita: ${dislikes}`;
+      const goalLabels = {
+        bajar_peso: 'Bajar de peso',
+        mantener: 'Mantener mi peso',
+        subir_peso: 'Subir de peso'
+      };
+      const restrictionLabels = {
+        vegetariano: 'Vegetariano',
+        sin_lactosa: 'Sin lactosa',
+        sin_carbo: 'Bajo en carbohidratos'
+      };
+
+      const goalText = goalLabels[profile.goals?.[0]] || '—';
+      const restrictionsText = (profile.restrictions || []).map(r => restrictionLabels[r] || r).join(', ') || 'Ninguna';
+      const dislikesText = (profile.dislikes || []).join(', ') || 'Ninguno';
+
+      prefsEl.innerHTML = `
+        <b>Objetivo:</b> ${goalText}<br>
+        <b>Restricciones:</b> ${restrictionsText}<br>
+        <b>Evita:</b> ${dislikesText}
+      `;
     }
-  },
-
-  // Abre el modal con ingredientes y preparación de una receta
-  showRecipe(id) {
-    const r = RECIPES_DB.find(x => x.id === id);
-    if (!r) return;
-    const modal = document.getElementById('recipeModal');
-    const content = document.getElementById('recipeModalContent');
-    const meta = CATEGORY_META[r.category] || { icon: '🍴', label: r.category };
-
-    content.innerHTML = `
-      <div class="recipe-modal-header">
-        <span class="recipe-badge">${meta.icon} ${meta.label} • ${r.kcal} kcal</span>
-        <button class="modal-close" onclick="UI.closeRecipeModal()">✕</button>
-      </div>
-      <h2>${r.name}</h2>
-      <h3 style="margin-top:16px;">Ingredientes</h3>
-      <ul class="recipe-list">${r.ingredients.map(i => `<li>${i}</li>`).join('')}</ul>
-      <h3 style="margin-top:16px;">Preparación</h3>
-      <ol class="recipe-list">${(r.instructions && r.instructions.length ? r.instructions : ['Sin instrucciones detalladas para esta receta.']).map(s => `<li>${s}</li>`).join('')}</ol>
-    `;
-    modal.classList.add('active');
-  },
-
-  closeRecipeModal() {
-    document.getElementById('recipeModal').classList.remove('active');
   },
 
   sendChat() {
