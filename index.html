@@ -6,29 +6,138 @@
 <title>Nutrio — Tu nutricionista personal</title>
 <meta name="description" content="Tu nutricionista personal: recetas, chat con IA y carrito de compras, pensado para la comida de Latinoamérica.">
 
+<!-- PWA -->
 <meta name="theme-color" content="#060a0c">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Nutrio">
-<link rel="manifest" href="./manifest.json">
-<link rel="apple-touch-icon" href="./icons/icon-180.png">
-<link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png">
+<link rel="manifest" href="manifest.json">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="./css/styles.css">
+<!-- ESTILOS INYECTADOS DIRECTAMENTE PARA EVITAR ERRORES 404 -->
+<style>
+  :root {
+    --bg: #060a0c;
+    --surface: #0b1215;
+    --surface-glass: rgba(11, 18, 21, 0.8);
+    --border: rgba(255, 255, 255, 0.08);
+    --text: #e3e7e8;
+    --text-muted: #707e84;
+    --primary: #8fbf9f;
+    --primary-dim: rgba(143, 191, 159, 0.15);
+    --font-sans: 'Inter', sans-serif;
+    --font-display: 'Space Grotesk', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ambient {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    z-index: -1; overflow: hidden; pointer-events: none;
+  }
+  .blob {
+    position: absolute; top: -20%; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 400px; background: radial-gradient(circle, rgba(143,191,159,0.08) 0%, rgba(0,0,0,0) 70%);
+    filter: blur(40px);
+  }
+  #onboarding {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: var(--bg); z-index: 2000; display: flex; flex-direction: column;
+    padding: 24px; overflow-y: auto; justify-content: space-between;
+  }
+  .onb-step { display: none; flex-direction: column; height: 100%; justify-content: center; max-width: 440px; margin: 0 auto; width: 100%; }
+  .onb-step.active { display: flex; }
+  .onb-hero { text-align: center; margin-bottom: 24px; }
+  .glass {
+    background: var(--surface-glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border); border-radius: 24px; padding: 24px;
+  }
+  .onb-hero .glass {
+    width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 24px; color: var(--primary); border-radius: 20px;
+  }
+  .onb-hero .glass svg { width: 40px; height: 40px; }
+  h1 { font-family: var(--font-display); font-size: 32px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.2; margin-bottom: 12px; }
+  .onb-hero p { color: var(--text-muted); font-size: 16px; margin-bottom: 20px; }
+  
+  /* Formulario Básicos */
+  label { display: block; font-size: 14px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; margin-top: 14px; }
+  input[type="text"], input[type="number"], select {
+    width: 100%; padding: 14px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; color: var(--text); font-family: var(--font-sans); font-size: 16px; transition: border 0.2s;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--primary); }
+  .row { display: flex; gap: 12px; margin-top: 4px; }
+  .row > div { flex: 1; }
+
+  /* Chips de selección */
+  .chip-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  .chip {
+    padding: 12px 18px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; font-size: 15px; cursor: pointer; transition: all 0.2s;
+  }
+  .chip.active { background: var(--primary-dim); border-color: var(--primary); color: var(--primary); }
+
+  /* Navegación Onboarding */
+  .onb-nav { display: flex; gap: 12px; margin-top: 30px; width: 100%; }
+  .progress-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 16px; }
+  .dot { width: 6px; height: 6px; background: var(--border); border-radius: 50%; transition: all 0.2s; }
+  .dot.active { width: 18px; background: var(--primary); border-radius: 3px; }
+  .eyebrow { font-family: var(--font-display); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); margin-bottom: 6px; }
+
+  /* Botones */
+  .btn {
+    font-family: var(--font-sans); font-weight: 600; font-size: 16px; padding: 16px 24px;
+    border-radius: 16px; border: none; cursor: pointer; text-align: center; width: 100%; transition: all 0.2s;
+  }
+  .btn-primary { background: var(--primary); color: #060a0c; }
+  .btn-primary:active { transform: scale(0.98); opacity: 0.9; }
+  .btn-glass { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-glass:active { background: rgba(255,255,255,0.04); }
+
+  /* Estructura App Principal */
+  #app { display: none; padding: 24px 24px 100px; max-width: 500px; margin: 0 auto; }
+  .view { display: none; }
+  .view.active { display: block; animation: fadeIn 0.3s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Dock inferior fijo */
+  .dock-wrap { position: fixed; bottom: 0; left: 0; width: 100%; padding: 0 16px 16px; z-index: 1000; pointer-events: none; }
+  .dock {
+    display: flex; background: rgba(11, 18, 21, 0.75); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border); border-radius: 24px; padding: 6px; max-width: 460px; margin: 0 auto;
+    width: 100%; justify-content: space-around; pointer-events: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  .dock-item {
+    background: none; border: none; color: var(--text-muted); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 8px 12px; cursor: pointer; flex: 1; font-size: 11px;
+    font-family: var(--font-sans); font-weight: 500; transition: color 0.2s; position: relative;
+  }
+  .dock-item svg { width: 22px; height: 22px; margin-bottom: 4px; transition: transform 0.2s; }
+  .dock-item.active { color: var(--primary); }
+  .dock-item.active svg { transform: translateY(-2px); }
+</style>
 </head>
 <body>
 
 <div class="ambient"><div class="blob"></div></div>
 
+<!-- ============ ONBOARDING ============ -->
 <div id="onboarding">
   <div class="progress-dots" id="onbDots"></div>
 
+  <!-- Paso 0: bienvenida -->
   <section class="onb-step active" data-step="0">
     <div class="onb-hero">
       <div class="glass">
@@ -40,6 +149,7 @@
     <button class="btn btn-primary" onclick="Onboarding.next()">Empezar</button>
   </section>
 
+  <!-- Paso 1: datos básicos -->
   <section class="onb-step" data-step="1">
     <div class="eyebrow">Paso 1 de 5</div>
     <h2>Contame sobre vos</h2>
@@ -75,6 +185,7 @@
     </div>
   </section>
 
+  <!-- Paso 2: país + actividad -->
   <section class="onb-step" data-step="2">
     <div class="eyebrow">Paso 2 de 5</div>
     <h2>Tu país y actividad</h2>
@@ -103,6 +214,7 @@
     </div>
   </section>
 
+  <!-- Paso 3: objetivo -->
   <section class="onb-step" data-step="3">
     <div class="eyebrow">Paso 3 de 5</div>
     <h2>¿Cuál es tu objetivo?</h2>
@@ -119,6 +231,7 @@
     </div>
   </section>
 
+  <!-- Paso 4: restricciones -->
   <section class="onb-step" data-step="4">
     <div class="eyebrow">Paso 4 de 5</div>
     <h2>¿Alguna restricción alimentaria?</h2>
@@ -137,6 +250,7 @@
     </div>
   </section>
 
+  <!-- Paso 5: comidas por día -->
   <section class="onb-step" data-step="5">
     <div class="eyebrow">Paso 5 de 5</div>
     <h2>¿Cuántas comidas hacés al día?</h2>
@@ -153,8 +267,10 @@
   </section>
 </div>
 
+<!-- ============ APP ============ -->
 <div id="app">
 
+  <!-- ---- INICIO ---- -->
   <div class="view" id="view-inicio">
     <div class="eyebrow" id="homeDate"></div>
     <h1 id="homeGreeting">Hola</h1>
@@ -193,6 +309,7 @@
     <div id="homeRecipeSlot"></div>
   </div>
 
+  <!-- ---- RECETAS ---- -->
   <div class="view" id="view-recetas">
     <div class="eyebrow">Recetas de hoy</div>
     <h1>Para cocinar hoy</h1>
@@ -201,6 +318,7 @@
     <div id="recipeList" style="margin-top:14px;"></div>
   </div>
 
+  <!-- ---- CHAT ---- -->
   <div class="view" id="view-chat">
     <div class="eyebrow">Asistente</div>
     <h1>Chat nutricional</h1>
@@ -208,6 +326,7 @@
     <div class="chat-suggestions" id="chatSuggestions"></div>
   </div>
 
+  <!-- ---- CARRITO ---- -->
   <div class="view" id="view-carrito">
     <div class="eyebrow">Compras</div>
     <h1>Tu carrito</h1>
@@ -219,6 +338,7 @@
     </div>
   </div>
 
+  <!-- ---- PERFIL ---- -->
   <div class="view" id="view-perfil">
     <div class="eyebrow">Tu cuenta</div>
     <h1>Perfil</h1>
@@ -251,6 +371,7 @@
 
 </div>
 
+<!-- ---- CHAT INPUT (fijo) ---- -->
 <div class="chat-input-bar" id="chatInputBar" style="display:none;">
   <div class="chat-input-inner">
     <input type="text" id="chatInput" placeholder="Preguntame lo que quieras...">
@@ -260,6 +381,7 @@
   </div>
 </div>
 
+<!-- ---- DOCK ---- -->
 <div class="dock-wrap">
   <nav class="dock" id="dock">
     <button class="dock-item active" data-view="inicio">
@@ -286,9 +408,10 @@
   </nav>
 </div>
 
-<script src="./js/data.js"></script>
-<script src="./js/storage.js"></script>
-<script src="./js/chat.js"></script>
-<script src="./js/app.js"></script>
+<!-- Archivos JS sueltos en la raíz -->
+<script src="data.js"></script>
+<script src="storage.js"></script>
+<script src="chat.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
