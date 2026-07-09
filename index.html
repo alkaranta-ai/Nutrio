@@ -6,32 +6,29 @@
 <title>Nutrio — Tu nutricionista personal</title>
 <meta name="description" content="Tu nutricionista personal: recetas, chat con IA y carrito de compras, pensado para la comida de Latinoamérica.">
 
-<!-- PWA -->
 <meta name="theme-color" content="#060a0c">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Nutrio">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="./css/styles.css">
 </head>
 <body>
 
 <div class="ambient"><div class="blob"></div></div>
 
-<!-- ============ ONBOARDING ============ -->
 <div id="onboarding">
   <div class="progress-dots" id="onbDots"></div>
 
-  <!-- Paso 0: bienvenida -->
   <section class="onb-step active" data-step="0">
     <div class="onb-hero">
       <div class="glass">
@@ -43,7 +40,6 @@
     <button class="btn btn-primary" onclick="Onboarding.next()">Empezar</button>
   </section>
 
-  <!-- Paso 1: datos básicos -->
   <section class="onb-step" data-step="1">
     <div class="eyebrow">Paso 1 de 5</div>
     <h2>Contame sobre vos</h2>
@@ -79,7 +75,6 @@
     </div>
   </section>
 
-  <!-- Paso 2: país + actividad -->
   <section class="onb-step" data-step="2">
     <div class="eyebrow">Paso 2 de 5</div>
     <h2>Tu país y actividad</h2>
@@ -108,7 +103,6 @@
     </div>
   </section>
 
-  <!-- Paso 3: objetivo -->
   <section class="onb-step" data-step="3">
     <div class="eyebrow">Paso 3 de 5</div>
     <h2>¿Cuál es tu objetivo?</h2>
@@ -125,7 +119,6 @@
     </div>
   </section>
 
-  <!-- Paso 4: restricciones -->
   <section class="onb-step" data-step="4">
     <div class="eyebrow">Paso 4 de 5</div>
     <h2>¿Alguna restricción alimentaria?</h2>
@@ -144,7 +137,6 @@
     </div>
   </section>
 
-  <!-- Paso 5: comidas por día -->
   <section class="onb-step" data-step="5">
     <div class="eyebrow">Paso 5 de 5</div>
     <h2>¿Cuántas comidas hacés al día?</h2>
@@ -161,10 +153,8 @@
   </section>
 </div>
 
-<!-- ============ APP ============ -->
 <div id="app">
 
-  <!-- ---- INICIO ---- -->
   <div class="view" id="view-inicio">
     <div class="eyebrow" id="homeDate"></div>
     <h1 id="homeGreeting">Hola</h1>
@@ -203,7 +193,6 @@
     <div id="homeRecipeSlot"></div>
   </div>
 
-  <!-- ---- RECETAS ---- -->
   <div class="view" id="view-recetas">
     <div class="eyebrow">Recetas de hoy</div>
     <h1>Para cocinar hoy</h1>
@@ -212,7 +201,6 @@
     <div id="recipeList" style="margin-top:14px;"></div>
   </div>
 
-  <!-- ---- CHAT ---- -->
   <div class="view" id="view-chat">
     <div class="eyebrow">Asistente</div>
     <h1>Chat nutricional</h1>
@@ -220,7 +208,6 @@
     <div class="chat-suggestions" id="chatSuggestions"></div>
   </div>
 
-  <!-- ---- CARRITO ---- -->
   <div class="view" id="view-carrito">
     <div class="eyebrow">Compras</div>
     <h1>Tu carrito</h1>
@@ -232,7 +219,6 @@
     </div>
   </div>
 
-  <!-- ---- PERFIL ---- -->
   <div class="view" id="view-perfil">
     <div class="eyebrow">Tu cuenta</div>
     <h1>Perfil</h1>
@@ -265,7 +251,6 @@
 
 </div>
 
-<!-- ---- CHAT INPUT (fijo) ---- -->
 <div class="chat-input-bar" id="chatInputBar" style="display:none;">
   <div class="chat-input-inner">
     <input type="text" id="chatInput" placeholder="Preguntame lo que quieras...">
@@ -275,7 +260,6 @@
   </div>
 </div>
 
-<!-- ---- DOCK ---- -->
 <div class="dock-wrap">
   <nav class="dock" id="dock">
     <button class="dock-item active" data-view="inicio">
@@ -302,9 +286,9 @@
   </nav>
 </div>
 
-<script src="js/data.js"></script>
-<script src="js/storage.js"></script>
-<script src="js/chat.js"></script>
-<script src="js/app.js"></script>
+<script src="./js/data.js"></script>
+<script src="./js/storage.js"></script>
+<script src="./js/chat.js"></script>
+<script src="./js/app.js"></script>
 </body>
 </html>
