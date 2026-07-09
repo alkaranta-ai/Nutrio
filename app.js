@@ -1,14 +1,13 @@
-// CONTROL DEL ONBOARDING (Cuestionario Inicial)
 const Onboarding = {
   currentStep: 0,
-  data: { goals: [], restrictions: [], meals: 4 },
+  data: { goals: [] },
 
   next() {
     const steps = document.querySelectorAll('.onb-step');
     steps[this.currentStep].classList.remove('active');
     this.currentStep++;
     steps[this.currentStep].classList.add('active');
-    this.updateDots();
+    Onboarding.updateDots();
   },
 
   prev() {
@@ -17,11 +16,12 @@ const Onboarding = {
     steps[this.currentStep].classList.remove('active');
     this.currentStep--;
     steps[this.currentStep].classList.add('active');
-    this.updateDots();
+    Onboarding.updateDots();
   },
 
   updateDots() {
     const dotsContainer = document.getElementById('onbDots');
+    if (!dotsContainer) return;
     dotsContainer.innerHTML = '';
     const totalSteps = document.querySelectorAll('.onb-step').length;
     for (let i = 0; i < totalSteps; i++) {
@@ -38,7 +38,7 @@ const Onboarding = {
     const height = document.getElementById('fHeight').value;
 
     if (!name || !age || !weight || !height) {
-      alert('Por favor, completa todos tus datos básicos.');
+      alert('Por favor completes todos los casilleros.');
       return;
     }
     this.data.name = name;
@@ -49,49 +49,30 @@ const Onboarding = {
     this.next();
   },
 
-  validateStep3() {
+  validateStep2() {
     if (this.data.goals.length === 0) {
-      alert('Por favor, selecciona al menos un objetivo.');
+      alert('Selecciona un objetivo para tus platos.');
       return;
     }
     this.next();
   },
 
   finish() {
-    this.data.country = document.getElementById('fCountry').value;
-    this.data.activity = document.getElementById('fActivity').value;
-    
-    // Calcular requerimientos diarios estimados (Harris-Benedict simplificado)
     let tmb = 10 * this.data.weight + 6.25 * this.data.height - 5 * this.data.age;
     tmb = this.data.sex === 'masculino' ? tmb + 5 : tmb - 161;
-    
-    let factor = 1.2;
-    if (this.data.activity === 'ligero') factor = 1.375;
-    if (this.data.activity === 'moderado') factor = 1.55;
-    if (this.data.activity === 'activo') factor = 1.725;
-    
-    let targetKcal = Math.round(tmb * factor);
-    const primaryGoal = this.data.goals[0];
-    if (primaryGoal === 'bajar_peso') targetKcal -= 400;
-    if (primaryGoal === 'subir_peso' || primaryGoal === 'ganar_musculo') targetKcal += 400;
+    let targetKcal = Math.round(tmb * 1.3);
+
+    if (this.data.goals[0] === 'bajar_peso') targetKcal -= 350;
+    if (this.data.goals[0] === 'subir_peso') targetKcal += 350;
 
     this.data.targetKcal = targetKcal;
-    this.data.proteinTarget = Math.round(this.data.weight * 1.8);
-    this.data.fatTarget = Math.round(this.data.weight * 1);
-    this.data.carbsTarget = Math.round((targetKcal - (this.data.proteinTarget * 4 + this.data.fatTarget * 9)) / 4);
 
     StorageApp.saveProfile(this.data);
-    document.getElementById('onboarding').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    
     UI.init();
   }
 };
 
-// INTERFAZ DE USUARIO (Manejo de Vistas y Renderizado)
 const UI = {
-  currentView: 'inicio',
-
   init() {
     const profile = StorageApp.getProfile();
     if (!profile) {
@@ -105,7 +86,6 @@ const UI = {
     document.getElementById('onboarding').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     
-    this.setupDock();
     this.renderHome();
     this.renderRecipes();
     this.renderCart();
@@ -114,107 +94,54 @@ const UI = {
   },
 
   bindChips() {
-    document.querySelectorAll('.chip-group').forEach(group => {
-      group.addEventListener('click', (e) => {
-        const chip = e.target.closest('.chip');
-        if (!chip) return;
-        const val = chip.dataset.val;
-        
-        if (group.id === 'goalChips' || group.id === 'mealsChips') {
-          group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-          chip.classList.add('active');
-          if (group.id === 'goalChips') Onboarding.data.goals = [val];
-          if (group.id === 'mealsChips') Onboarding.data.meals = parseInt(val);
-        } else {
-          chip.classList.toggle('active');
-          if (chip.classList.contains('active')) {
-            Onboarding.data.restrictions.push(val);
-          } else {
-            Onboarding.data.restrictions = Onboarding.data.restrictions.filter(r => r !== val);
-          }
-        }
-      });
-    });
-  },
-
-  setupDock() {
-    document.querySelectorAll('.dock-item').forEach(btn => {
-      btn.onclick = () => {
-        const viewName = btn.dataset.view;
-        this.goto(viewName);
-      };
+    const group = document.getElementById('goalChips');
+    if (!group) return;
+    group.addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      Onboarding.data.goals = [chip.dataset.val];
     });
   },
 
   goto(viewName) {
-    this.currentView = viewName;
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.dock-item').forEach(b => b.classList.remove('active'));
     
     const targetView = document.getElementById(`view-${viewName}`);
-    const targetBtn = document.querySelector(`[data-view="${viewName}"]`);
-    
     if (targetView) targetView.classList.add('active');
-    if (targetBtn) targetBtn.classList.add('active');
 
-    const chatBar = document.getElementById('chatInputBar');
-    if (chatBar) {
-      chatBar.style.display = viewName === 'chat' ? 'block' : 'none';
-    }
+    // Activar botón del dock por orden de aparición
+    const views = ['inicio', 'recetas', 'chat', 'carrito', 'perfil'];
+    const idx = views.indexOf(viewName);
+    const buttons = document.querySelectorAll('.dock-item');
+    if (buttons[idx]) buttons[idx].classList.add('active');
+
+    // Mostrar barra de chat solo en la pestaña de chat
+    document.getElementById('chatInputBar').style.display = viewName === 'chat' ? 'block' : 'none';
   },
 
   renderHome() {
     const profile = StorageApp.getProfile();
-    const log = StorageApp.getLog();
-    
     document.getElementById('homeGreeting').innerText = `Hola, ${profile.name}!`;
-    document.getElementById('homeDate').innerText = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' });
-    
-    document.getElementById('ringKcalText').innerText = log.kcal;
-    document.getElementById('macroProtein').innerText = `${log.protein} / ${profile.proteinTarget}g`;
-    document.getElementById('macroCarbs').innerText = `${log.carbs} / ${profile.carbsTarget}g`;
-    document.getElementById('macroFat').innerText = `${log.fat} / ${profile.fatTarget}g`;
-
-    // Ring SVG calculation
-    const ring = document.getElementById('ringKcal');
-    if (ring) {
-      const pct = Math.min(log.kcal / profile.targetKcal, 1);
-      const strokeDash = 364.4 * (1 - pct);
-      ring.style.strokeDashoffset = strokeDash;
-    }
-
-    // Render slots vacíos o con datos
-    const logCard = document.getElementById('todayLogCard');
-    logCard.innerHTML = log.items.length === 0 
-      ? `<p class="muted" style="text-align:center; padding:10px 0;">No registraste alimentos hoy.</p>`
-      : log.items.map(i => `<div style="display:flex; justify-content:space-between; margin-bottom:8px;"><span>${i.name}</span><b>${i.kcal} kcal</b></div>`).join('');
-  },
-
-  openQuickAdd() {
-    const name = prompt("¿Qué comiste?");
-    const kcal = prompt("¿Cuántas kcal aproximadas?");
-    if (name && kcal) {
-      const log = StorageApp.getLog();
-      log.items.push({ name, kcal: parseInt(kcal) });
-      log.kcal += parseInt(kcal);
-      StorageApp.saveLog(log);
-      this.renderHome();
-    }
+    document.getElementById('kcalTargetText').innerText = `${profile.targetKcal} kcal / día`;
   },
 
   renderRecipes() {
     const container = document.getElementById('recipeList');
     if (!container) return;
     container.innerHTML = RECIPES_DB.map(r => `
-      <div class="glass" style="margin-bottom:12px; padding:16px;">
-        <h3 style="margin:0 0 4px 0;">${r.name}</h3>
-        <span class="eyebrow">${r.category} — ${r.kcal} kcal</span>
-        <button class="btn btn-glass btn-sm" style="margin-top:10px; padding:8px 12px; font-size:13px;" onclick="UI.addRecipeToCart('${r.id}')">Sumar ingredientes al carrito</button>
+      <div class="recipe-card">
+        <h3 style="margin-bottom:4px;">${r.name}</h3>
+        <p style="color:var(--primary); font-weight:600; font-size:14px; margin-bottom:8px;">${r.kcal} kcal — ${r.category}</p>
+        <p style="font-size:13px; margin-bottom:10px;"><b>Ingredientes:</b> ${r.ingredients.join(', ')}</p>
+        <button class="btn btn-glass" style="padding:6px 12px; font-size:13px;" onclick="UI.addIngredientsToCart('${r.id}')">Agregar al carrito</button>
       </div>
     `).join('');
   },
 
-  addRecipeToCart(id) {
+  addIngredientsToCart(id) {
     const recipe = RECIPES_DB.find(r => r.id === id);
     if (!recipe) return;
     let cart = StorageApp.getCart();
@@ -223,41 +150,24 @@ const UI = {
     });
     StorageApp.saveCart(cart);
     this.renderCart();
-    alert('¡Ingredientes agregados al carrito!');
+    alert('Ingredientes guardados en tu carrito.');
   },
 
   renderCart() {
     const cart = StorageApp.getCart();
     const container = document.getElementById('cartCard');
-    const badge = document.getElementById('cartBadge');
-    
-    if (badge) {
-      badge.innerText = cart.length;
-      badge.classList.toggle('hidden', cart.length === 0);
-    }
-
     if (!container) return;
     container.innerHTML = cart.length === 0
-      ? `<p class="muted" style="text-align:center; padding:10px 0;">Tu lista está vacía.</p>`
+      ? `<p class="muted" style="text-align:center;">Tu carrito está vacío.</p>`
       : cart.map((item, idx) => `
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:14px;">
             <span>• ${item}</span>
-            <button class="link-btn" style="color:#e08585" onclick="UI.removeCartItem(${idx})">Eliminar</button>
+            <span style="color:red; cursor:pointer;" onclick="UI.removeCart(${idx})">Eliminar</span>
           </div>
         `).join('');
   },
 
-  addCartItem() {
-    const input = document.getElementById('cartInput');
-    if (!input || !input.value.trim()) return;
-    let cart = StorageApp.getCart();
-    cart.push(input.value.trim());
-    StorageApp.saveCart(cart);
-    input.value = '';
-    this.renderCart();
-  },
-
-  removeCartItem(idx) {
+  removeCart(idx) {
     let cart = StorageApp.getCart();
     cart.splice(idx, 1);
     StorageApp.saveCart(cart);
@@ -266,12 +176,8 @@ const UI = {
 
   renderProfile() {
     const profile = StorageApp.getProfile();
-    if (!profile) return;
-    document.getElementById('profileName').innerText = profile.name;
-    document.getElementById('profileMeta').innerText = `${profile.country} — ${profile.age} años`;
-    document.getElementById('statKcal').innerText = profile.targetKcal;
-    document.getElementById('statGoal').innerText = profile.goals[0].replace('_', ' ');
-    document.getElementById('avatarInitial').innerText = profile.name.charAt(0).toUpperCase();
+    document.getElementById('profileNameDisplay').innerText = profile.name;
+    document.getElementById('profileMetaDisplay').innerText = `Meta diaria: ${profile.targetKcal} calorías.`;
   },
 
   sendChat() {
@@ -280,26 +186,21 @@ const UI = {
     const msg = input.value.trim();
     
     const scroll = document.getElementById('chatScroll');
-    scroll.innerHTML += `<div style="text-align:right; margin-bottom:12px;"><span style="background:var(--primary-dim); color:var(--primary); padding:8px 14px; border-radius:14px 14px 2px 14px; display:inline-block;">${msg}</span></div>`;
+    scroll.innerHTML += `<div style="text-align:right;"><span style="background:var(--primary-dim); color:var(--primary); padding:8px 12px; border-radius:12px; display:inline-block;">${msg}</span></div>`;
     
     input.value = '';
     
     setTimeout(() => {
       const response = ChatApp.getBotResponse(msg);
-      scroll.innerHTML += `<div style="text-align:left; margin-bottom:12px;"><span style="background:var(--surface); border:1px solid var(--border); padding:8px 14px; border-radius:14px 14px 14px 2px; display:inline-block;">${response}</span></div>`;
+      scroll.innerHTML += `<div style="text-align:left;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block;">${response}</span></div>`;
       scroll.scrollTop = scroll.scrollHeight;
-    }, 500);
+    }, 400);
   },
 
   resetAll() {
-    if (confirm('¿Seguro querés borrar todos tus datos de perfil y empezar de cero?')) {
-      StorageApp.clearAll();
-      location.reload();
-    }
+    StorageApp.clearAll();
+    location.reload();
   }
 };
 
-// DISPARADOR INICIAL AL CARGAR LA PÁGINA
-window.addEventListener('DOMContentLoaded', () => {
-  UI.init();
-});
+window.addEventListener('DOMContentLoaded', () => { UI.init(); });
