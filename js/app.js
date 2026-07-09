@@ -1,22 +1,11 @@
-// NOTA: RECIPES_DB vive únicamente en js/data.js (se carga antes que este archivo).
-
-const ACTIVITY_FACTORS = {
-  sedentario: 1.2,
-  ligero: 1.375,
-  moderado: 1.55,
-  intenso: 1.725
-};
-
-const ACTIVITY_LABELS = {
-  sedentario: "Sedentario (poco o nada de ejercicio)",
-  ligero: "Ligero (1-3 días/semana)",
-  moderado: "Moderado (3-5 días/semana)",
-  intenso: "Intenso (6-7 días/semana)"
-};
+// NOTA: RECIPES_DB ahora vive únicamente en js/data.js (se carga antes que este archivo).
+// Antes estaba declarado con "const" en los dos archivos a la vez, lo cual tira
+// un SyntaxError ("Identifier 'RECIPES_DB' has already been declared") y frena
+// todo el JS de la página. Por eso nada funcionaba, ni el botón "Empezar".
 
 const Onboarding = {
   currentStep: 0,
-  data: { goals: [], restrictions: [], dislikes: "" },
+  data: { goals: [] },
 
   next() {
     const steps = document.querySelectorAll('.onb-step');
@@ -68,14 +57,6 @@ const Onboarding = {
     this.next();
   },
 
-  validateStepActivity() {
-    if (!this.data.activity) {
-      alert('Elegí tu nivel de actividad física.');
-      return;
-    }
-    this.next();
-  },
-
   validateStep2() {
     if (!this.data.goals || this.data.goals.length === 0) {
       alert('Selecciona un objetivo para tus platos.');
@@ -84,23 +65,10 @@ const Onboarding = {
     this.next();
   },
 
-  validateStepRestrictions() {
-    // Las restricciones son opcionales (puede no tener ninguna), así que siempre avanza.
-    this.next();
-  },
-
-  validateStepDislikes() {
-    const dislikesInput = document.getElementById('fDislikes');
-    this.data.dislikes = dislikesInput ? dislikesInput.value.trim() : '';
-    this.next();
-  },
-
   finish() {
     let tmb = 10 * this.data.weight + 6.25 * this.data.height - 5 * this.data.age;
     tmb = this.data.sex === 'masculino' ? tmb + 5 : tmb - 161;
-
-    const factor = ACTIVITY_FACTORS[this.data.activity] || 1.3;
-    let targetKcal = Math.round(tmb * factor);
+    let targetKcal = Math.round(tmb * 1.3);
 
     if (this.data.goals[0] === 'bajar_peso') targetKcal -= 400;
     if (this.data.goals[0] === 'subir_peso') targetKcal += 400;
@@ -143,52 +111,15 @@ const UI = {
   },
 
   bindChips() {
-    // Objetivo (selección única)
-    const goalGroup = document.getElementById('goalChips');
-    if (goalGroup) {
-      goalGroup.addEventListener('click', (e) => {
-        const chip = e.target.closest('.chip');
-        if (!chip) return;
-        goalGroup.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        Onboarding.data.goals = [chip.dataset.val];
-      });
-    }
-
-    // Nivel de actividad física (selección única)
-    const activityGroup = document.getElementById('activityChips');
-    if (activityGroup) {
-      activityGroup.addEventListener('click', (e) => {
-        const chip = e.target.closest('.chip');
-        if (!chip) return;
-        activityGroup.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        Onboarding.data.activity = chip.dataset.val;
-      });
-    }
-
-    // Restricciones alimentarias (selección múltiple, "Ninguna" es excluyente)
-    const restrictionGroup = document.getElementById('restrictionChips');
-    if (restrictionGroup) {
-      restrictionGroup.addEventListener('click', (e) => {
-        const chip = e.target.closest('.chip');
-        if (!chip) return;
-        const val = chip.dataset.val;
-
-        if (val === 'ninguna') {
-          restrictionGroup.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-          chip.classList.add('active');
-          Onboarding.data.restrictions = [];
-          return;
-        }
-
-        restrictionGroup.querySelector('[data-val="ninguna"]')?.classList.remove('active');
-        chip.classList.toggle('active');
-        Onboarding.data.restrictions = Array.from(restrictionGroup.querySelectorAll('.chip.active'))
-          .map(c => c.dataset.val)
-          .filter(v => v !== 'ninguna');
-      });
-    }
+    const group = document.getElementById('goalChips');
+    if (!group) return;
+    group.addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      Onboarding.data.goals = [chip.dataset.val];
+    });
   },
 
   goto(viewName) {
@@ -222,23 +153,12 @@ const UI = {
     const snack = isHigh ? RECIPES_DB[5] : RECIPES_DB[4];
     const dinner = isHigh ? RECIPES_DB[7] : RECIPES_DB[6];
 
-    const meals = [
-      { label: 'Desayuno', r: breakfast },
-      { label: 'Almuerzo', r: lunch },
-      { label: 'Merienda', r: snack },
-      { label: 'Cena', r: dinner }
-    ];
-
     container.innerHTML = `
       <div class="card">
-        ${meals.map(m => `
-          <div class="meal-slot" onclick="UI.showRecipe('${m.r.id}')">
-            <div class="meal-title">${m.label}</div>
-            <h3>${m.r.name}</h3>
-            <p style="font-size:13px; color:var(--text-muted);">${m.r.kcal} kcal • ${m.r.ingredients.join(', ')}</p>
-            <span class="tap-hint">Ver receta →</span>
-          </div>
-        `).join('')}
+        <div class="meal-slot"><div class="meal-title">Desayuno</div><h3>${breakfast.name}</h3><p style="font-size:13px; color:var(--text-muted);">${breakfast.kcal} kcal • ${breakfast.ingredients.join(', ')}</p></div>
+        <div class="meal-slot"><div class="meal-title">Almuerzo</div><h3>${lunch.name}</h3><p style="font-size:13px; color:var(--text-muted);">${lunch.kcal} kcal • ${lunch.ingredients.join(', ')}</p></div>
+        <div class="meal-slot"><div class="meal-title">Merienda</div><h3>${snack.name}</h3><p style="font-size:13px; color:var(--text-muted);">${snack.kcal} kcal • ${snack.ingredients.join(', ')}</p></div>
+        <div class="meal-slot"><div class="meal-title">Cena</div><h3>${dinner.name}</h3><p style="font-size:13px; color:var(--text-muted);">${dinner.kcal} kcal • ${dinner.ingredients.join(', ')}</p></div>
       </div>
     `;
   },
@@ -250,27 +170,13 @@ const UI = {
     const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
     container.innerHTML = days.map((day, idx) => {
-      const breakfast = RECIPES_DB[0 + (idx % 2)];
-      const lunch = RECIPES_DB[2 + (idx % 2)];
-      const snack = RECIPES_DB[4 + (idx % 2)];
-      const dinner = RECIPES_DB[6 + (idx % 2)];
-
-      const meals = [
-        { label: 'Desayuno', r: breakfast },
-        { label: 'Almuerzo', r: lunch },
-        { label: 'Merienda', r: snack },
-        { label: 'Cena', r: dinner }
-      ];
-
+      const mainPlate = RECIPES_DB[2 + (idx % 2)];
+      const dinnerPlate = RECIPES_DB[6 + (idx % 2)];
       return `
         <div class="card" style="margin-bottom:12px;">
           <h3 style="color:var(--primary); margin-bottom:6px;">${day}</h3>
-          ${meals.map(m => `
-            <div class="meal-slot" onclick="UI.showRecipe('${m.r.id}')">
-              <p style="font-size:14px; color:var(--text);"><b>${m.label}:</b> ${m.r.name} (${m.r.kcal} kcal)</p>
-              <span class="tap-hint">Ver receta →</span>
-            </div>
-          `).join('')}
+          <p style="font-size:14px; color:var(--text);"><b>Almuerzo:</b> ${mainPlate.name} (${mainPlate.kcal} kcal)</p>
+          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Cena:</b> ${dinnerPlate.name} (${dinnerPlate.kcal} kcal)</p>
         </div>
       `;
     }).join('');
@@ -295,44 +201,7 @@ const UI = {
     const profile = StorageApp.getProfile();
     if (!profile) return;
     document.getElementById('profileNameDisplay').innerText = profile.name;
-
-    const activityLabel = ACTIVITY_LABELS[profile.activity] || 'No especificado';
-    const restrictionsLabel = (profile.restrictions && profile.restrictions.length)
-      ? profile.restrictions.join(', ')
-      : 'Ninguna';
-    const dislikesLabel = profile.dislikes ? profile.dislikes : 'No especificado';
-
-    document.getElementById('profileMetaDisplay').innerHTML = `
-      Meta diaria asignada: ${profile.targetKcal} calorías, adaptadas a tu cuerpo.<br><br>
-      <b>Actividad física:</b> ${activityLabel}<br>
-      <b>Restricciones:</b> ${restrictionsLabel}<br>
-      <b>No le gusta:</b> ${dislikesLabel}
-    `;
-  },
-
-  // Abre el modal con ingredientes y preparación de una receta
-  showRecipe(id) {
-    const r = RECIPES_DB.find(x => x.id === id);
-    if (!r) return;
-    const modal = document.getElementById('recipeModal');
-    const content = document.getElementById('recipeModalContent');
-
-    content.innerHTML = `
-      <div class="recipe-modal-header">
-        <span class="recipe-badge">${r.kcal} kcal</span>
-        <button class="modal-close" onclick="UI.closeRecipeModal()">✕</button>
-      </div>
-      <h2>${r.name}</h2>
-      <h3 style="margin-top:16px;">Ingredientes</h3>
-      <ul class="recipe-list">${r.ingredients.map(i => `<li>${i}</li>`).join('')}</ul>
-      <h3 style="margin-top:16px;">Preparación</h3>
-      <ol class="recipe-list">${(r.instructions && r.instructions.length ? r.instructions : ['Sin instrucciones detalladas para esta receta.']).map(s => `<li>${s}</li>`).join('')}</ol>
-    `;
-    modal.classList.add('active');
-  },
-
-  closeRecipeModal() {
-    document.getElementById('recipeModal').classList.remove('active');
+    document.getElementById('profileMetaDisplay').innerText = `Meta diaria asignada: ${profile.targetKcal} calorías semanales adaptadas a tu cuerpo.`;
   },
 
   sendChat() {

@@ -6,15 +6,11 @@
 <title>Nutrio — Tu nutricionista personal</title>
 <meta name="description" content="Tu nutricionista personal: recetas, chat con IA y carrito de compras.">
 
-<meta name="theme-color" content="#22c55e">
+<meta name="theme-color" content="#ffffff">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Nutrio">
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="icons/favicon-48.png" sizes="48x48" type="image/png">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -68,24 +64,13 @@
     padding-left: 12px;
     margin-top: 14px;
     margin-bottom: 14px;
-    cursor: pointer;
-    transition: transform .15s ease, background-color .15s ease;
-    border-radius: 0 10px 10px 0;
   }
-  .meal-slot:active { transform: scale(0.98); background-color: var(--primary-dim); }
   .meal-title {
     font-size: 14px;
     font-weight: 700;
     text-transform: uppercase;
     color: var(--text-muted);
     letter-spacing: 0.5px;
-  }
-  .tap-hint {
-    display: block;
-    font-size: 12px;
-    color: var(--primary);
-    font-weight: 600;
-    margin-top: 4px;
   }
 
   h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 12px; }
@@ -153,25 +138,6 @@
   }
   .dock-item.active { color: var(--primary); }
   .dock-item svg { width: 22px; height: 22px; margin-bottom: 2px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-  /* Modal de receta */
-  #recipeModal {
-    position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 3000;
-    display: flex; align-items: flex-end; justify-content: center;
-    opacity: 0; pointer-events: none; transition: opacity .25s ease;
-  }
-  #recipeModal.active { opacity: 1; pointer-events: auto; }
-  .recipe-modal-card {
-    background: var(--surface); width: 100%; max-width: 460px; border-radius: 24px 24px 0 0;
-    padding: 24px; max-height: 80vh; overflow-y: auto;
-    transform: translateY(30px); transition: transform .25s ease;
-  }
-  #recipeModal.active .recipe-modal-card { transform: translateY(0); }
-  .recipe-modal-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 8px; gap: 10px; }
-  .recipe-badge { font-size: 12px; font-weight: 600; background: var(--primary-dim); color: var(--primary); padding: 4px 10px; border-radius: 20px; margin-right: auto; }
-  .modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-muted); padding: 4px 8px; }
-  .recipe-list { padding-left: 18px; margin-top: 8px; }
-  .recipe-list li { margin-bottom: 6px; font-size: 14px; color: var(--text); }
 </style>
 </head>
 <body>
@@ -188,7 +154,7 @@
   </section>
 
   <section class="onb-step" data-step="1">
-    <div class="eyebrow">Paso 1 de 5</div>
+    <div class="eyebrow">Paso 1 de 3</div>
     <h2>Contame sobre vos</h2>
     <label for="fName">Nombre</label>
     <input type="text" id="fName" placeholder="Tu nombre">
@@ -222,23 +188,7 @@
   </section>
 
   <section class="onb-step" data-step="2">
-    <div class="eyebrow">Paso 2 de 5</div>
-    <h2>¿Qué tan activo sos?</h2>
-    <p style="margin-bottom: 6px;">Esto ajusta el cálculo real de tus calorías diarias.</p>
-    <div class="chip-group" id="activityChips">
-      <div class="chip" data-val="sedentario">Sedentario</div>
-      <div class="chip" data-val="ligero">Ligero (1-3 días/sem)</div>
-      <div class="chip" data-val="moderado">Moderado (3-5 días/sem)</div>
-      <div class="chip" data-val="intenso">Intenso (6-7 días/sem)</div>
-    </div>
-    <div class="onb-nav">
-      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
-      <button class="btn btn-primary" onclick="Onboarding.validateStepActivity()">Continuar</button>
-    </div>
-  </section>
-
-  <section class="onb-step" data-step="3">
-    <div class="eyebrow">Paso 3 de 5</div>
+    <div class="eyebrow">Paso 2 de 3</div>
     <h2>¿Cuál es tu objetivo?</h2>
     <div class="chip-group" id="goalChips">
       <div class="chip" data-val="bajar_peso">Bajar de peso</div>
@@ -251,37 +201,9 @@
     </div>
   </section>
 
-  <section class="onb-step" data-step="4">
-    <div class="eyebrow">Paso 4 de 5</div>
-    <h2>¿Tenés alguna restricción alimentaria?</h2>
-    <p style="margin-bottom: 6px;">Podés elegir más de una.</p>
-    <div class="chip-group" id="restrictionChips">
-      <div class="chip" data-val="ninguna">Ninguna</div>
-      <div class="chip" data-val="vegetariano">Vegetariano</div>
-      <div class="chip" data-val="sin_gluten">Sin gluten</div>
-      <div class="chip" data-val="sin_lactosa">Sin lactosa</div>
-    </div>
-    <div class="onb-nav">
-      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
-      <button class="btn btn-primary" onclick="Onboarding.validateStepRestrictions()">Continuar</button>
-    </div>
-  </section>
-
-  <section class="onb-step" data-step="5">
-    <div class="eyebrow">Paso 5 de 5</div>
-    <h2>¿Hay algo que no te guste comer?</h2>
-    <p style="margin-bottom: 6px;">Opcional. Por ejemplo: "pescado, cebolla".</p>
-    <label for="fDislikes">Alimentos a evitar</label>
-    <input type="text" id="fDislikes" placeholder="Ej: pescado, cebolla, picante">
-    <div class="onb-nav">
-      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
-      <button class="btn btn-primary" onclick="Onboarding.validateStepDislikes()">Continuar</button>
-    </div>
-  </section>
-
-  <section class="onb-step" data-step="6">
-    <div class="eyebrow">¡Listo!</div>
-    <h2>Todo listo</h2>
+  <section class="onb-step" data-step="3">
+    <div class="eyebrow">Paso 3 de 3</div>
+    <h2>¡Todo listo!</h2>
     <p>Hacé clic abajo para estructurar tus objetivos calóricos y organizar tus comidas automatizadas.</p>
     <div class="onb-nav">
       <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
@@ -311,7 +233,7 @@
 
   <div class="view" id="view-semana">
     <h1>Plan Semanal</h1>
-    <p style="margin-bottom: 16px;">Cronograma completo de comidas para la semana. Tocá cualquier comida para ver la receta:</p>
+    <p style="margin-bottom: 16px;">Cronograma completo de comidas para la semana:</p>
     <div id="weeklyPlanContainer"></div>
   </div>
 
@@ -364,21 +286,9 @@
   </nav>
 </div>
 
-<!-- Modal de receta (ingredientes + preparación) -->
-<div id="recipeModal" onclick="if(event.target===this) UI.closeRecipeModal()">
-  <div class="recipe-modal-card" id="recipeModalContent"></div>
-</div>
-
 <script src="js/data.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/chat.js"></script>
 <script src="js/app.js"></script>
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
-    });
-  }
-</script>
 </body>
 </html>
