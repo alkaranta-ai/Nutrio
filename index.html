@@ -40,15 +40,19 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Onboarding */
+  /* Onboarding — pantalla única, scrolleable, sin pasos */
   #onboarding {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: var(--surface); z-index: 2000; display: flex; flex-direction: column;
-    padding: 24px; overflow-y: auto; justify-content: space-between;
+    background: var(--surface); z-index: 2000;
+    overflow-y: auto;
+    padding: 28px 24px 40px;
   }
-  .onb-step { display: none; flex-direction: column; height: 100%; justify-content: center; max-width: 440px; margin: 0 auto; width: 100%; }
-  .onb-step.active { display: flex; }
-  .onb-hero { text-align: center; margin-bottom: 24px; }
+  .onb-content { max-width: 440px; margin: 0 auto; }
+  .onb-hero { text-align: center; margin-bottom: 8px; }
+  .onb-section { margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--border); }
+  .onb-section:first-of-type { margin-top: 24px; }
+  .onb-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); margin-bottom: 4px; }
+  .onb-section-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
 
   .card {
     background: var(--surface);
@@ -82,7 +86,7 @@
   }
 
   h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 12px; }
-  h2 { font-size: 22px; font-weight: 600; margin-bottom: 8px; }
+  h2 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
   h3 { font-size: 18px; font-weight: 600; }
   p { color: var(--text-muted); font-size: 15px; }
 
@@ -105,12 +109,8 @@
   }
   .chip.active { background: var(--primary-dim); border-color: var(--primary); color: var(--primary); font-weight: 600; }
 
-  .onb-nav { display: flex; gap: 12px; margin-top: 30px; width: 100%; }
-  .progress-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 16px; }
-  .dot { width: 6px; height: 6px; background: var(--border); border-radius: 50%; }
-  .dot.active { width: 18px; background: var(--primary); border-radius: 3px; }
   .eyebrow { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); margin-bottom: 6px; }
-  .field-error { display: none; color: #ef4444; font-size: 13px; font-weight: 500; margin-top: 14px; }
+  .field-error { display: none; color: #ef4444; font-size: 13px; font-weight: 500; margin-top: 16px; text-align: center; }
   .field-error.show { display: block; }
 
   /* Botones */
@@ -136,7 +136,7 @@
   /* Lista de compras */
   .cart-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 15px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
 
-  /* Dock inferior fijo (Reordenado) */
+  /* Dock inferior fijo */
   .dock-wrap { position: fixed; bottom: 0; left: 0; width: 100%; padding: 0 16px 16px; z-index: 1000; pointer-events: none; }
   .dock {
     display: flex; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -173,90 +173,128 @@
 <body>
 
 <div id="onboarding">
-  <div class="progress-dots" id="onbDots"></div>
+  <div class="onb-content">
 
-  <section class="onb-step active" data-step="0">
     <div class="onb-hero">
       <h1>Hola, soy Nutrio</h1>
-      <p>Tu nutricionista personal. Armemos tu perfil para preparar tus comidas diarias, plan semanal y lista de compras automáticamente.</p>
+      <p>Contame sobre vos para armar tus comidas, tu plan semanal y tu lista de compras a tu medida. Un solo formulario, no te vamos a hacer perder tiempo con pasos.</p>
     </div>
-    <button class="btn btn-primary" onclick="Onboarding.next()">Empezar</button>
-  </section>
 
-  <section class="onb-step" data-step="1">
-    <div class="eyebrow">Paso 1 de 3</div>
-    <h2>Contame sobre vos</h2>
-    <label for="fName">Nombre</label>
-    <input type="text" id="fName" placeholder="Tu nombre">
-    <div class="row">
-      <div>
-        <label for="fAge">Edad</label>
-        <input type="number" id="fAge" placeholder="Años">
-      </div>
-      <div>
-        <label for="fSex">Sexo</label>
-        <select id="fSex">
-          <option value="femenino">Femenino</option>
-          <option value="masculino">Masculino</option>
-        </select>
-      </div>
-    </div>
-    <div class="row">
-      <div>
-        <label for="fWeight">Peso (kg)</label>
-        <input type="number" id="fWeight" placeholder="Ej: 65">
-      </div>
-      <div>
-        <label for="fHeight">Altura (cm)</label>
-        <input type="number" id="fHeight" placeholder="Ej: 165">
-      </div>
-    </div>
-    <div class="onb-nav">
-      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
-      <button class="btn btn-primary" onclick="Onboarding.validateStep1()">Continuar</button>
-    </div>
-  </section>
+    <div class="onb-section" style="margin-top:24px; border-top:none; padding-top:0;">
+      <div class="onb-section-title">Datos personales</div>
+      <p class="onb-section-desc">Con esto calculamos tu gasto energético diario.</p>
 
-  <section class="onb-step" data-step="2">
-    <div class="eyebrow">Paso 2 de 3</div>
-    <h2>¿Cuál es tu objetivo?</h2>
-    <div class="chip-group" id="goalChips">
-      <div class="chip" data-val="bajar_peso">Bajar de peso</div>
-      <div class="chip" data-val="mantener">Mantener mi peso</div>
-      <div class="chip" data-val="subir_peso">Subir de peso</div>
-    </div>
-    <div class="onb-nav">
-      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
-      <button class="btn btn-primary" onclick="Onboarding.validateStep2()">Continuar</button>
-    </div>
-  </section>
+      <label for="fName">Nombre</label>
+      <input type="text" id="fName" placeholder="Tu nombre">
 
-  <section class="onb-step" data-step="3">
-    <div class="eyebrow">Paso 3 de 3</div>
-    <h2>Preferencias alimentarias</h2>
-    <p>Elegí las que apliquen (opcional):</p>
-    <div class="chip-group" id="restrictionChips">
-      <div class="chip" data-val="vegetariano">Vegetariano</div>
-      <div class="chip" data-val="sin_lactosa">Sin lactosa</div>
-      <div class="chip" data-val="sin_carbo">Bajo en carbohidratos</div>
+      <div class="row">
+        <div>
+          <label for="fAge">Edad</label>
+          <input type="number" id="fAge" placeholder="Años">
+        </div>
+        <div>
+          <label for="fSex">Sexo biológico</label>
+          <select id="fSex">
+            <option value="femenino">Femenino</option>
+            <option value="masculino">Masculino</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="fWeight">Peso (kg)</label>
+          <input type="number" id="fWeight" placeholder="Ej: 65">
+        </div>
+        <div>
+          <label for="fHeight">Altura (cm)</label>
+          <input type="number" id="fHeight" placeholder="Ej: 165">
+        </div>
+      </div>
     </div>
-    <label for="fDislikes">¿Ingredientes que no te gusten o quieras evitar?</label>
-    <input type="text" id="fDislikes" placeholder="Ej: champiñones, cilantro, hígado">
-    <p class="hint-text">Separalos con coma. Dejalo vacío si no hay ninguno.</p>
-    <div class="onb-nav">
-      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
-      <button class="btn btn-primary" onclick="Onboarding.validateRestrictions()">Continuar</button>
-    </div>
-  </section>
 
-  <section class="onb-step" data-step="4">
-    <h2>¡Todo listo!</h2>
-    <p>Hacé clic abajo para estructurar tus objetivos calóricos y organizar tus comidas automatizadas según tu perfil.</p>
-    <div class="onb-nav">
-      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
-      <button class="btn btn-primary" onclick="Onboarding.finish()">Crear mi perfil</button>
+    <div class="onb-section">
+      <div class="onb-section-title">País y actividad</div>
+      <p class="onb-section-desc">Así te sugerimos ingredientes y recetas de tu región.</p>
+
+      <label for="fCountry">País</label>
+      <select id="fCountry">
+        <option value="mexico">México</option>
+        <option value="guatemala">Guatemala</option>
+        <option value="honduras">Honduras</option>
+        <option value="el_salvador">El Salvador</option>
+        <option value="nicaragua">Nicaragua</option>
+        <option value="costa_rica">Costa Rica</option>
+        <option value="panama">Panamá</option>
+        <option value="colombia">Colombia</option>
+        <option value="venezuela">Venezuela</option>
+        <option value="ecuador">Ecuador</option>
+        <option value="peru">Perú</option>
+        <option value="bolivia">Bolivia</option>
+        <option value="chile">Chile</option>
+        <option value="argentina" selected>Argentina</option>
+        <option value="uruguay">Uruguay</option>
+        <option value="paraguay">Paraguay</option>
+        <option value="republica_dominicana">República Dominicana</option>
+        <option value="cuba">Cuba</option>
+        <option value="otro">Otro</option>
+      </select>
+
+      <label>Nivel de actividad física</label>
+      <div class="chip-group" id="activityChips">
+        <div class="chip" data-val="sedentario">Sedentario (poco o nada de ejercicio)</div>
+        <div class="chip" data-val="ligero">Ligero (1-3 días/semana)</div>
+        <div class="chip" data-val="moderado">Moderado (3-5 días/semana)</div>
+        <div class="chip" data-val="activo">Activo (6-7 días/semana)</div>
+        <div class="chip" data-val="muy_activo">Muy activo (trabajo físico o 2x/día)</div>
+      </div>
     </div>
-  </section>
+
+    <div class="onb-section">
+      <div class="onb-section-title">Tu objetivo</div>
+      <div class="chip-group" id="goalChips">
+        <div class="chip" data-val="bajar_peso">Bajar de peso</div>
+        <div class="chip" data-val="mantener">Mantener mi peso</div>
+        <div class="chip" data-val="subir_peso">Subir de peso</div>
+        <div class="chip" data-val="ganar_musculo">Ganar músculo</div>
+        <div class="chip" data-val="comer_saludable">Comer más saludable</div>
+      </div>
+    </div>
+
+    <div class="onb-section">
+      <div class="onb-section-title">Salud</div>
+      <p class="onb-section-desc">Elegí las que apliquen, o "Ninguna" si no tenés nada de esto.</p>
+      <div class="chip-group" id="healthChips">
+        <div class="chip" data-val="colesterol_alto">Colesterol alto</div>
+        <div class="chip" data-val="hipertension">Hipertensión</div>
+        <div class="chip" data-val="diabetes">Diabetes</div>
+        <div class="chip" data-val="ninguna">Ninguna</div>
+      </div>
+
+      <label for="fAllergies">Alergias alimentarias</label>
+      <input type="text" id="fAllergies" placeholder="Ej: maní, mariscos, huevo">
+      <p class="hint-text">Separalas con coma. Dejalo vacío si no tenés ninguna.</p>
+    </div>
+
+    <div class="onb-section">
+      <div class="onb-section-title">Preferencias alimentarias</div>
+      <p class="onb-section-desc">Elegí todas las que apliquen, o ninguna.</p>
+      <div class="chip-group" id="restrictionChips">
+        <div class="chip" data-val="vegetariano">Vegetariano</div>
+        <div class="chip" data-val="vegano">Vegano</div>
+        <div class="chip" data-val="sin_gluten">Sin gluten</div>
+        <div class="chip" data-val="sin_lactosa">Sin lactosa</div>
+        <div class="chip" data-val="sin_carbo">Bajo en carbohidratos</div>
+      </div>
+
+      <label for="fDislikes">¿Ingredientes que no te gusten o quieras evitar?</label>
+      <input type="text" id="fDislikes" placeholder="Ej: champiñones, cilantro, hígado">
+      <p class="hint-text">Separalos con coma. Dejalo vacío si no hay ninguno.</p>
+    </div>
+
+    <div class="field-error" id="onbError">Faltan campos obligatorios: nombre, edad, sexo, peso, altura, actividad y objetivo.</div>
+
+    <button class="btn btn-primary" style="margin-top:26px;" onclick="Onboarding.finish()">Crear mi perfil</button>
+  </div>
 </div>
 
 <div id="app">
