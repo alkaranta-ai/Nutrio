@@ -215,7 +215,8 @@ const UI = {
     input.value = '';
 
     setTimeout(() => {
-      const response = ChatApp.getBotResponse(msg);
+      const profile = StorageApp.getProfile();
+      const response = ChatApp.getBotResponse(msg, profile);
       scroll.innerHTML += `<div style="text-align:left; margin-bottom:10px;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${response}</span></div>`;
       scroll.scrollTop = scroll.scrollHeight;
     }, 400);
