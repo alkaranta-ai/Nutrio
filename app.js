@@ -1,9 +1,42 @@
 // NOTA: RECIPES_DB, getRecipesByCategory y CATEGORY_META viven en js/data.js
 // (antes estaba duplicado acá también, lo que rompía la app con un error de JS)
 
+// Factor de actividad física para el cálculo de calorías (Harris-Benedict / Mifflin adaptado)
+const ACTIVITY_FACTORS = {
+  sedentario: 1.2,
+  ligero: 1.375,
+  moderado: 1.55,
+  intenso: 1.725
+};
+
+// Devuelve recetas de una categoría filtradas según el perfil del usuario
+// (restricciones alimentarias + ingredientes que no le gustan). Si el filtro
+// deja la lista vacía, se devuelve la lista completa sin filtrar para no
+// romper la app por un perfil demasiado restrictivo.
+function getPersonalizedRecipes(category, profile) {
+  let list = getRecipesByCategory(category);
+  if (!profile) return list;
+
+  if (profile.restrictions && profile.restrictions.length) {
+    const filtered = list.filter(r => profile.restrictions.every(tag => r.tags.includes(tag)));
+    if (filtered.length) list = filtered;
+  }
+
+  if (profile.dislikes && profile.dislikes.length) {
+    const filtered = list.filter(r =>
+      !r.ingredients.some(ing =>
+        profile.dislikes.some(d => d && ing.toLowerCase().includes(d))
+      )
+    );
+    if (filtered.length) list = filtered;
+  }
+
+  return list.length ? list : getRecipesByCategory(category);
+}
+
 const Onboarding = {
   currentStep: 0,
-  data: { goals: [] },
+  data: { goals: [], restrictions: [], dislikes: [] },
 
   next() {
     const steps = document.querySelectorAll('.onb-step');
@@ -55,6 +88,14 @@ const Onboarding = {
     this.next();
   },
 
+  validateActivity() {
+    if (!this.data.activity) {
+      alert('Selecciona tu nivel de actividad física.');
+      return;
+    }
+    this.next();
+  },
+
   validateStep2() {
     if (!this.data.goals || this.data.goals.length === 0) {
       alert('Selecciona un objetivo para tus platos.');
@@ -63,10 +104,21 @@ const Onboarding = {
     this.next();
   },
 
+  validateRestrictions() {
+    const dislikesRaw = document.getElementById('fDislikes').value.trim();
+    this.data.dislikes = dislikesRaw
+      ? dislikesRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+      : [];
+    if (!this.data.restrictions) this.data.restrictions = [];
+    this.next();
+  },
+
   finish() {
     let tmb = 10 * this.data.weight + 6.25 * this.data.height - 5 * this.data.age;
     tmb = this.data.sex === 'masculino' ? tmb + 5 : tmb - 161;
-    let targetKcal = Math.round(tmb * 1.3);
+
+    const activityFactor = ACTIVITY_FACTORS[this.data.activity] || 1.375;
+    let targetKcal = Math.round(tmb * activityFactor);
 
     if (this.data.goals[0] === 'bajar_peso') targetKcal -= 400;
     if (this.data.goals[0] === 'subir_peso') targetKcal += 400;
@@ -80,8 +132,11 @@ const Onboarding = {
 
   autoGenerateCart() {
     let itemsSet = new Set();
-    RECIPES_DB.forEach(r => {
-      r.ingredients.forEach(ing => itemsSet.add(ing));
+    const categories = ['desayuno', 'almuerzo', 'meriendas', 'cena'];
+    categories.forEach(cat => {
+      getPersonalizedRecipes(cat, this.data).forEach(r => {
+        r.ingredients.forEach(ing => itemsSet.add(ing));
+      });
     });
     StorageApp.saveCart(Array.from(itemsSet));
   }
@@ -109,14 +164,32 @@ const UI = {
   },
 
   bindChips() {
-    const group = document.getElementById('goalChips');
+    this.bindSingleSelect('goalChips', (val) => { Onboarding.data.goals = [val]; });
+    this.bindSingleSelect('activityChips', (val) => { Onboarding.data.activity = val; });
+    this.bindMultiSelect('restrictionChips', (vals) => { Onboarding.data.restrictions = vals; });
+  },
+
+  bindSingleSelect(groupId, onSelect) {
+    const group = document.getElementById(groupId);
     if (!group) return;
     group.addEventListener('click', (e) => {
       const chip = e.target.closest('.chip');
       if (!chip) return;
       group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
-      Onboarding.data.goals = [chip.dataset.val];
+      onSelect(chip.dataset.val);
+    });
+  },
+
+  bindMultiSelect(groupId, onChange) {
+    const group = document.getElementById(groupId);
+    if (!group) return;
+    group.addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      chip.classList.toggle('active');
+      const selected = Array.from(group.querySelectorAll('.chip.active')).map(c => c.dataset.val);
+      onChange(selected);
     });
   },
 
@@ -151,10 +224,10 @@ const UI = {
     if (!container) return;
 
     const dayIdx = this.getDayOffset();
-    const desayunos = getRecipesByCategory('desayuno');
-    const almuerzos = getRecipesByCategory('almuerzo');
-    const meriendas = getRecipesByCategory('meriendas');
-    const cenas = getRecipesByCategory('cena');
+    const desayunos = getPersonalizedRecipes('desayuno', profile);
+    const almuerzos = getPersonalizedRecipes('almuerzo', profile);
+    const meriendas = getPersonalizedRecipes('meriendas', profile);
+    const cenas = getPersonalizedRecipes('cena', profile);
 
     const breakfast = desayunos[dayIdx % desayunos.length];
     const lunch = almuerzos[dayIdx % almuerzos.length];
@@ -186,9 +259,10 @@ const UI = {
     const container = document.getElementById('weeklyPlanContainer');
     if (!container) return;
 
+    const profile = StorageApp.getProfile();
     const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-    const almuerzos = getRecipesByCategory('almuerzo');
-    const cenas = getRecipesByCategory('cena');
+    const almuerzos = getPersonalizedRecipes('almuerzo', profile);
+    const cenas = getPersonalizedRecipes('cena', profile);
 
     container.innerHTML = days.map((day, idx) => {
       const mainPlate = almuerzos[idx % almuerzos.length];
@@ -228,7 +302,14 @@ const UI = {
     const profile = StorageApp.getProfile();
     if (!profile) return;
     document.getElementById('profileNameDisplay').innerText = profile.name;
-    document.getElementById('profileMetaDisplay').innerText = `Meta diaria asignada: ${profile.targetKcal} calorías semanales adaptadas a tu cuerpo.`;
+    document.getElementById('profileMetaDisplay').innerText = `Meta diaria asignada: ${profile.targetKcal} calorías, según tu nivel de actividad (${profile.activity || 'no especificado'}).`;
+
+    const prefsEl = document.getElementById('profilePrefsDisplay');
+    if (prefsEl) {
+      const restrictions = profile.restrictions && profile.restrictions.length ? profile.restrictions.join(', ') : 'ninguna';
+      const dislikes = profile.dislikes && profile.dislikes.length ? profile.dislikes.join(', ') : 'ninguno';
+      prefsEl.innerText = `Preferencias: ${restrictions} • Evita: ${dislikes}`;
+    }
   },
 
   // Abre el modal con ingredientes y preparación de una receta
@@ -268,7 +349,8 @@ const UI = {
     input.value = '';
 
     setTimeout(() => {
-      const response = ChatApp.getBotResponse(msg);
+      const profile = StorageApp.getProfile();
+      const response = ChatApp.getBotResponse(msg, profile);
       scroll.innerHTML += `<div style="text-align:left; margin-bottom:10px;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${response}</span></div>`;
       scroll.scrollTop = scroll.scrollHeight;
     }, 400);
