@@ -64,6 +64,7 @@
     padding-left: 12px;
     margin-top: 14px;
     margin-bottom: 14px;
+    cursor: pointer;
   }
   .meal-title {
     font-size: 14px;
@@ -71,6 +72,13 @@
     text-transform: uppercase;
     color: var(--text-muted);
     letter-spacing: 0.5px;
+  }
+  .tap-hint {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--primary);
+    font-weight: 600;
   }
 
   h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 12px; }
@@ -87,6 +95,7 @@
   input:focus, select:focus { outline: none; border-color: var(--primary); }
   .row { display: flex; gap: 12px; }
   .row > div { flex: 1; }
+  .hint-text { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
 
   /* Chips */
   .chip-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
@@ -138,6 +147,25 @@
   }
   .dock-item.active { color: var(--primary); }
   .dock-item svg { width: 22px; height: 22px; margin-bottom: 2px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Modal de receta */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 3000;
+    display: flex; align-items: flex-end; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+  }
+  .modal-overlay.active { opacity: 1; pointer-events: auto; }
+  .modal-sheet {
+    background: var(--surface); width: 100%; max-width: 500px; border-radius: 20px 20px 0 0;
+    padding: 24px; max-height: 80vh; overflow-y: auto;
+    transform: translateY(24px); transition: transform 0.2s ease;
+  }
+  .modal-overlay.active .modal-sheet { transform: translateY(0); }
+  .recipe-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .recipe-badge { font-size: 12px; font-weight: 600; color: var(--primary); background: var(--primary-dim); padding: 6px 10px; border-radius: 20px; }
+  .modal-close { background: none; border: none; font-size: 20px; line-height: 1; cursor: pointer; color: var(--text-muted); padding: 4px; }
+  .recipe-list { padding-left: 20px; margin-top: 8px; color: var(--text); font-size: 14px; }
+  .recipe-list li { margin-bottom: 6px; }
 </style>
 </head>
 <body>
@@ -154,7 +182,7 @@
   </section>
 
   <section class="onb-step" data-step="1">
-    <div class="eyebrow">Paso 1 de 3</div>
+    <div class="eyebrow">Paso 1 de 4</div>
     <h2>Contame sobre vos</h2>
     <label for="fName">Nombre</label>
     <input type="text" id="fName" placeholder="Tu nombre">
@@ -188,7 +216,23 @@
   </section>
 
   <section class="onb-step" data-step="2">
-    <div class="eyebrow">Paso 2 de 3</div>
+    <div class="eyebrow">Paso 2 de 4</div>
+    <h2>¿Qué tan activo sos?</h2>
+    <p>Nos ayuda a calcular mejor tu meta calórica diaria.</p>
+    <div class="chip-group" id="activityChips">
+      <div class="chip" data-val="sedentario">Sedentario</div>
+      <div class="chip" data-val="ligero">Ligero (1-3 días/sem)</div>
+      <div class="chip" data-val="moderado">Moderado (3-5 días/sem)</div>
+      <div class="chip" data-val="intenso">Intenso (6-7 días/sem)</div>
+    </div>
+    <div class="onb-nav">
+      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
+      <button class="btn btn-primary" onclick="Onboarding.validateActivity()">Continuar</button>
+    </div>
+  </section>
+
+  <section class="onb-step" data-step="3">
+    <div class="eyebrow">Paso 3 de 4</div>
     <h2>¿Cuál es tu objetivo?</h2>
     <div class="chip-group" id="goalChips">
       <div class="chip" data-val="bajar_peso">Bajar de peso</div>
@@ -201,10 +245,27 @@
     </div>
   </section>
 
-  <section class="onb-step" data-step="3">
-    <div class="eyebrow">Paso 3 de 3</div>
+  <section class="onb-step" data-step="4">
+    <div class="eyebrow">Paso 4 de 4</div>
+    <h2>Preferencias alimentarias</h2>
+    <p>Elegí las que apliquen (opcional):</p>
+    <div class="chip-group" id="restrictionChips">
+      <div class="chip" data-val="vegetariano">Vegetariano</div>
+      <div class="chip" data-val="sin_lactosa">Sin lactosa</div>
+      <div class="chip" data-val="sin_carbo">Bajo en carbohidratos</div>
+    </div>
+    <label for="fDislikes">¿Ingredientes que no te gusten o quieras evitar?</label>
+    <input type="text" id="fDislikes" placeholder="Ej: champiñones, cilantro, hígado">
+    <p class="hint-text">Separalos con coma. Dejalo vacío si no hay ninguno.</p>
+    <div class="onb-nav">
+      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
+      <button class="btn btn-primary" onclick="Onboarding.validateRestrictions()">Continuar</button>
+    </div>
+  </section>
+
+  <section class="onb-step" data-step="5">
     <h2>¡Todo listo!</h2>
-    <p>Hacé clic abajo para estructurar tus objetivos calóricos y organizar tus comidas automatizadas.</p>
+    <p>Hacé clic abajo para estructurar tus objetivos calóricos y organizar tus comidas automatizadas según tu perfil.</p>
     <div class="onb-nav">
       <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
       <button class="btn btn-primary" onclick="Onboarding.finish()">Crear mi perfil</button>
@@ -248,6 +309,7 @@
     <div class="card">
       <h3 id="profileNameDisplay">—</h3>
       <p id="profileMetaDisplay">—</p>
+      <p id="profilePrefsDisplay" style="margin-top:10px; font-size:13px;">—</p>
       <button class="btn btn-glass" style="margin-top: 20px; padding: 10px; font-size:14px; color:#ef4444;" onclick="UI.resetAll()">Reiniciar Aplicación</button>
     </div>
   </div>
@@ -284,6 +346,12 @@
       <span>Perfil</span>
     </button>
   </nav>
+</div>
+
+<div class="modal-overlay" id="recipeModal">
+  <div class="modal-sheet">
+    <div id="recipeModalContent"></div>
+  </div>
 </div>
 
 <script src="js/data.js"></script>
