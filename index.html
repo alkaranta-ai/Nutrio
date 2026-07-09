@@ -110,6 +110,8 @@
   .dot { width: 6px; height: 6px; background: var(--border); border-radius: 50%; }
   .dot.active { width: 18px; background: var(--primary); border-radius: 3px; }
   .eyebrow { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); margin-bottom: 6px; }
+  .field-error { display: none; color: #ef4444; font-size: 13px; font-weight: 500; margin-top: 14px; }
+  .field-error.show { display: block; }
 
   /* Botones */
   .btn {
@@ -182,7 +184,7 @@
   </section>
 
   <section class="onb-step" data-step="1">
-    <div class="eyebrow">Paso 1 de 4</div>
+    <div class="eyebrow">Paso 1 de 3</div>
     <h2>Contame sobre vos</h2>
     <label for="fName">Nombre</label>
     <input type="text" id="fName" placeholder="Tu nombre">
@@ -216,23 +218,7 @@
   </section>
 
   <section class="onb-step" data-step="2">
-    <div class="eyebrow">Paso 2 de 4</div>
-    <h2>¿Qué tan activo sos?</h2>
-    <p>Nos ayuda a calcular mejor tu meta calórica diaria.</p>
-    <div class="chip-group" id="activityChips">
-      <div class="chip" data-val="sedentario">Sedentario</div>
-      <div class="chip" data-val="ligero">Ligero (1-3 días/sem)</div>
-      <div class="chip" data-val="moderado">Moderado (3-5 días/sem)</div>
-      <div class="chip" data-val="intenso">Intenso (6-7 días/sem)</div>
-    </div>
-    <div class="onb-nav">
-      <button class="btn btn-glass" onclick="Onboarding.prev()">Atrás</button>
-      <button class="btn btn-primary" onclick="Onboarding.validateActivity()">Continuar</button>
-    </div>
-  </section>
-
-  <section class="onb-step" data-step="3">
-    <div class="eyebrow">Paso 3 de 4</div>
+    <div class="eyebrow">Paso 2 de 3</div>
     <h2>¿Cuál es tu objetivo?</h2>
     <div class="chip-group" id="goalChips">
       <div class="chip" data-val="bajar_peso">Bajar de peso</div>
@@ -245,8 +231,8 @@
     </div>
   </section>
 
-  <section class="onb-step" data-step="4">
-    <div class="eyebrow">Paso 4 de 4</div>
+  <section class="onb-step" data-step="3">
+    <div class="eyebrow">Paso 3 de 3</div>
     <h2>Preferencias alimentarias</h2>
     <p>Elegí las que apliquen (opcional):</p>
     <div class="chip-group" id="restrictionChips">
@@ -263,7 +249,7 @@
     </div>
   </section>
 
-  <section class="onb-step" data-step="5">
+  <section class="onb-step" data-step="4">
     <h2>¡Todo listo!</h2>
     <p>Hacé clic abajo para estructurar tus objetivos calóricos y organizar tus comidas automatizadas según tu perfil.</p>
     <div class="onb-nav">
