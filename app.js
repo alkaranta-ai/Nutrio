@@ -1,10 +1,28 @@
 // ARMADO DE PERFIL — pantalla única, sin pasos.
+//
+// El formulario se completa y se valida en una sola pantalla con Onboarding.finish().
+// RECIPES_DB, CATEGORY_META y MealEngine viven en js/data.js (se carga antes que este archivo).
+
+// Colores de acento por categoría, para darle vida visual a las tarjetas de
+// Inicio y al modal de receta. Es solo presentación, no toca data.js.
+const CATEGORY_ACCENTS = {
+  desayuno: { color: '#f59e0b', dim: '#fff7ed' },
+  almuerzo: { color: '#22c55e', dim: '#f0fdf4' },
+  meriendas: { color: '#ec4899', dim: '#fdf2f8' },
+  cena: { color: '#6366f1', dim: '#eef2ff' }
+};
+
 const Onboarding = {
   selected: {
     activity: null,
     goal: null,
     health: [],
-    restrictions: []
+    restrictions: [],
+    mealsPerDay: null,
+    cookTime: null,
+    budget: null,
+    cuisines: [],
+    chatStyle: null
   },
 
   _bindSingleSelect(groupId, stateKey) {
@@ -19,26 +37,27 @@ const Onboarding = {
     });
   },
 
-  _bindMultiSelect(groupId, stateKey) {
+  _bindMultiSelect(groupId, stateKey, exclusiveVal) {
     const group = document.getElementById(groupId);
     if (!group) return;
     group.addEventListener('click', (e) => {
       const chip = e.target.closest('.chip');
       if (!chip) return;
       const val = chip.dataset.val;
+      const exclusive = exclusiveVal || 'ninguna';
 
-      if (val === 'ninguna') {
+      if (val === exclusive) {
         group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
         chip.classList.add('active');
-        this.selected[stateKey] = ['ninguna'];
+        this.selected[stateKey] = [val];
         return;
       }
 
       chip.classList.toggle('active');
-      const ningunaChip = group.querySelector('[data-val="ninguna"]');
-      if (ningunaChip) ningunaChip.classList.remove('active');
+      const exclusiveChip = group.querySelector(`[data-val="${exclusive}"]`);
+      if (exclusiveChip) exclusiveChip.classList.remove('active');
 
-      const list = this.selected[stateKey].filter(v => v !== 'ninguna');
+      const list = this.selected[stateKey].filter(v => v !== exclusive);
       const idx = list.indexOf(val);
       if (chip.classList.contains('active') && idx === -1) {
         list.push(val);
@@ -52,8 +71,13 @@ const Onboarding = {
   bindAllChips() {
     this._bindSingleSelect('activityChips', 'activity');
     this._bindSingleSelect('goalChips', 'goal');
-    this._bindMultiSelect('healthChips', 'health');
-    this._bindMultiSelect('restrictionChips', 'restrictions');
+    this._bindMultiSelect('healthChips', 'health', 'ninguna');
+    this._bindMultiSelect('restrictionChips', 'restrictions', 'ninguna');
+    this._bindSingleSelect('mealsPerDayChips', 'mealsPerDay');
+    this._bindSingleSelect('cookTimeChips', 'cookTime');
+    this._bindSingleSelect('budgetChips', 'budget');
+    this._bindMultiSelect('cuisineChips', 'cuisines', 'sin_preferencia');
+    this._bindSingleSelect('chatStyleChips', 'chatStyle');
   },
 
   finish() {
@@ -80,6 +104,10 @@ const Onboarding = {
 
     const allergiesRaw = document.getElementById('fAllergies').value.trim();
     const dislikesRaw = document.getElementById('fDislikes').value.trim();
+    const favoriteFoodsRaw = document.getElementById('fFavoriteFoods').value.trim();
+    const chatCustomRaw = document.getElementById('fChatCustom').value.trim();
+    const waterVal = document.getElementById('fWaterGlasses').value;
+    const sleepVal = document.getElementById('fSleepHours').value;
 
     const profile = {
       name,
@@ -91,18 +119,34 @@ const Onboarding = {
       activity: this.selected.activity,
       goals: [this.selected.goal],
       healthConditions: this.selected.health.filter(v => v !== 'ninguna'),
-      allergies: allergiesRaw ? allergiesRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) : [],
+      allergies: allergiesRaw ? allergiesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
       restrictions: this.selected.restrictions,
-      dislikes: dislikesRaw ? dislikesRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) : []
+      dislikes: dislikesRaw ? dislikesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+
+      // Hábitos y rutina
+      mealsPerDay: this.selected.mealsPerDay || '3',
+      cookTime: this.selected.cookTime || 'moderado',
+      budget: this.selected.budget || 'medio',
+      waterGlasses: waterVal ? parseInt(waterVal, 10) : null,
+      sleepHours: sleepVal ? parseFloat(sleepVal) : null,
+
+      // Gustos
+      cuisines: this.selected.cuisines.filter(v => v !== 'sin_preferencia'),
+      favoriteFoods: favoriteFoodsRaw ? favoriteFoodsRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+
+      // Estilo del chat
+      chatStyle: this.selected.chatStyle || 'amigable',
+      chatCustomNote: chatCustomRaw || ''
     };
 
     profile.targetKcal = this._calculateTargetKcal(profile);
 
     StorageApp.saveProfile(profile);
-    this.autoGenerateCart();
+    UI.regenerateCartForWeek();
     UI.init();
   },
 
+  // Fórmula de Mifflin-St Jeor + factor de actividad + ajuste según objetivo.
   _calculateTargetKcal(profile) {
     let tmb = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age;
     tmb = profile.sex === 'masculino' ? tmb + 5 : tmb - 161;
@@ -122,17 +166,9 @@ const Onboarding = {
     if (goal === 'bajar_peso') targetKcal -= 400;
     if (goal === 'subir_peso') targetKcal += 400;
     if (goal === 'ganar_musculo') targetKcal += 300;
+    // 'mantener' y 'comer_saludable' no ajustan las kcal base.
 
     return targetKcal;
-  },
-
-  autoGenerateCart() {
-    let itemsSet = new Set();
-    RECIPES_DB.forEach(r => {
-      if (r.category === 'antojo') return;
-      r.ingredients.forEach(ing => itemsSet.add(ing));
-    });
-    StorageApp.saveCart(Array.from(itemsSet));
   }
 };
 
@@ -153,7 +189,8 @@ const UI = {
     this.renderWeeklyPlan();
     this.renderCart();
     this.renderProfile();
-    this.goto('chat');
+    this.renderChatGreeting(profile);
+    this.goto('chat'); // Abre el chat primero
   },
 
   goto(viewName) {
@@ -171,37 +208,15 @@ const UI = {
     document.getElementById('chatInputBar').style.display = viewName === 'chat' ? 'block' : 'none';
   },
 
-  // --- FILTRADO INTELIGENTE DE RECETAS ---
-  _getFilteredRecipes(category, profile) {
-    return RECIPES_DB.filter(recipe => {
-      if (recipe.category !== category) return false;
-
-      // 1. Filtrar por Restricciones Alimentarias (Vegano, Vegetariano, etc.)
-      if (profile.restrictions && profile.restrictions.length > 0) {
-        const matchesAll = profile.restrictions.every(rest => recipe.tags.includes(rest));
-        if (!matchesAll) return false;
-      }
-
-      // 2. Filtrar por Alergias y Disgustos (Evita contaminación de ingredientes)
-      const matchesAllergies = profile.allergies.some(allergy => 
-        recipe.ingredients.some(ing => ing.toLowerCase().includes(allergy))
-      );
-      if (matchesAllergies) return false;
-
-      const matchesDislikes = profile.dislikes.some(dislike => 
-        recipe.ingredients.some(ing => ing.toLowerCase().includes(dislike))
-      );
-      if (matchesDislikes) return false;
-
-      return true;
-    });
+  // Primer mensaje del chat, adaptado al estilo elegido por el usuario en el onboarding.
+  renderChatGreeting(profile) {
+    const scroll = document.getElementById('chatScroll');
+    if (!scroll || !profile) return;
+    const greeting = ChatApp.getGreeting(profile);
+    scroll.innerHTML = `<div style="text-align:left;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block;">${greeting}</span></div>`;
   },
 
-  _getRandomElement(array) {
-    if (!array || array.length === 0) return null;
-    return array[Math.floor(Math.random() * array.length)];
-  },
-
+  // Comidas de HOY, resueltas por MealEngine contra el perfil
   renderHome() {
     const profile = StorageApp.getProfile();
     if (!profile) return;
@@ -211,68 +226,281 @@ const UI = {
     const container = document.getElementById('dayMealsContainer');
     if (!container) return;
 
-    // Obtenemos recetas aptas filtradas para el usuario
-    const breakfasts = this._getFilteredRecipes('desayuno', profile);
-    const lunches = this._getFilteredRecipes('almuerzo', profile);
-    const snacks = this._getFilteredRecipes('meriendas', profile);
-    const dinners = this._getFilteredRecipes('cena', profile);
+    const today = new Date();
+    const meals = [
+      { slot: 'desayuno', label: 'Desayuno', recipe: MealEngine.getMealForDate('desayuno', profile, today) },
+      { slot: 'almuerzo', label: 'Almuerzo', recipe: MealEngine.getMealForDate('almuerzo', profile, today) },
+      { slot: 'meriendas', label: 'Merienda', recipe: MealEngine.getMealForDate('meriendas', profile, today) },
+      { slot: 'cena', label: 'Cena', recipe: MealEngine.getMealForDate('cena', profile, today) }
+    ];
 
-    // Selección aleatoria real para romper la monotonía
-    const breakfast = this._getRandomElement(breakfasts) || RECIPES_DB[0];
-    const lunch = this._getRandomElement(lunches) || RECIPES_DB[8];
-    const snack = this._getRandomElement(snacks) || RECIPES_DB[16];
-    const dinner = this._getRandomElement(dinners) || RECIPES_DB[22];
+    container.innerHTML = `<div class="meal-card-grid">${meals.map(m => this._renderMealCard(m)).join('')}</div>`;
+  },
 
-    container.innerHTML = `
-      <div class="card">
-        <div class="meal-slot" style="margin-bottom: 12px;"><div class="meal-title">🍳 Desayuno</div><h3>${breakfast.name}</h3><p style="font-size:13px; color:var(--text-muted);">${breakfast.kcal} kcal • ${breakfast.ingredients.join(', ')}</p></div>
-        <div class="meal-slot" style="margin-bottom: 12px;"><div class="meal-title">🍗 Almuerzo</div><h3>${lunch.name}</h3><p style="font-size:13px; color:var(--text-muted);">${lunch.kcal} kcal • ${lunch.ingredients.join(', ')}</p></div>
-        <div class="meal-slot" style="margin-bottom: 12px;"><div class="meal-title">🥪 Merienda</div><h3>${snack.name}</h3><p style="font-size:13px; color:var(--text-muted);">${snack.kcal} kcal • ${snack.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">🍽️ Cena</div><h3>${dinner.name}</h3><p style="font-size:13px; color:var(--text-muted);">${dinner.kcal} kcal • ${dinner.ingredients.join(', ')}</p></div>
+  _renderMealCard({ slot, label, recipe }) {
+    const accent = CATEGORY_ACCENTS[slot] || CATEGORY_ACCENTS.almuerzo;
+    const icon = (CATEGORY_META[slot] && CATEGORY_META[slot].icon) || '🍽️';
+    const preview = recipe.ingredients.slice(0, 3).join(', ') + (recipe.ingredients.length > 3 ? '…' : '');
+
+    return `
+      <div class="meal-card" style="--accent:${accent.color}; --accent-dim:${accent.dim};" onclick="UI.openRecipeModal('${recipe.id}')">
+        <div class="meal-icon">${icon}</div>
+        <div class="meal-card-body">
+          <div class="meal-card-top">
+            <span class="meal-card-label">${label}</span>
+            <span class="meal-card-kcal">${recipe.kcal} kcal</span>
+          </div>
+          <div class="meal-card-name">${recipe.name}</div>
+          <div class="meal-card-ingredients">${preview}</div>
+          <div class="meal-card-hint">Toca para ver la receta completa →</div>
+        </div>
       </div>
     `;
   },
 
-  renderWeeklyPlan() {
-    const profile = StorageApp.getProfile();
-    if (!profile) return;
+  // Abre el modal flotante con ingredientes (como chips) y preparación paso a paso.
+  openRecipeModal(recipeId) {
+    const recipe = RECIPES_DB.find(r => r.id === recipeId);
+    if (!recipe) return;
+    const meta = CATEGORY_META[recipe.category] || {};
 
+    const content = document.getElementById('recipeModalContent');
+    content.innerHTML = `
+      <div class="recipe-modal-header">
+        <span class="recipe-badge">${meta.icon || ''} ${meta.label || recipe.category}</span>
+        <button class="modal-close" onclick="UI.closeRecipeModal()">✕</button>
+      </div>
+      <h2>${recipe.name}</h2>
+      <span class="modal-kcal-pill">${recipe.kcal} kcal</span>
+      ${recipe.country && recipe.country !== 'General'
+        ? `<span class="modal-kcal-pill" style="margin-left:8px; background:var(--bg); color:var(--text-muted);">${recipe.country}</span>`
+        : ''}
+
+      <div class="modal-section-title">Ingredientes</div>
+      <div class="ingredient-chip-list">
+        ${recipe.ingredients.map(ing => `<span class="ingredient-chip">${ing}</span>`).join('')}
+      </div>
+
+      <div class="modal-section-title">Preparación</div>
+      <ol class="instructions-list">
+        ${recipe.instructions && recipe.instructions.length 
+          ? recipe.instructions.map(step => `<li>${step}</li>`).join('') 
+          : `<li>Picar los ingredientes y cocinar a fuego moderado hasta su punto óptimo.</li>`}
+      </ol>
+    `;
+
+    document.getElementById('recipeModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+  },
+
+  closeRecipeModal() {
+    document.getElementById('recipeModal').classList.remove('active');
+    document.body.style.overflow = '';
+  },
+
+  closeRecipeModalOnOverlay(event) {
+    if (event.target && event.target.id === 'recipeModal') this.closeRecipeModal();
+  },
+
+  // Próximos 7 días ahora con tarjetas interactivas vinculadas al modal nativo.
+  renderWeeklyPlan() {
     const container = document.getElementById('weeklyPlanContainer');
     if (!container) return;
 
-    const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-    
-    const lunches = this._getFilteredRecipes('almuerzo', profile);
-    const dinners = this._getFilteredRecipes('cena', profile);
+    const profile = StorageApp.getProfile();
+    if (!profile) return;
 
-    container.innerHTML = days.map((day) => {
-      // Elige platos aleatorios diferentes para cada día de la semana
-      const mainPlate = this._getRandomElement(lunches) || RECIPES_DB[8];
-      const dinnerPlate = this._getRandomElement(dinners) || RECIPES_DB[22];
-      
+    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const plan = MealEngine.getPlanForDays(profile, new Date(), 7);
+
+    container.innerHTML = plan.map(({ date, meals }) => {
+      const dayLabel = dayNames[date.getDay()];
       return `
-        <div class="card" style="margin-bottom:12px;">
-          <h3 style="color:var(--primary); margin-bottom:6px;">${day}</h3>
-          <p style="font-size:14px; color:var(--text);"><b>Almuerzo:</b> ${mainPlate.name} (${mainPlate.kcal} kcal)</p>
-          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Cena:</b> ${dinnerPlate.name} (${dinnerPlate.kcal} kcal)</p>
+        <div class="card" style="margin-bottom:16px; padding:16px; border-radius:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid rgba(0,0,0,0.05); padding-bottom:6px;">
+            <h3 style="color:var(--primary); margin:0;">${dayLabel}</h3>
+            <span style="font-size:12px; font-weight:bold; color:var(--primary); background:var(--primary-dim); padding:4px 10px; border-radius:20px;">Menú diario interactivo</span>
+          </div>
+          
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="cursor:pointer; padding:4px;" onclick="UI.openRecipeModal('${meals.desayuno.id}')" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
+              <p style="font-size:14px; color:var(--text); margin:0;">☕ <b>Desayuno:</b> ${meals.desayuno.name} <span style="color:var(--text-muted); font-size:12px;">(${meals.desayuno.kcal} kcal) →</span></p>
+            </div>
+            <div style="cursor:pointer; padding:4px;" onclick="UI.openRecipeModal('${meals.almuerzo.id}')" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
+              <p style="font-size:14px; color:var(--text); margin:0;">🥗 <b>Almuerzo:</b> ${meals.almuerzo.name} <span style="color:var(--text-muted); font-size:12px;">(${meals.almuerzo.kcal} kcal) →</span></p>
+            </div>
+            <div style="cursor:pointer; padding:4px;" onclick="UI.openRecipeModal('${meals.meriendas.id}')" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
+              <p style="font-size:14px; color:var(--text); margin:0;">🥞 <b>Merienda:</b> ${meals.meriendas.name} <span style="color:var(--text-muted); font-size:12px;">(${meals.meriendas.kcal} kcal) →</span></p>
+            </div>
+            <div style="cursor:pointer; padding:4px;" onclick="UI.openRecipeModal('${meals.cena.id}')" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
+              <p style="font-size:14px; color:var(--text); margin:0;">🍽️ <b>Cena:</b> ${meals.cena.name} <span style="color:var(--text-muted); font-size:12px;">(${meals.cena.kcal} kcal) →</span></p>
+            </div>
+          </div>
         </div>
       `;
     }).join('');
   },
 
+  regenerateCartForWeek() {
+    const profile = StorageApp.getProfile();
+    if (!profile) return;
+    const plan = MealEngine.getPlanForDays(profile, new Date(), 7);
+    const itemsSet = new Set();
+    plan.forEach(({ meals }) => {
+      Object.values(meals).forEach(recipe => {
+        recipe.ingredients.forEach(ing => itemsSet.add(ing));
+      });
+    });
+    StorageApp.saveCart(Array.from(itemsSet));
+  },
+
+  // SOLUCIÓN: Lista persistente, estados de checkboxes guardados por fecha y módulo de Historial integrado.
   renderCart() {
     const cart = StorageApp.getCart();
     const container = document.getElementById('cartCard');
     if (!container) return;
 
-    container.innerHTML = cart.length === 0
-      ? `<p class="muted" style="text-align:center;">No hay ingredientes calculados.</p>`
-      : cart.map((item) => `
-          <div class="cart-item">
-            <input type="checkbox" style="transform: scale(1.1); accent-color: var(--primary);">
-            <span style="flex:1;">${item}</span>
+    if (!cart || cart.length === 0) {
+      container.innerHTML = `<p class="muted" style="text-align:center; padding: 20px;">🛒 Tu lista semanal está vacía.</p>`;
+      return;
+    }
+
+    // Clave para mapear los estados de checks correspondientes al día de HOY
+    const fechaHoyStr = new Date().toLocaleDateString('es-AR');
+    let tildadosHoy = JSON.parse(localStorage.getItem(`nutrio_checked_${fechaHoyStr}`)) || [];
+
+    const categorias = {
+      "🥦 Verdulería / Frutería": ['zanahoria', 'arvejas', 'cebolla', 'tomate', 'lechuga', 'espinaca', 'palta', 'limón', 'manzana', 'banana', 'fruta', 'ajo', 'morrón', 'papa', 'zapallo'],
+      "🍗 Carnes y Proteínas": ['pollo', 'pechuga', 'carne', 'lomo', 'huevo', 'huevos', 'pescado', 'atún', 'salmón', 'bife', 'cerdo'],
+      "🌾 Almacén y Lácteos": ['arroz', 'integral', 'ricota', 'miel', 'yogur', 'cereal', 'avena', 'leche', 'queso', 'aceite', 'oliva', 'pan', 'fideos', 'harina', 'legumbres']
+    };
+
+    const fuentesAgrupadas = { "🥦 Verdulería / Frutería": [], "🍗 Carnes y Proteínas": [], "🌾 Almacén y Lácteos": [], "📦 Gondola General / Otros": [] };
+
+    cart.forEach(item => {
+      let categorizado = false;
+      const itemLower = item.toLowerCase();
+      
+      for (const [catName, keywords] of Object.entries(categorias)) {
+        if (keywords.some(kw => itemLower.includes(kw))) {
+          fuentesAgrupadas[catName].push(item);
+          categorizado = true;
+          break;
+        }
+      }
+      if (!categorizado) fuentesAgrupadas["📦 Gondola General / Otros"].push(item);
+    });
+
+    let htmlResultado = '<div id="liveShoppingList">';
+
+    for (const [categoria, items] of Object.entries(fuentesAgrupadas)) {
+      if (items.length === 0) continue;
+
+      htmlResultado += `
+        <div style="margin-bottom: 20px;">
+          <h4 style="color: var(--primary); border-bottom: 1px solid var(--primary-dim); padding-bottom: 4px; margin-bottom: 10px; font-size: 15px;">${categoria}</h4>
+      `;
+
+      htmlResultado += items.map((item) => {
+        const isChecked = tildadosHoy.includes(item);
+        return `
+          <div class="cart-item" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 4px 0;">
+            <input type="checkbox" class="shop-item-check" data-item="${item}" ${isChecked ? 'checked' : ''}
+                   style="transform: scale(1.2); accent-color: var(--primary); cursor: pointer;" 
+                   onclick="UI.toggleCartItemCheck(this, '${item}')">
+            <span style="flex: 1; font-size: 14px; transition: all 0.2s; ${isChecked ? 'text-decoration: line-through; opacity: 0.5;' : ''}">${item}</span>
           </div>
-        `).join('');
+        `;
+      }).join('');
+
+      htmlResultado += `</div>`;
+    }
+
+    htmlResultado += `
+      <button onclick="UI.checkoutPurchasedItems()" 
+              style="width: 100%; margin-top: 15px; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px var(--primary-dim);">
+        🛒 Guardar en Carrito del Día (${fechaHoyStr})
+      </button>
+    </div>`;
+
+    // AGREGAMOS SECCIÓN DE HISTORIAL DE COMPRAS AL FINAL
+    let comprasHistorial = JSON.parse(localStorage.getItem('nutrio_shopping_history')) || [];
+    
+    htmlResultado += `
+      <div style="margin-top: 35px; border-top: 2px dashed rgba(0,0,0,0.06); padding-top: 20px;">
+        <h3 style="color: var(--text); font-size: 16px; margin-bottom: 12px; display:flex; align-items:center; gap:6px;">🗃️ Carrito e Historial de Compras</h3>
+    `;
+
+    if (comprasHistorial.length === 0) {
+      htmlResultado += `<p style="font-size:13px; color:var(--text-muted); text-align:center; padding:10px; background:rgba(0,0,0,0.01); border-radius:8px;">Aún no realizaste cierres de compra. Lo tildado arriba se guardará acá.</p>`;
+    } else {
+      // Mostrar de más nuevo a más viejo
+      htmlResultado += comprasHistorial.map(entry => `
+        <div style="background: var(--bg); border: 1px solid rgba(0,0,0,0.05); padding: 12px; border-radius: 10px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+          <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:bold; color:var(--primary); margin-bottom:6px;">
+            <span>🗓️ Compras del Día: ${entry.date}</span>
+            <span style="background:var(--primary-dim); padding:1px 6px; border-radius:6px;">${entry.items.length} art.</span>
+          </div>
+          <p style="font-size:13px; color:var(--text-muted); line-height:1.4; margin:0;">${entry.items.join(', ')}</p>
+        </div>
+      `).join('');
+    }
+
+    htmlResultado += `</div>`;
+    container.innerHTML = htmlResultado;
+  },
+
+  // Guarda dinámicamente qué tildaste hoy para que al recargar no se pierda el progreso de tu caminata por el súper
+  toggleCartItemCheck(checkbox, item) {
+    const fechaHoyStr = new Date().toLocaleDateString('es-AR');
+    let tildadosHoy = JSON.parse(localStorage.getItem(`nutrio_checked_${fechaHoyStr}`)) || [];
+
+    if (checkbox.checked) {
+      if (!tildadosHoy.includes(item)) tildadosHoy.push(item);
+      checkbox.nextElementSibling.style.textDecoration = 'line-through';
+      checkbox.nextElementSibling.style.opacity = '0.5';
+    } else {
+      tildadosHoy = tildadosHoy.filter(v => v !== item);
+      checkbox.nextElementSibling.style.textDecoration = 'none';
+      checkbox.nextElementSibling.style.opacity = '1';
+    }
+
+    localStorage.setItem(`nutrio_checked_${fechaHoyStr}`, JSON.stringify(tildadosHoy));
+  },
+
+  // Agrega los elementos tildados al Historial de Compras de la fecha y limpia la vista superior sin romper el perfil
+  checkoutPurchasedItems() {
+    const fechaHoyStr = new Date().toLocaleDateString('es-AR');
+    const tildadosHoy = JSON.parse(localStorage.getItem(`nutrio_checked_${fechaHoyStr}`)) || [];
+
+    if (tildadosHoy.length === 0) {
+      alert("¡Che! Primero tildá en la lista los artículos que ya metiste al changuito físico.");
+      return;
+    }
+
+    let comprasHistorial = JSON.parse(localStorage.getItem('nutrio_shopping_history')) || [];
+    
+    // Buscamos si ya hay un registro de hoy para anexar, o creamos una entrada nueva
+    const registroExistente = comprasHistorial.find(entry => entry.date === fechaHoyStr);
+    if (registroExistente) {
+      tildadosHoy.forEach(item => {
+        if (!registroExistente.items.includes(item)) registroExistente.items.push(item);
+      });
+    } else {
+      comprasHistorial.unshift({
+        date: fechaHoyStr,
+        items: [...tildadosHoy]
+      });
+    }
+
+    // Persistimos el historial general
+    localStorage.setItem('nutrio_shopping_history', JSON.stringify(comprasHistorial));
+
+    // Limpiamos los checks de hoy para que la lista principal aparezca libre y limpia
+    localStorage.removeItem(`nutrio_checked_${fechaHoyStr}`);
+
+    // Renderizamos de vuelta
+    this.renderCart();
   },
 
   renderProfile() {
@@ -306,6 +534,17 @@ const UI = {
       vegetariano: 'Vegetariano', vegano: 'Vegano', sin_gluten: 'Sin gluten',
       sin_lactosa: 'Sin lactosa', sin_carbo: 'Bajo en carbohidratos'
     };
+    const mealsPerDayLabels = { '3': '3 comidas grandes', '4': '4 comidas', '5_6': '5-6 comidas pequeñas' };
+    const cookTimeLabels = { poco: 'Poco tiempo', moderado: 'Tiempo moderado', mucho: 'Le dedico tiempo' };
+    const budgetLabels = { economico: 'Económico', medio: 'Medio', sin_restriccion: 'Sin restricciones' };
+    const cuisineLabels = {
+      italiana: 'Italiana', mexicana: 'Mexicana', asiatica: 'Asiática',
+      mediterranea: 'Mediterránea', criolla: 'Argentina/Criolla'
+    };
+    const chatStyleLabels = {
+      amigable: 'Amigable y cercano', motivador: 'Motivador y con energía',
+      tecnico: 'Técnico y directo', humor: 'Con humor y onda'
+    };
 
     const countryText = countryLabels[profile.country] || '—';
     const activityText = activityLabels[profile.activity] || '—';
@@ -314,6 +553,15 @@ const UI = {
     const allergiesText = (profile.allergies || []).join(', ') || 'Ninguna';
     const restrictionsText = (profile.restrictions || []).map(r => restrictionLabels[r] || r).join(', ') || 'Ninguna';
     const dislikesText = (profile.dislikes || []).join(', ') || 'Ninguno';
+    const mealsPerDayText = mealsPerDayLabels[profile.mealsPerDay] || '—';
+    const cookTimeText = cookTimeLabels[profile.cookTime] || '—';
+    const budgetText = budgetLabels[profile.budget] || '—';
+    const waterText = profile.waterGlasses ? `${profile.waterGlasses} vasos/día` : 'No informado';
+    const sleepText = profile.sleepHours ? `${profile.sleepHours} hs/noche` : 'No informado';
+    const cuisinesText = (profile.cuisines || []).map(c => cuisineLabels[c] || c).join(', ') || 'Sin preferencia';
+    const favoriteFoodsText = (profile.favoriteFoods || []).join(', ') || 'No informado';
+    const chatStyleText = chatStyleLabels[profile.chatStyle] || 'Amigable y cercano';
+    const chatNoteText = profile.chatCustomNote ? ` — "${profile.chatCustomNote}"` : '';
 
     prefsEl.innerHTML = `
       <b>País:</b> ${countryText} · <b>Actividad:</b> ${activityText}<br>
@@ -321,7 +569,13 @@ const UI = {
       <b>Condiciones de salud:</b> ${healthText}<br>
       <b>Alergias:</b> ${allergiesText}<br>
       <b>Restricciones:</b> ${restrictionsText}<br>
-      <b>Evita:</b> ${dislikesText}
+      <b>Evita:</b> ${dislikesText}<br>
+      <b>Comidas por día:</b> ${mealsPerDayText} · <b>Tiempo para cocinar:</b> ${cookTimeText}<br>
+      <b>Presupuesto:</b> ${budgetText}<br>
+      <b>Agua:</b> ${waterText} · <b>Sueño:</b> ${sleepText}<br>
+      <b>Cocinas favoritas:</b> ${cuisinesText}<br>
+      <b>Comidas favoritas:</b> ${favoriteFoodsText}<br>
+      <b>Estilo de chat:</b> ${chatStyleText}${chatNoteText}
     `;
   },
 
