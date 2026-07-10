@@ -422,11 +422,26 @@ window.ChatApp = {
 
   // Saca tildes y pasa a minúsculas para que el matching de palabras clave
   // sea más flexible ("qué puedo comer" == "que puedo comer").
+  // También traduce lunfardo/modismos rioplatenses (morfar, manyar, tragar, etc.)
+  // a su forma estándar ("comer") ANTES de evaluar las reglas de abajo.
   _normalize(str) {
-    return str
+    let s = str
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
+
+    const lunfardo = [
+      [/\bmorfar\b|\bmorfando\b|\bmorfe\b|\bmorfo\b/g, 'comer'],
+      [/\bmanyar\b|\bmanyando\b|\bmanye\b|\bmanyo\b/g, 'comer'],
+      [/\btragar\b|\btragando\b/g, 'comer'],
+      [/\bchapar algo\b/g, 'comer algo'],
+      [/\bque manyo\b/g, 'que como']
+    ];
+    lunfardo.forEach(([regex, replacement]) => {
+      s = s.replace(regex, replacement);
+    });
+
+    return s;
   },
 
   // Determina en qué franja horaria estamos, en base a la hora real del dispositivo.
@@ -463,14 +478,28 @@ window.ChatApp = {
     const msg = this._normalize(userMessage);
     const name = profile && profile.name ? ` ${profile.name}` : 'che';
 
+    // --- Caso especial: pregunta por el mate (antes de todo lo demás) ---
+    const hablaDeMate = /\bmate\b/.test(msg) && !msg.includes('matematica');
+    if (hablaDeMate && !msg.includes('no me gusta')) {
+      const now = new Date();
+      const horaTxt = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+      return `Son las ${horaTxt}, así que el mate pide algo dulce o tostado: bizcochitos, tostadas con manteca y mermelada, factura si estás con onda, o algo salado tipo tostadas con queso si preferís no llenarte de azúcar. Si querés algo más completo, mirá la solapa de **Inicio**, ahí tenés armado el resto del día. 🧉`;
+    }
+
     // --- "¿Qué puedo comer ahora?" tiene prioridad sobre todo lo demás ---
+    // (incluye variantes en lunfardo, ya normalizadas arriba a "comer")
     const preguntaQueComer =
       (msg.includes('que puedo comer') ||
        msg.includes('que como') ||
        msg.includes('que comer') ||
        msg.includes('tengo hambre') ||
+       msg.includes('hambre canina') ||
+       msg.includes('hambre feroz') ||
+       msg.includes('me muero de hambre') ||
        msg.includes('se me antoja') ||
-       msg.includes('que hay para comer')) &&
+       msg.includes('que hay para comer') ||
+       msg.includes('algo para comer') ||
+       msg.includes('quiero comer')) &&
       !msg.includes('no me gusta');
 
     if (preguntaQueComer) {
@@ -492,7 +521,7 @@ window.ChatApp = {
       return `Son las ${horaTxt}, así que te toca **${slot.label}**${restriccionesNote}: **${recipe.name}** (${recipe.kcal} kcal) con ${ingredientesTxt}. Está armado también en la solapa de Inicio si querés verlo con detalle. 🍽️`;
     }
 
-    if (msg.includes('hola') || msg.includes('buen')) {
+    if (msg.includes('hola') || msg.includes('buen') || msg.includes('que onda') || msg.includes('como andas') || msg.includes('todo bien')) {
       return `¡Qué hacés,${name}! Todo tranqui por acá. ¿Qué andás cocinando o qué duda tenés hoy? Mirá que no muerdo... a menos que traigas facturas de dulce de leche. 🥞`;
     }
 
@@ -514,7 +543,7 @@ window.ChatApp = {
       return "Che, si hay cosas que te dan alergia o te caen como una patada, podés resetear la app abajo de todo en tu Perfil y armamos el Onboarding de cero en dos patadas.";
     }
 
-    if (msg.includes('gracias') || msg.includes('bueno') || msg.includes('joya')) {
+    if (msg.includes('gracias') || msg.includes('bueno') || msg.includes('joya') || msg.includes('genial') || msg.includes('de diez')) {
       return `¡De nada, genio/a! Si sentís olor a quemado en la cocina, chiflá que lo resolvemos. 😎`;
     }
 
