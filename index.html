@@ -6,7 +6,7 @@
 <title>Nutrio — Tu nutricionista personal</title>
 <meta name="description" content="Tu nutricionista personal: recetas, chat con IA y carrito de compras.">
 
-<!-- Open Graph -->
+<!-- Open Graph (WhatsApp, Facebook, LinkedIn, Telegram, iMessage, etc.) -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://alkaranta-ai.github.io/Nutrio/">
 <meta property="og:title" content="Nutrio — Tu nutricionista personal">
@@ -27,6 +27,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -42,16 +43,6 @@
     --primary: #22c55e;
     --primary-dim: #f0fdf4;
     --font-sans: 'Inter', sans-serif;
-    
-    /* Colores vivos por categoría de comida */
-    --desayuno: #f59e0b;
-    --desayuno-dim: #fef3c7;
-    --almuerzo: #10b981;
-    --almuerzo-dim: #d1fae5;
-    --merienda: #ec4899;
-    --merienda-dim: #fce7f3;
-    --cena: #6366f1;
-    --cena-dim: #e0e7ff;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -66,7 +57,7 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Onboarding */
+  /* Onboarding — pantalla única, scrolleable, sin pasos */
   #onboarding {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: var(--surface); z-index: 2000;
@@ -87,6 +78,14 @@
     padding: 20px;
     margin-top: 16px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .meal-title {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
   }
 
   h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 12px; }
@@ -113,6 +112,7 @@
   }
   .chip.active { background: var(--primary-dim); border-color: var(--primary); color: var(--primary); font-weight: 600; }
 
+  .eyebrow { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); margin-bottom: 6px; }
   .field-error { display: none; color: #ef4444; font-size: 13px; font-weight: 500; margin-top: 16px; text-align: center; }
   .field-error.show { display: block; }
 
@@ -129,50 +129,39 @@
   .view { display: none; }
   .view.active { display: block; }
 
-  /* Tarjetas de comidas con Vida y Colores */
+  /* ---- Tarjetas de comidas del día (Inicio) ---- */
   .meal-card-grid { display: flex; flex-direction: column; gap: 14px; margin-top: 18px; }
-  
   .meal-card {
     background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
-    padding: 18px; display: flex; gap: 14px; align-items: center; cursor: pointer;
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01);
-    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
+    padding: 16px; display: flex; gap: 14px; align-items: flex-start; cursor: pointer;
+    border-left: 4px solid var(--accent, var(--primary));
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .meal-card:active { transform: scale(0.97); }
-  
-  /* Clases dinámicas por tipo de comida */
-  .meal-card.desayuno { border-left: 6px solid var(--desayuno); }
-  .meal-card.desayuno .meal-icon { background: var(--desayuno-dim); color: var(--desayuno); }
-  .meal-card.desayuno .meal-card-label { color: var(--desayuno); }
-
-  .meal-card.almuerzo { border-left: 6px solid var(--almuerzo); }
-  .meal-card.almuerzo .meal-icon { background: var(--almuerzo-dim); color: var(--almuerzo); }
-  .meal-card.almuerzo .meal-card-label { color: var(--almuerzo); }
-
-  .meal-card.merienda { border-left: 6px solid var(--merienda); }
-  .meal-card.merienda .meal-icon { background: var(--merienda-dim); color: var(--merienda); }
-  .meal-card.merienda .meal-card-label { color: var(--merienda); }
-
-  .meal-card.cena { border-left: 6px solid var(--cena); }
-  .meal-card.cena .meal-icon { background: var(--cena-dim); color: var(--cena); }
-  .meal-card.cena .meal-card-label { color: var(--cena); }
-
+  .meal-card:active { transform: scale(0.98); box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
   .meal-icon {
-    width: 52px; height: 52px; border-radius: 16px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; font-size: 26px;
+    width: 46px; height: 46px; border-radius: 14px; flex-shrink: 0;
+    background: var(--accent-dim, var(--primary-dim)); color: var(--accent, var(--primary));
+    display: flex; align-items: center; justify-content: center; font-size: 22px;
   }
   .meal-card-body { flex: 1; min-width: 0; }
   .meal-card-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .meal-card-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .meal-card-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent, var(--primary)); }
   .meal-card-kcal {
     font-size: 12px; font-weight: 700; color: var(--text-muted); background: var(--bg);
-    padding: 3px 10px; border-radius: 20px;
+    padding: 3px 10px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;
   }
-  .meal-card-name { font-size: 16px; font-weight: 700; color: var(--text); margin-top: 2px; }
-  .meal-card-ingredients { font-size: 13px; color: var(--text-muted); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .meal-card-hint { font-size: 12px; color: var(--text-muted); font-weight: 500; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+  .meal-card-name { font-size: 16px; font-weight: 700; color: var(--text); margin-top: 3px; }
+  .meal-card-ingredients {
+    font-size: 13px; color: var(--text-muted); margin-top: 4px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .meal-card-hint {
+    font-size: 12px; color: var(--accent, var(--primary)); font-weight: 600;
+    margin-top: 8px; display: flex; align-items: center; gap: 4px;
+  }
 
-  /* Chat Box */
+  /* Chat Box Fijo */
   .chat-scroll { height: 350px; overflow-y: auto; padding: 12px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; }
   .chat-input-bar { position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 460px; padding: 0 16px; z-index: 1001; }
   .chat-input-inner { display: flex; gap: 8px; background: var(--surface); border: 1px solid var(--border); padding: 6px; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
@@ -182,7 +171,7 @@
   /* Lista de compras */
   .cart-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 15px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
 
-  /* Dock inferior */
+  /* Dock inferior fijo */
   .dock-wrap { position: fixed; bottom: 0; left: 0; width: 100%; padding: 0 16px 16px; z-index: 1000; pointer-events: none; }
   .dock {
     display: flex; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -196,171 +185,282 @@
   .dock-item.active { color: var(--primary); }
   .dock-item svg { width: 22px; height: 22px; margin-bottom: 2px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-  /* Modal de Receta Estilo Moderno Bottom-Sheet */
+  /* Modal de receta */
   .modal-overlay {
-    position: fixed; inset: 0; background: rgba(15,23,42,0.4); z-index: 3000;
+    position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 3000;
     display: flex; align-items: flex-end; justify-content: center;
     opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
   }
   .modal-overlay.active { opacity: 1; pointer-events: auto; }
-  
   .modal-sheet {
-    background: var(--surface); width: 100%; max-width: 500px; border-radius: 24px 24px 0 0;
+    background: var(--surface); width: 100%; max-width: 500px; border-radius: 20px 20px 0 0;
     padding: 24px; max-height: 85vh; overflow-y: auto;
-    transform: translateY(40px); transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateY(24px); transition: transform 0.2s ease;
   }
   .modal-overlay.active .modal-sheet { transform: translateY(0); }
-  
-  .recipe-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-  .recipe-badge { font-size: 12px; font-weight: 700; text-transform: uppercase; padding: 6px 12px; border-radius: 20px; }
-  
+  .recipe-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .recipe-badge { font-size: 12px; font-weight: 600; color: var(--primary); background: var(--primary-dim); padding: 6px 10px; border-radius: 20px; }
   .modal-close {
-    background: var(--bg); border: none; font-size: 14px; font-weight: bold; cursor: pointer;
+    background: var(--bg); border: none; font-size: 16px; line-height: 1; cursor: pointer;
     color: var(--text-muted); width: 32px; height: 32px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   }
-  .modal-kcal-pill { display: inline-block; background: #f1f5f9; color: var(--text); font-weight: 700; font-size: 13px; padding: 6px 14px; border-radius: 20px; margin-top: 8px; }
-  .modal-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-top: 24px; margin-bottom: 10px; }
-  
-  /* Chips de ingredientes del modal */
+  .modal-kcal-pill {
+    display: inline-block; background: var(--primary-dim); color: var(--primary);
+    font-weight: 700; font-size: 13px; padding: 5px 12px; border-radius: 20px; margin-top: 6px;
+  }
+  .modal-section-title {
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-muted); margin-top: 20px; margin-bottom: 8px;
+  }
   .ingredient-chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
-  .ingredient-chip { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 8px 14px; font-size: 13px; color: var(--text); font-weight: 500; }
-  
-  /* Pasos de preparación numerados */
-  .instruction-step { display: flex; gap: 14px; margin-bottom: 14px; font-size: 14px; line-height: 1.6; }
-  .step-number { background: var(--primary); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; flex-shrink: 0; }
+  .ingredient-chip {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 7px 12px; font-size: 13px; color: var(--text);
+  }
+  .instructions-list { padding-left: 20px; }
+  .instructions-list li { margin-bottom: 12px; font-size: 14px; color: var(--text); line-height: 1.5; }
 </style>
 </head>
 <body>
 
-<!-- Sección Onboarding -->
 <div id="onboarding">
   <div class="onb-content">
+
     <div class="onb-hero">
       <h1>Hola, soy Nutrio</h1>
-      <p>Contame bien sobre vos para armar tus comidas, tu plan semanal, tu lista de compras y tu chat, todo a tu medida.</p>
+      <p>Contame bien sobre vos para armar tus comidas, tu plan semanal, tu lista de compras y tu chat, todo a tu medida. Es un formulario largo, pero cuanto más me cuentes, mejor te voy a poder ayudar.</p>
     </div>
 
-    <div class="onb-section" style="border-top:none; padding-top:0;">
+    <div class="onb-section" style="margin-top:24px; border-top:none; padding-top:0;">
       <div class="onb-section-title">Datos personales</div>
+      <p class="onb-section-desc">Con esto calculamos tu gasto energético diario.</p>
+
       <label for="fName">Nombre</label>
-      <input type="text" id="fName" placeholder="Tu nombre" value="Carlos">
+      <input type="text" id="fName" placeholder="Tu nombre">
 
       <div class="row">
         <div>
           <label for="fAge">Edad</label>
-          <input type="number" id="fAge" placeholder="Años" value="28">
+          <input type="number" id="fAge" placeholder="Años">
         </div>
         <div>
           <label for="fSex">Sexo biológico</label>
           <select id="fSex">
             <option value="femenino">Femenino</option>
-            <option value="masculino" selected>Masculino</option>
+            <option value="masculino">Masculino</option>
           </select>
         </div>
       </div>
       <div class="row">
         <div>
           <label for="fWeight">Peso (kg)</label>
-          <input type="number" id="fWeight" placeholder="Ej: 65" value="78">
+          <input type="number" id="fWeight" placeholder="Ej: 65">
         </div>
         <div>
           <label for="fHeight">Altura (cm)</label>
-          <input type="number" id="fHeight" placeholder="Ej: 165" value="176">
+          <input type="number" id="fHeight" placeholder="Ej: 165">
         </div>
       </div>
     </div>
 
     <div class="onb-section">
       <div class="onb-section-title">País y actividad</div>
+      <p class="onb-section-desc">Así te sugerimos ingredientes y recetas de tu región.</p>
+
       <label for="fCountry">País</label>
       <select id="fCountry">
-        <option value="argentina" selected>Argentina</option>
         <option value="mexico">México</option>
+        <option value="guatemala">Guatemala</option>
+        <option value="honduras">Honduras</option>
+        <option value="el_salvador">El Salvador</option>
+        <option value="nicaragua">Nicaragua</option>
+        <option value="costa_rica">Costa Rica</option>
+        <option value="panama">Panamá</option>
+        <option value="colombia">Colombia</option>
+        <option value="venezuela">Venezuela</option>
+        <option value="ecuador">Ecuador</option>
+        <option value="peru">Perú</option>
+        <option value="bolivia">Bolivia</option>
         <option value="chile">Chile</option>
+        <option value="argentina" selected>Argentina</option>
+        <option value="uruguay">Uruguay</option>
+        <option value="paraguay">Paraguay</option>
+        <option value="republica_dominicana">República Dominicana</option>
+        <option value="cuba">Cuba</option>
+        <option value="otro">Otro</option>
       </select>
 
       <label>Nivel de actividad física</label>
       <div class="chip-group" id="activityChips">
-        <div class="chip active" data-val="moderado">Moderado (3-5 días/semana)</div>
-        <div class="chip" data-val="sedentario">Sedentario</div>
+        <div class="chip" data-val="sedentario">Sedentario (poco o nada de ejercicio)</div>
+        <div class="chip" data-val="ligero">Ligero (1-3 días/semana)</div>
+        <div class="chip" data-val="moderado">Moderado (3-5 días/semana)</div>
+        <div class="chip" data-val="activo">Activo (6-7 días/semana)</div>
+        <div class="chip" data-val="muy_activo">Muy activo (trabajo físico o 2x/día)</div>
       </div>
     </div>
 
     <div class="onb-section">
       <div class="onb-section-title">Tu objetivo</div>
       <div class="chip-group" id="goalChips">
-        <div class="chip active" data-val="comer_saludable">Comer más saludable</div>
         <div class="chip" data-val="bajar_peso">Bajar de peso</div>
+        <div class="chip" data-val="mantener">Mantener mi peso</div>
+        <div class="chip" data-val="subir_peso">Subir de peso</div>
+        <div class="chip" data-val="ganar_musculo">Ganar músculo</div>
+        <div class="chip" data-val="comer_saludable">Comer más saludable</div>
       </div>
     </div>
 
     <div class="onb-section">
-      <div class="onb-section-title">Cómo te habla Nutrio</div>
-      <div class="chip-group" id="chatStyleChips">
-        <div class="chip active" data-val="amigable">Amigable y cercano</div>
+      <div class="onb-section-title">Salud</div>
+      <p class="onb-section-desc">Elegí las que apliquen, o "Ninguna" si no tenés nada de esto.</p>
+      <div class="chip-group" id="healthChips">
+        <div class="chip" data-val="colesterol_alto">Colesterol alto</div>
+        <div class="chip" data-val="hipertension">Hipertensión</div>
+        <div class="chip" data-val="diabetes">Diabetes</div>
+        <div class="chip" data-val="ninguna">Ninguna</div>
       </div>
+
+      <label for="fAllergies">Alergias alimentarias</label>
+      <input type="text" id="fAllergies" placeholder="Ej: maní, mariscos, huevo">
+      <p class="hint-text">Separalas con coma. Dejalo vacío si no tenés ninguna.</p>
     </div>
+
+    <div class="onb-section">
+      <div class="onb-section-title">Preferencias alimentarias</div>
+      <p class="onb-section-desc">Elegí todas las que apliquen, o ninguna.</p>
+      <div class="chip-group" id="restrictionChips">
+        <div class="chip" data-val="vegetariano">Vegetariano</div>
+        <div class="chip" data-val="vegano">Vegano</div>
+        <div class="chip" data-val="sin_gluten">Sin gluten</div>
+        <div class="chip" data-val="sin_lactosa">Sin lactosa</div>
+        <div class="chip" data-val="sin_carbo">Bajo en carbohidratos</div>
+      </div>
+
+      <label for="fDislikes">¿Ingredientes que no te gusten o quieras evitar?</label>
+      <input type="text" id="fDislikes" placeholder="Ej: champiñones, cilantro, hígado">
+      <p class="hint-text">Separalos con coma. Dejalo vacío si no hay ninguno.</p>
+    </div>
+
+    <div class="onb-section">
+      <div class="onb-section-title">Hábitos y rutina</div>
+      <p class="onb-section-desc">Nos ayuda a armar un plan que realmente puedas sostener.</p>
+
+      <label>¿Cuántas comidas preferís hacer al día?</label>
+      <div class="chip-group" id="mealsPerDayChips">
+        <div class="chip" data-val="3">3 comidas grandes</div>
+        <div class="chip" data-val="4">4 comidas</div>
+        <div class="chip" data-val="5_6">5-6 comidas pequeñas</div>
+      </div>
+
+      <label>¿Cuánto tiempo tenés normalmente para cocinar?</label>
+      <div class="chip-group" id="cookTimeChips">
+        <div class="chip" data-val="poco">Poco (recetas rápidas)</div>
+        <div class="chip" data-val="moderado">Tiempo moderado</div>
+        <div class="chip" data-val="mucho">Me gusta cocinar, tengo tiempo</div>
+      </div>
+
+      <label>¿Cuál es tu presupuesto para la comida?</label>
+      <div class="chip-group" id="budgetChips">
+        <div class="chip" data-val="economico">Económico</div>
+        <div class="chip" data-val="medio">Medio</div>
+        <div class="chip" data-val="sin_restriccion">Sin restricciones</div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="fWaterGlasses">Vasos de agua al día (aprox.)</label>
+          <input type="number" id="fWaterGlasses" placeholder="Ej: 6">
+        </div>
+        <div>
+          <label for="fSleepHours">Horas de sueño (aprox.)</label>
+          <input type="number" id="fSleepHours" placeholder="Ej: 7">
+        </div>
+      </div>
+      <p class="hint-text">Ambos son opcionales, pero nos ayudan a darte mejores recomendaciones.</p>
+    </div>
+
+    <div class="onb-section">
+      <div class="onb-section-title">Gustos</div>
+      <label>¿Qué tipo de cocina te gusta más?</label>
+      <div class="chip-group" id="cuisineChips">
+        <div class="chip" data-val="italiana">Italiana</div>
+        <div class="chip" data-val="mexicana">Mexicana</div>
+        <div class="chip" data-val="asiatica">Asiática</div>
+        <div class="chip" data-val="mediterranea">Mediterránea</div>
+        <div class="chip" data-val="criolla">Argentina / Criolla</div>
+        <div class="chip" data-val="sin_preferencia">Sin preferencia</div>
+      </div>
+
+      <label for="fFavoriteFoods">¿Hay comidas que te encanten y quieras que aparezcan seguido?</label>
+      <input type="text" id="fFavoriteFoods" placeholder="Ej: pollo, pastas, ensaladas">
+      <p class="hint-text">Opcional, separalas con coma.</p>
+    </div>
+
+    <div class="onb-section">
+      <div class="onb-section-title">Cómo querés que te hable Nutrio</div>
+      <p class="onb-section-desc">Elegí el estilo del chat. Lo podés cambiar después reiniciando tu perfil.</p>
+      <div class="chip-group" id="chatStyleChips">
+        <div class="chip" data-val="amigable">Amigable y cercano</div>
+        <div class="chip" data-val="motivador">Motivador y con energía</div>
+        <div class="chip" data-val="tecnico">Técnico y directo</div>
+        <div class="chip" data-val="humor">Con humor y onda</div>
+      </div>
+
+      <label for="fChatCustom">¿Algo más sobre cómo te gustaría que te hable? (opcional)</label>
+      <input type="text" id="fChatCustom" placeholder="Ej: decime 'campeón', sé breve, no uses emojis...">
+    </div>
+
+    <div class="field-error" id="onbError">Faltan campos obligatorios: nombre, edad, sexo, peso, altura, actividad y objetivo.</div>
 
     <button class="btn btn-primary" style="margin-top:26px;" onclick="Onboarding.finish()">Crear mi perfil</button>
   </div>
 </div>
 
-<!-- App Principal -->
 <div id="app">
 
-  <!-- Pestaña Chat -->
   <div class="view" id="view-chat">
     <h1>Chat Nutricional</h1>
     <p style="margin-bottom: 12px;">Tu IA de asesoría personal activa:</p>
     <div class="chat-scroll" id="chatScroll">
-      <div><span style="background:var(--border); padding:8px 12px; border-radius:12px; display:inline-block;">¡Hola! ¿En qué te ayudo con tus comidas hoy?</span></div>
+      <div style="text-align:left;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block;">¡Hola! Contame, ¿en qué puedo ayudarte con tu alimentación o tus comidas de hoy?</span></div>
     </div>
   </div>
 
-  <!-- Pestaña Inicio (MENÚ DEL DÍA INTERACTIVO) -->
-  <div class="view active" id="view-inicio">
-    <h1 id="homeGreeting">Hola Carlos</h1>
-    <p id="homeSub">Este es tu menú recomendado para hoy:</p>
+  <div class="view" id="view-inicio">
+    <h1 id="homeGreeting">Hola</h1>
+    <p id="homeSub">Este es tu menú recomendado para el día de hoy:</p>
     <div class="card" style="padding: 10px 20px;">
-      <p style="font-size:13px; font-weight:600; color:var(--text-muted);" id="kcalDisplayTarget">Meta: 2100 kcal</p>
+      <p style="font-size:13px; font-weight:600; color:var(--text-muted);" id="kcalDisplayTarget">Meta: —</p>
     </div>
-    
-    <!-- Contenedor de Tarjetas con Vida -->
-    <div class="meal-card-grid" id="dayMealsContainer"></div>
+    <div id="dayMealsContainer"></div>
   </div>
 
-  <!-- Pestaña Semana -->
   <div class="view" id="view-semana">
     <h1>Plan Semanal</h1>
     <p style="margin-bottom: 16px;">Cronograma completo de comidas para la semana:</p>
-    <div class="card">Próximamente tu calendario semanal completo.</div>
+    <div id="weeklyPlanContainer"></div>
   </div>
 
-  <!-- Pestaña Carrito -->
   <div class="view" id="view-carrito">
     <h1>Lista de Supermercado</h1>
-    <p style="margin-bottom: 16px;">Ingredientes para comprar:</p>
-    <div class="card" id="cartCard">
-      <div class="cart-item">⬜ 2 unidades de Pan Integral</div>
-      <div class="cart-item">⬜ 1 unidad de Palta Madura</div>
-      <div class="cart-item">⬜ 200g de Pechuga de Pollo</div>
-    </div>
+    <p style="margin-bottom: 16px;">Ingredientes exactos que necesitás comprar para toda la semana:</p>
+    <div class="card" id="cartCard" style="margin-top:0;"></div>
   </div>
 
-  <!-- Pestaña Perfil -->
   <div class="view" id="view-perfil">
     <h1>Mi Perfil</h1>
     <div class="card">
-      <h3 id="profileNameDisplay">Carlos</h3>
-      <p id="profileMetaDisplay">Objetivo: Comer Saludable</p>
+      <h3 id="profileNameDisplay">—</h3>
+      <p id="profileMetaDisplay">—</p>
+      <p id="profilePrefsDisplay" style="margin-top:10px; font-size:13px;">—</p>
       <button class="btn btn-glass" style="margin-top: 20px; padding: 10px; font-size:14px; color:#ef4444;" onclick="UI.resetAll()">Reiniciar Aplicación</button>
     </div>
   </div>
 
 </div>
 
-<!-- Barra de Entrada Chat Fija -->
 <div class="chat-input-bar" id="chatInputBar" style="display:none;">
   <div class="chat-input-inner">
     <input type="text" id="chatInput" placeholder="Escribí un mensaje...">
@@ -368,216 +468,40 @@
   </div>
 </div>
 
-<!-- Navegación Inferior (Dock) -->
 <div class="dock-wrap">
   <nav class="dock">
-    <button class="dock-item" id="dock-chat" onclick="UI.goto('chat')">
+    <button class="dock-item" onclick="UI.goto('chat')">
       <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       <span>Chat</span>
     </button>
-    <button class="dock-item active" id="dock-inicio" onclick="UI.goto('inicio')">
+    <button class="dock-item" onclick="UI.goto('inicio')">
       <svg viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
       <span>Inicio</span>
     </button>
-    <button class="dock-item" id="dock-semana" onclick="UI.goto('semana')">
+    <button class="dock-item" onclick="UI.goto('semana')">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       <span>Semana</span>
     </button>
-    <button class="dock-item" id="dock-carrito" onclick="UI.goto('carrito')">
+    <button class="dock-item" onclick="UI.goto('carrito')">
       <svg viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
       <span>Carrito</span>
     </button>
-    <button class="dock-item" id="dock-perfil" onclick="UI.goto('perfil')">
+    <button class="dock-item" onclick="UI.goto('perfil')">
       <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       <span>Perfil</span>
     </button>
   </nav>
 </div>
 
-<!-- Estructura del Modal para Recetas -->
 <div class="modal-overlay" id="recipeModal" onclick="UI.closeRecipeModalOnOverlay(event)">
   <div class="modal-sheet">
     <div id="recipeModalContent"></div>
   </div>
 </div>
 
-<script>
-  // Base de Datos Local de las Comidas y Preparaciones
-  const lasRecetasDeHoy = [
-    {
-      tipo: 'desayuno',
-      icon: '☕',
-      label: 'Desayuno',
-      name: 'Tostadas con Palta y Huevo',
-      kcal: '340 kcal',
-      ingredients: ['2 rodajas de pan integral', '1/2 palta pisada', '1 huevo poché', 'Semillas de sésamo'],
-      instructions: [
-        'Tostar las rodajas de pan integral hasta que queden bien crujientes.',
-        'Pisar la pulpa de la palta con unas gotas de limón, sal y pimienta a gusto.',
-        'Hacer un huevo poché en agua hirviendo con una cucharada de vinagre durante 3 minutos.',
-        'Untar la palta sobre el pan, acomodar el huevo arriba y terminar espolvoreando sésamo.'
-      ]
-    },
-    {
-      tipo: 'almuerzo',
-      icon: '🥗',
-      label: 'Almuerzo',
-      name: 'Wok de Pollo con Arroz Integral',
-      kcal: '550 kcal',
-      ingredients: ['150g de pechuga de pollo', '1 taza de arroz integral cocido', 'Zanahoria', 'Zucchini', 'Salsa de soja'],
-      instructions: [
-        'Cortar el pollo en cubos pequeños y los vegetales en bastones finos.',
-        'Calentar un wok o sartén grande con un chorrito de aceite de oliva y sellar el pollo.',
-        'Agregar los vegetales cocinando a fuego fuerte para que queden crujientes.',
-        'Incorporar el arroz integral ya cocido, rociar salsa de soja y saltear todo junto por 2 minutos.'
-      ]
-    },
-    {
-      tipo: 'merienda',
-      icon: '🍌',
-      label: 'Merienda',
-      name: 'Bowl de Yogur con Banana y Granola',
-      kcal: '290 kcal',
-      ingredients: ['200g de yogur natural entero', '1/2 banana en rodajas', '3 cucharadas de granola sin azúcar'],
-      instructions: [
-        'Volcar el yogur natural en un bowl mediano.',
-        'Cortar la banana en rodajas finas y distribuirla sobre la superficie.',
-        'Sumar las cucharadas de granola bien crocante en un lateral y servir inmediatamente.'
-      ]
-    },
-    {
-      tipo: 'cena',
-      icon: '🐟',
-      label: 'Cena',
-      name: 'Filete de Merluza con Calabaza al Horno',
-      kcal: '420 kcal',
-      ingredients: ['1 filete fresco de merluza', '250g de calabaza en cubos', 'Orégano', 'Limón'],
-      instructions: [
-        'Precalentar el horno a 180°C.',
-        'Colocar la calabaza en una placa con un toque de aceite, sal y orégano. Llevar al horno por 15 minutos.',
-        'Condimentar el pescado con jugo de limón y sumarlo a la placa junto a las calabazas.',
-        'Hornear todo junto por 12 minutos más hasta que la merluza esté bien cocida y blanca.'
-      ]
-    }
-  ];
-
-  // Controladores de Vistas y Flujo de la App
-  const Onboarding = {
-    finish: function() {
-      document.getElementById('onboarding').style.display = 'none';
-      document.getElementById('app').style.display = 'block';
-      UI.renderInicio();
-    }
-  };
-
-  const UI = {
-    goto: function(viewId) {
-      // Ocultar todas las pestañas
-      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-      document.querySelectorAll('.dock-item').forEach(d => d.classList.remove('active'));
-      
-      // Activar pestaña elegida
-      document.getElementById(`view-${viewId}`).classList.add('active');
-      document.getElementById(`dock-${viewId}`).classList.add('active');
-      
-      // Mostrar u ocultar input flotante del chat
-      document.getElementById('chatInputBar').style.display = (viewId === 'chat') ? 'block' : 'none';
-    },
-
-    renderInicio: function() {
-      const container = document.getElementById('dayMealsContainer');
-      container.innerHTML = '';
-
-      lasRecetasDeHoy.forEach(receta => {
-        const card = document.createElement('div');
-        card.className = `meal-card ${receta.tipo}`;
-        
-        // Al hacer click abrimos el modal pasándole el objeto de la receta
-        card.onclick = () => UI.openRecipeModal(receta);
-
-        card.innerHTML = `
-          <div class="meal-icon">${receta.icon}</div>
-          <div class="meal-card-body">
-            <div class="meal-card-top">
-              <span class="meal-card-label">${receta.label}</span>
-              <span class="meal-card-kcal">${receta.kcal}</span>
-            </div>
-            <div class="meal-card-name">${receta.name}</div>
-            <div class="meal-card-ingredients">${receta.ingredients.join(', ')}</div>
-            <div class="meal-card-hint">✨ Toca para ver la preparación paso a paso</div>
-          </div>
-        `;
-        container.appendChild(card);
-      });
-    },
-
-    openRecipeModal: function(receta) {
-      const overlay = document.getElementById('recipeModal');
-      const content = document.getElementById('recipeModalContent');
-
-      const chipsHtml = receta.ingredients.map(i => `<span class="ingredient-chip">${i}</span>`).join('');
-      const pasosHtml = receta.instructions.map((p, index) => `
-        <div class="instruction-step">
-          <div class="step-number">${index + 1}</div>
-          <div>${p}</div>
-        </div>
-      `).join('');
-
-      content.innerHTML = `
-        <div class="recipe-modal-header">
-          <span class="recipe-badge" style="background: var(--${receta.tipo}-dim); color: var(--${receta.tipo});">
-            ${receta.icon} ${receta.label}
-          </span>
-          <button class="modal-close" onclick="UI.closeRecipeModal()">✕</button>
-        </div>
-        <h2 style="font-size:22px; font-weight:700; margin-bottom:4px;">${receta.name}</h2>
-        <span class="modal-kcal-pill">${receta.kcal}</span>
-
-        <div class="modal-section-title">Ingredientes necesarios</div>
-        <div class="ingredient-chip-list">
-          ${chipsHtml}
-        </div>
-
-        <div class="modal-section-title">Preparación paso a paso</div>
-        <div style="margin-top:8px;">
-          ${pasosHtml}
-        </div>
-      `;
-
-      overlay.classList.add('active');
-    },
-
-    closeRecipeModal: function() {
-      document.getElementById('recipeModal').classList.remove('active');
-    },
-
-    closeRecipeModalOnOverlay: function(e) {
-      if (e.target.id === 'recipeModal') UI.closeRecipeModal();
-    },
-
-    sendChat: function() {
-      const input = document.getElementById('chatInput');
-      if (!input.value.trim()) return;
-      
-      const scroll = document.getElementById('chatScroll');
-      scroll.innerHTML += `<div style="text-align:right; margin-top:8px;"><span style="background:var(--primary-dim); color:var(--primary); padding:8px 12px; border-radius:12px; display:inline-block; font-weight:500;">${input.value}</span></div>`;
-      input.value = '';
-      scroll.scrollTop = scroll.scrollHeight;
-    },
-
-    resetAll: function() {
-      document.getElementById('onboarding').style.display = 'block';
-      document.getElementById('app').style.display = 'none';
-    }
-  };
-
-  // Manejo básico de clicks en chips estáticos del onboarding
-  document.querySelectorAll('.chip-group .chip').forEach(chip => {
-    chip.addEventListener('click', function() {
-      this.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-      this.classList.add('active');
-    });
-  });
-</script>
+<script src="js/data.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/chat.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>
