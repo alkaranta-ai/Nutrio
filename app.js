@@ -1,24 +1,20 @@
-// ARMADO DE PERFIL — pantalla única, sin pasos.
-// Antes el formulario estaba dividido en varios "onb-step" y se trababa en el
-// paso de restricciones porque faltaba una función. Ahora todo el perfil se
-// completa y se valida en una sola pantalla con Onboarding.finish().
-//
-// RECIPES_DB vive en js/data.js (se carga antes que este archivo).
+// ==========================================================================
+// NUTRIO - ARCHIVO PRINCIPAL DE APLICACIÓN (js/app.js)
+// ==========================================================================
 
 const Onboarding = {
-  // Selecciones de chips en memoria (agregados los grupos que faltaban para que no se congele)
+  // Selecciones de chips en memoria
   selected: {
     activity: null,
     goal: null,
     health: [],
-    restrictions: [],
-    chatStyle: 'humor' // Por defecto seteamos humor con onda
+    restrictions: []
   },
 
-  // Un chip por grupo (actividad, objetivo, estilo de chat): al tocarlo se desactivan los demás.
+  // Un chip por grupo (actividad, objetivo): al tocarlo se desactivan los demás.
   _bindSingleSelect(groupId, stateKey) {
     const group = document.getElementById(groupId);
-    if (!group) return;
+    if (!group) return; 
     group.addEventListener('click', (e) => {
       const chip = e.target.closest('.chip');
       if (!chip) return;
@@ -31,7 +27,7 @@ const Onboarding = {
   // Varios chips por grupo (salud, restricciones): se pueden marcar varios a la vez.
   _bindMultiSelect(groupId, stateKey) {
     const group = document.getElementById(groupId);
-    if (!group) return;
+    if (!group) return; 
     group.addEventListener('click', (e) => {
       const chip = e.target.closest('.chip');
       if (!chip) return;
@@ -64,7 +60,6 @@ const Onboarding = {
     this._bindSingleSelect('goalChips', 'goal');
     this._bindMultiSelect('healthChips', 'health');
     this._bindMultiSelect('restrictionChips', 'restrictions');
-    this._bindSingleSelect('chatStyleChips', 'chatStyle'); // Vincula dinámicamente si existe el elemento en el HTML
   },
 
   finish() {
@@ -83,18 +78,18 @@ const Onboarding = {
       Number(age) <= 0 || Number(weight) <= 0 || Number(height) <= 0;
 
     if (missingRequired || invalidNumbers) {
-      errorBox.classList.add('show');
-      errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (errorBox) {
+        errorBox.classList.add('show');
+        errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        alert("Por favor, completa todos los campos obligatorios y selecciona tu actividad y objetivo.");
+      }
       return;
     }
-    errorBox.classList.remove('show');
+    if (errorBox) errorBox.classList.remove('show');
 
     const allergiesRaw = document.getElementById('fAllergies').value.trim();
     const dislikesRaw = document.getElementById('fDislikes').value.trim();
-
-    // Capturamos de forma segura si tenés el selector en el HTML
-    const chatStyleInput = document.getElementById('fChatStyle');
-    if (chatStyleInput) this.selected.chatStyle = chatStyleInput.value;
 
     const profile = {
       name,
@@ -108,8 +103,7 @@ const Onboarding = {
       healthConditions: this.selected.health.filter(v => v !== 'ninguna'),
       allergies: allergiesRaw ? allergiesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
       restrictions: this.selected.restrictions,
-      dislikes: dislikesRaw ? dislikesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
-      chatStyle: this.selected.chatStyle || 'humor'
+      dislikes: dislikesRaw ? dislikesRaw.split(',').map(s => s.trim()).filter(Boolean) : []
     };
 
     profile.targetKcal = this._calculateTargetKcal(profile);
@@ -144,21 +138,25 @@ const Onboarding = {
 
   autoGenerateCart() {
     let itemsSet = new Set();
-    RECIPES_DB.forEach(r => {
-      if (r.category === 'antojo') return;
-      r.ingredients.forEach(ing => itemsSet.add(ing));
-    });
+    if (typeof RECIPES_DB !== 'undefined') {
+      RECIPES_DB.forEach(r => {
+        if (r.category === 'antojo') return;
+        r.ingredients.forEach(ing => itemsSet.add(ing));
+      });
+    }
     StorageApp.saveCart(Array.from(itemsSet));
   }
 };
 
 const UI = {
   init() {
+    // IMPORTANTE: Primero le damos vida a las escuchas de los chips pase lo que pase
+    Onboarding.bindAllChips();
+
     const profile = StorageApp.getProfile();
     if (!profile) {
       document.getElementById('onboarding').style.display = 'block';
       document.getElementById('app').style.display = 'none';
-      Onboarding.bindAllChips();
       return;
     }
 
@@ -184,12 +182,13 @@ const UI = {
     const buttons = document.querySelectorAll('.dock-item');
     if (buttons[idx]) buttons[idx].classList.add('active');
 
-    document.getElementById('chatInputBar').style.display = viewName === 'chat' ? 'block' : 'none';
+    const inputBar = document.getElementById('chatInputBar');
+    if (inputBar) inputBar.style.display = viewName === 'chat' ? 'block' : 'none';
   },
 
   renderHome() {
     const profile = StorageApp.getProfile();
-    if (!profile) return;
+    if (!profile || typeof RECIPES_DB === 'undefined') return;
     document.getElementById('homeGreeting').innerText = `¡Hola, ${profile.name}!`;
     document.getElementById('kcalDisplayTarget').innerText = `Tu requerimiento diario: ${profile.targetKcal} kcal / Objetivo Activo.`;
 
@@ -204,17 +203,17 @@ const UI = {
 
     container.innerHTML = `
       <div class="card">
-        <div class="meal-slot"><div class="meal-title">Desayuno</div><h3>${breakfast.name}</h3><p style="font-size:13px; color:var(--text-muted);">${breakfast.kcal} kcal • ${breakfast.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Almuerzo</div><h3>${lunch.name}</h3><p style="font-size:13px; color:var(--text-muted);">${lunch.kcal} kcal • ${lunch.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Merienda</div><h3>${snack.name}</h3><p style="font-size:13px; color:var(--text-muted);">${snack.kcal} kcal • ${snack.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Cena</div><h3>${dinner.name}</h3><p style="font-size:13px; color:var(--text-muted);">${dinner.kcal} kcal • ${dinner.ingredients.join(', ')}</p></div>
+        <div class="meal-slot"><div class="meal-title">Desayuno</div><h3>${breakfast?.name || 'Desayuno Saludable'}</h3><p style="font-size:13px; color:var(--text-muted);">${breakfast?.kcal || 350} kcal • ${breakfast?.ingredients.join(', ') || ''}</p></div>
+        <div class="meal-slot"><div class="meal-title">Almuerzo</div><h3>${lunch?.name || 'Almuerzo Balanced'}</h3><p style="font-size:13px; color:var(--text-muted);">${lunch?.kcal || 600} kcal • ${lunch?.ingredients.join(', ') || ''}</p></div>
+        <div class="meal-slot"><div class="meal-title">Merienda</div><h3>${snack?.name || 'Merienda Ligera'}</h3><p style="font-size:13px; color:var(--text-muted);">${snack?.kcal || 200} kcal • ${snack?.ingredients.join(', ') || ''}</p></div>
+        <div class="meal-slot"><div class="meal-title">Cena</div><h3>${dinner?.name || 'Cena Nutritiva'}</h3><p style="font-size:13px; color:var(--text-muted);">${dinner?.kcal || 500} kcal • ${dinner?.ingredients.join(', ') || ''}</p></div>
       </div>
     `;
   },
 
   renderWeeklyPlan() {
     const container = document.getElementById('weeklyPlanContainer');
-    if (!container) return;
+    if (!container || typeof RECIPES_DB === 'undefined') return;
 
     const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
@@ -224,14 +223,13 @@ const UI = {
       return `
         <div class="card" style="margin-bottom:12px;">
           <h3 style="color:var(--primary); margin-bottom:6px;">${day}</h3>
-          <p style="font-size:14px; color:var(--text);"><b>Almuerzo:</b> ${mainPlate.name} (${mainPlate.kcal} kcal)</p>
-          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Cena:</b> ${dinnerPlate.name} (${dinnerPlate.kcal} kcal)</p>
+          <p style="font-size:14px; color:var(--text);"><b>Almuerzo:</b> ${mainPlate?.name || 'Plato Principal'} (${mainPlate?.kcal || 550} kcal)</p>
+          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Cena:</b> ${dinnerPlate?.name || 'Plato Cena'} (${dinnerPlate?.kcal || 450} kcal)</p>
         </div>
       `;
     }).join('');
   },
 
-  // FIX SÚPER: Independiente del array principal del carrito. Los checks no rompen nada.
   renderCart() {
     const cart = StorageApp.getCart();
     const container = document.getElementById('cartCard');
@@ -264,7 +262,6 @@ const UI = {
       </button>
     </div>`;
 
-    // Renderizamos el Historial abajo en el mismo contenedor
     let historial = JSON.parse(localStorage.getItem('nutrio_history')) || [];
     html += `<div style="margin-top:25px; border-top:1px dashed #ccc; padding-top:15px;">
               <h4 style="margin-bottom:10px; color:var(--text);">🗃️ Carrito e Historial de Compras</h4>`;
@@ -311,7 +308,6 @@ const UI = {
     historial.unshift({ date: hoyKey, items: [...tildadosHoy] });
     localStorage.setItem('nutrio_history', JSON.stringify(historial));
     
-    // Destildamos la lista de hoy limpiando la cache del check temporal
     localStorage.removeItem(`nutrio_checked_${hoyKey}`);
     alert("¡Espectacular! Guardado en tu historial. Los artículos se destildaron para que la lista te quede limpia.");
     this.renderCart();
@@ -374,15 +370,19 @@ const UI = {
     const msg = input.value.trim();
 
     const scroll = document.getElementById('chatScroll');
-    scroll.innerHTML += `<div style="text-align:right; margin-bottom:10px;"><span style="background:var(--primary-dim); color:var(--primary); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${msg}</span></div>`;
+    if (scroll) {
+      scroll.innerHTML += `<div style="text-align:right; margin-bottom:10px;"><span style="background:var(--primary-dim); color:var(--primary); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${msg}</span></div>`;
+    }
 
     input.value = '';
 
     setTimeout(() => {
       const profile = StorageApp.getProfile();
       const response = ChatApp.getBotResponse(msg, profile);
-      scroll.innerHTML += `<div style="text-align:left; margin-bottom:10px;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${response}</span></div>`;
-      scroll.scrollTop = scroll.scrollHeight;
+      if (scroll) {
+        scroll.innerHTML += `<div style="text-align:left; margin-bottom:10px;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${response}</span></div>`;
+        scroll.scrollTop = scroll.scrollHeight;
+      }
     }, 400);
   },
 
@@ -392,10 +392,10 @@ const UI = {
   }
 };
 
-// ==========================================
-// MÓDULO DE CHAT - RECALIBRADO AMIGABLE CON HUMOR
-// ==========================================
-const ChatApp = {
+// ==========================================================================
+// MÓDULO DE CHAT (única declaración global, sin duplicados)
+// ==========================================================================
+window.ChatApp = {
   getBotResponse(userMessage, profile) {
     const msg = userMessage.toLowerCase();
     const name = profile && profile.name ? ` ${profile.name}` : 'che';
