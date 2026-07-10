@@ -321,7 +321,9 @@ const UI = {
     this._weekDays = days;
     this._weekData = days.map((day, idx) => ({
       day,
+      breakfast: RECIPES_DB[0 + (idx % 2)],
       lunch: RECIPES_DB[2 + (idx % 2)],
+      snack: RECIPES_DB[4 + (idx % 2)],
       dinner: RECIPES_DB[6 + (idx % 2)]
     }));
 
@@ -357,7 +359,9 @@ const UI = {
     const container = document.getElementById('weeklyPlanContainer');
     if (!container) return;
     container.innerHTML =
+      this._buildMealCardHTML(`week-${idx}-desayuno`, 'desayuno', data.breakfast) +
       this._buildMealCardHTML(`week-${idx}-almuerzo`, 'almuerzo', data.lunch) +
+      this._buildMealCardHTML(`week-${idx}-merienda`, 'merienda', data.snack) +
       this._buildMealCardHTML(`week-${idx}-cena`, 'cena', data.dinner);
   },
 
