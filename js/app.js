@@ -1,9 +1,6 @@
-// ARMADO DE PERFIL — pantalla única, sin pasos.
-// Antes el formulario estaba dividido en varios "onb-step" y se trababa en el
-// paso de restricciones porque faltaba una función. Ahora todo el perfil se
-// completa y se valida en una sola pantalla con Onboarding.finish().
-//
-// RECIPES_DB vive en js/data.js (se carga antes que este archivo).
+// ==========================================================================
+// NUTRIO - ARCHIVO PRINCIPAL DE APLICACIÓN (js/app.js)
+// ==========================================================================
 
 const Onboarding = {
   // Selecciones de chips en memoria
@@ -17,7 +14,7 @@ const Onboarding = {
   // Un chip por grupo (actividad, objetivo): al tocarlo se desactivan los demás.
   _bindSingleSelect(groupId, stateKey) {
     const group = document.getElementById(groupId);
-    if (!group) return; // Si no existe en el HTML, lo ignora de forma segura
+    if (!group) return; 
     group.addEventListener('click', (e) => {
       const chip = e.target.closest('.chip');
       if (!chip) return;
@@ -30,7 +27,7 @@ const Onboarding = {
   // Varios chips por grupo (salud, restricciones): se pueden marcar varios a la vez.
   _bindMultiSelect(groupId, stateKey) {
     const group = document.getElementById(groupId);
-    if (!group) return; // Si no existe en el HTML, lo ignora de forma segura
+    if (!group) return; 
     group.addEventListener('click', (e) => {
       const chip = e.target.closest('.chip');
       if (!chip) return;
@@ -59,7 +56,6 @@ const Onboarding = {
   },
 
   bindAllChips() {
-    // Vinculamos de forma segura cada grupo de tu HTML
     this._bindSingleSelect('activityChips', 'activity');
     this._bindSingleSelect('goalChips', 'goal');
     this._bindMultiSelect('healthChips', 'health');
@@ -154,7 +150,7 @@ const Onboarding = {
 
 const UI = {
   init() {
-    // IMPORTANTE: Primero le damos vida a los chips pase lo que pase
+    // IMPORTANTE: Primero le damos vida a las escuchas de los chips pase lo que pase
     Onboarding.bindAllChips();
 
     const profile = StorageApp.getProfile();
@@ -396,10 +392,10 @@ const UI = {
   }
 };
 
-// ==========================================
-// MÓDULO DE CHAT - RECALIBRADO AMIGABLE CON HUMOR
-// ==========================================
-const ChatApp = {
+// ==========================================================================
+// MÓDULO DE CHAT - RESPALDO ANTIDUPLICADOS CON WINDOW/VAR
+// ==========================================================================
+window.ChatApp = {
   getBotResponse(userMessage, profile) {
     const msg = userMessage.toLowerCase();
     const name = profile && profile.name ? ` ${profile.name}` : 'che';
@@ -433,5 +429,8 @@ const ChatApp = {
     return `Mirá, me mataste con esa pregunta, pero te lo resumo al estilo NutriO: seguí metiéndole pilas, no te tientes con el delivery de hamburguesas y consultame lo que quieras. 😉`;
   }
 };
+
+// Vinculamos para que si UI.js u otra función busca ChatApp sin window, no falle
+var ChatApp = window.ChatApp;
 
 window.addEventListener('DOMContentLoaded', () => { UI.init(); });
