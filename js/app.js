@@ -1,10 +1,6 @@
 // ARMADO DE PERFIL — pantalla única, sin pasos.
-//
 // El formulario se completa y se valida en una sola pantalla con Onboarding.finish().
-// RECIPES_DB, CATEGORY_META y MealEngine viven en js/data.js (se carga antes que este archivo).
 
-// Colores de acento por categoría, para darle vida visual a las tarjetas de
-// Inicio y al modal de receta. Es solo presentación, no toca data.js.
 const CATEGORY_ACCENTS = {
   desayuno: { color: '#f59e0b', dim: '#fff7ed' },
   almuerzo: { color: '#22c55e', dim: '#f0fdf4' },
@@ -12,6 +8,46 @@ const CATEGORY_ACCENTS = {
   cena: { color: '#6366f1', dim: '#eef2ff' }
 };
 
+// ==========================================
+// MÓDULO DE EMULACIÓN DE CHAT ADAPTATIVO
+// ==========================================
+const ChatApp = {
+  getGreeting(profile) {
+    if (profile.chatStyle === 'humor' || profile.chatStyle === 'amigable') {
+      return `¡Buenas, ${profile.name}! Acá está tu asistente personal. Vi que tu meta son ${profile.targetKcal} kcal para <b>${profile.goals[0].replace('_', ' ')}</b>. Decime, ¿qué cocinamos hoy o qué duda tenés? (Prometo no juzgar si metés un permitido 😉).`;
+    }
+    return `Hola ${profile.name}. Tu plan de ${profile.targetKcal} kcal diarias está activo. ¿En qué puedo ayudarte?`;
+  },
+
+  getBotResponse(msg, profile) {
+    const text = msg.toLowerCase();
+    const style = profile.chatStyle || 'amigable';
+    
+    // Si el usuario quiere humor / amigable
+    if (style === 'humor' || style === 'amigable') {
+      if (text.includes('hola') || text.includes('buenas')) {
+        return `¡Qué hacés, che! Todo tranqui por acá. ¿Qué sale hoy? ¿Cocinamos algo rico o venís a controlarme las kcal? 🍳`;
+      }
+      if (text.includes('hambre') || text.includes('permitido') || text.includes('antojo')) {
+        return `Ufff, te entiendo tanto. El hambre es miembro honorario de este chat. Si vas a clavar permitido, que sea con orgullo. Si no, metele a un snack de los que te sugerí en la pestaña de meriendas, ¡no me hagas trampa! 🍫✨`;
+      }
+      if (text.includes('reemplazo') || text.includes('cambiar') || text.includes('no tengo')) {
+        return `¡Ningún drama! Si te falta ese ingrediente, vamo' a lo práctico: cambialo por lo que tengas en la heladera que sea parecido. Si era pollo, mandale carne o huevo. Tampoco nos vamos a poner en modo chef de TV, acá se resuelve fácil. 💡`;
+      }
+      if (text.includes('gracias') || text.includes('bueno')) {
+        return `¡De nada, genio/a! Para eso estoy. Cualquier cosa que huela a quemado en la cocina, me chiflás. ¡Abrazo! 💪`;
+      }
+      return `Mirá, me mataste con esa pregunta, pero te lo resumo al estilo NutriO: seguí metiéndole ganas a tu meta de ${profile.targetKcal} kcal y no te obsesiones tanto. ¿Querés que busquemos otra receta o preferís charlar de otra cosa?`;
+    }
+
+    // Respuesta por defecto (Técnico / Directo)
+    return `Entendido. Con base en tu perfil enfocado en "${profile.goals[0]}", te recomiendo ajustar las porciones según los macros calculados (${profile.targetKcal} kcal). ¿Deseas sustitutos específicos para algún ingrediente?`;
+  }
+};
+
+// ==========================================
+// MÓDULO PRINCIPAL DE LA INTERFAZ (UI)
+// ==========================================
 const Onboarding = {
   selected: {
     activity: null,
@@ -89,11 +125,8 @@ const Onboarding = {
     const sex = document.getElementById('fSex').value;
     const country = document.getElementById('fCountry').value;
 
-    const missingRequired =
-      !name || !age || !weight || !height ||
-      !this.selected.activity || !this.selected.goal;
-    const invalidNumbers =
-      Number(age) <= 0 || Number(weight) <= 0 || Number(height) <= 0;
+    const missingRequired = !name || !age || !weight || !height || !this.selected.activity || !this.selected.goal;
+    const invalidNumbers = Number(age) <= 0 || Number(weight) <= 0 || Number(height) <= 0;
 
     if (missingRequired || invalidNumbers) {
       errorBox.classList.add('show');
@@ -101,13 +134,6 @@ const Onboarding = {
       return;
     }
     errorBox.classList.remove('show');
-
-    const allergiesRaw = document.getElementById('fAllergies').value.trim();
-    const dislikesRaw = document.getElementById('fDislikes').value.trim();
-    const favoriteFoodsRaw = document.getElementById('fFavoriteFoods').value.trim();
-    const chatCustomRaw = document.getElementById('fChatCustom').value.trim();
-    const waterVal = document.getElementById('fWaterGlasses').value;
-    const sleepVal = document.getElementById('fSleepHours').value;
 
     const profile = {
       name,
@@ -119,56 +145,34 @@ const Onboarding = {
       activity: this.selected.activity,
       goals: [this.selected.goal],
       healthConditions: this.selected.health.filter(v => v !== 'ninguna'),
-      allergies: allergiesRaw ? allergiesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+      allergies: document.getElementById('fAllergies').value.trim() ? document.getElementById('fAllergies').value.split(',').map(s => s.trim()) : [],
       restrictions: this.selected.restrictions,
-      dislikes: dislikesRaw ? dislikesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
-
-      // Hábitos y rutina
+      dislikes: document.getElementById('fDislikes').value.trim() ? document.getElementById('fDislikes').value.split(',').map(s => s.trim()) : [],
       mealsPerDay: this.selected.mealsPerDay || '3',
       cookTime: this.selected.cookTime || 'moderado',
       budget: this.selected.budget || 'medio',
-      waterGlasses: waterVal ? parseInt(waterVal, 10) : null,
-      sleepHours: sleepVal ? parseFloat(sleepVal) : null,
-
-      // Gustos
+      waterGlasses: parseInt(document.getElementById('fWaterGlasses').value, 10) || null,
+      sleepHours: parseFloat(document.getElementById('fSleepHours').value) || null,
       cuisines: this.selected.cuisines.filter(v => v !== 'sin_preferencia'),
-      favoriteFoods: favoriteFoodsRaw ? favoriteFoodsRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
-
-      // Estilo del chat
+      favoriteFoods: document.getElementById('fFavoriteFoods').value.trim() ? document.getElementById('fFavoriteFoods').value.split(',').map(s => s.trim()) : [],
       chatStyle: this.selected.chatStyle || 'amigable',
-      chatCustomNote: chatCustomRaw || ''
+      chatCustomNote: document.getElementById('fChatCustom').value.trim() || ''
     };
 
     profile.targetKcal = this._calculateTargetKcal(profile);
-
     StorageApp.saveProfile(profile);
     UI.regenerateCartForWeek();
     UI.init();
   },
 
-  // Fórmula de Mifflin-St Jeor + factor de actividad + ajuste según objetivo.
   _calculateTargetKcal(profile) {
     let tmb = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age;
     tmb = profile.sex === 'masculino' ? tmb + 5 : tmb - 161;
-
-    const activityFactors = {
-      sedentario: 1.2,
-      ligero: 1.375,
-      moderado: 1.55,
-      activo: 1.725,
-      muy_activo: 1.9
-    };
-    const factor = activityFactors[profile.activity] || 1.2;
-
-    let targetKcal = Math.round(tmb * factor);
-
-    const goal = profile.goals[0];
-    if (goal === 'bajar_peso') targetKcal -= 400;
-    if (goal === 'subir_peso') targetKcal += 400;
-    if (goal === 'ganar_musculo') targetKcal += 300;
-    // 'mantener' y 'comer_saludable' no ajustan las kcal base.
-
-    return targetKcal;
+    const factors = { sedentario: 1.2, ligero: 1.375, moderado: 1.55, activo: 1.725, muy_activo: 1.9 };
+    let target = Math.round(tmb * (factors[profile.activity] || 1.2));
+    if (profile.goals[0] === 'bajar_peso') target -= 400;
+    if (profile.goals[0] === 'subir_peso') target += 400;
+    return target;
   }
 };
 
@@ -190,38 +194,28 @@ const UI = {
     this.renderCart();
     this.renderProfile();
     this.renderChatGreeting(profile);
-    this.goto('chat'); // Abre el chat primero
+    this.goto('chat');
   },
 
   goto(viewName) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.dock-item').forEach(b => b.classList.remove('active'));
-
-    const targetView = document.getElementById(`view-${viewName}`);
-    if (targetView) targetView.classList.add('active');
-
+    const target = document.getElementById(`view-${viewName}`);
+    if (target) target.classList.add('active');
+    
     const viewsOrder = ['chat', 'inicio', 'semana', 'carrito', 'perfil'];
     const idx = viewsOrder.indexOf(viewName);
-    const buttons = document.querySelectorAll('.dock-item');
-    if (buttons[idx]) buttons[idx].classList.add('active');
-
+    if (document.querySelectorAll('.dock-item')[idx]) {
+      document.querySelectorAll('.dock-item')[idx].classList.add('active');
+    }
     document.getElementById('chatInputBar').style.display = viewName === 'chat' ? 'block' : 'none';
   },
 
-  // Primer mensaje del chat, adaptado al estilo elegido por el usuario en el onboarding.
-  renderChatGreeting(profile) {
-    const scroll = document.getElementById('chatScroll');
-    if (!scroll || !profile) return;
-    const greeting = ChatApp.getGreeting(profile);
-    scroll.innerHTML = `<div style="text-align:left;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block;">${greeting}</span></div>`;
-  },
-
-  // Comidas de HOY, resueltas por MealEngine contra el perfil
   renderHome() {
     const profile = StorageApp.getProfile();
     if (!profile) return;
     document.getElementById('homeGreeting').innerText = `¡Hola, ${profile.name}!`;
-    document.getElementById('kcalDisplayTarget').innerText = `Tu requerimiento diario: ${profile.targetKcal} kcal / Objetivo Activo.`;
+    document.getElementById('kcalDisplayTarget').innerText = `Tu requerimiento diario: ${profile.targetKcal} kcal.`;
 
     const container = document.getElementById('dayMealsContainer');
     if (!container) return;
@@ -233,293 +227,159 @@ const UI = {
       { slot: 'meriendas', label: 'Merienda', recipe: MealEngine.getMealForDate('meriendas', profile, today) },
       { slot: 'cena', label: 'Cena', recipe: MealEngine.getMealForDate('cena', profile, today) }
     ];
-
     container.innerHTML = `<div class="meal-card-grid">${meals.map(m => this._renderMealCard(m)).join('')}</div>`;
   },
 
   _renderMealCard({ slot, label, recipe }) {
     const accent = CATEGORY_ACCENTS[slot] || CATEGORY_ACCENTS.almuerzo;
-    const icon = (CATEGORY_META[slot] && CATEGORY_META[slot].icon) || '🍽️';
-    const preview = recipe.ingredients.slice(0, 3).join(', ') + (recipe.ingredients.length > 3 ? '…' : '');
-
     return `
       <div class="meal-card" style="--accent:${accent.color}; --accent-dim:${accent.dim};" onclick="UI.openRecipeModal('${recipe.id}')">
-        <div class="meal-icon">${icon}</div>
+        <div class="meal-icon">${CATEGORY_META[slot]?.icon || '🍽️'}</div>
         <div class="meal-card-body">
           <div class="meal-card-top">
             <span class="meal-card-label">${label}</span>
             <span class="meal-card-kcal">${recipe.kcal} kcal</span>
           </div>
           <div class="meal-card-name">${recipe.name}</div>
-          <div class="meal-card-ingredients">${preview}</div>
-          <div class="meal-card-hint">Toca para ver la receta completa →</div>
+          <div class="meal-card-hint">Toca para ver receta →</div>
         </div>
       </div>
     `;
   },
 
-  // Abre el modal flotante con ingredientes (como chips) y preparación paso a paso.
   openRecipeModal(recipeId) {
     const recipe = RECIPES_DB.find(r => r.id === recipeId);
     if (!recipe) return;
-    const meta = CATEGORY_META[recipe.category] || {};
-
-    const content = document.getElementById('recipeModalContent');
-    content.innerHTML = `
-      <div class="recipe-modal-header">
-        <span class="recipe-badge">${meta.icon || ''} ${meta.label || recipe.category}</span>
-        <button class="modal-close" onclick="UI.closeRecipeModal()">✕</button>
-      </div>
-      <h2>${recipe.name}</h2>
-      <span class="modal-kcal-pill">${recipe.kcal} kcal</span>
-      ${recipe.country && recipe.country !== 'General'
-        ? `<span class="modal-kcal-pill" style="margin-left:8px; background:var(--bg); color:var(--text-muted);">${recipe.country}</span>`
-        : ''}
-
-      <div class="modal-section-title">Ingredientes</div>
-      <div class="ingredient-chip-list">
-        ${recipe.ingredients.map(ing => `<span class="ingredient-chip">${ing}</span>`).join('')}
-      </div>
-
-      <div class="modal-section-title">Preparación</div>
-      <ol class="instructions-list">
-        ${recipe.instructions && recipe.instructions.length 
-          ? recipe.instructions.map(step => `<li>${step}</li>`).join('') 
-          : `<li>Picar los ingredientes y cocinar a fuego moderado hasta su punto óptimo.</li>`}
-      </ol>
+    document.getElementById('recipeModalContent').innerHTML = `
+      <div class="recipe-modal-header"><h2>${recipe.name}</h2><button class="modal-close" onclick="UI.closeRecipeModal()">✕</button></div>
+      <p><b>Ingredientes:</b></p><ul>${recipe.ingredients.map(i => `<li>${i}</li>`).join('')}</ul>
     `;
-
     document.getElementById('recipeModal').classList.add('active');
-    document.body.style.overflow = 'hidden';
   },
 
-  closeRecipeModal() {
-    document.getElementById('recipeModal').classList.remove('active');
-    document.body.style.overflow = '';
-  },
+  closeRecipeModal() { document.getElementById('recipeModal').classList.remove('active'); },
 
-  closeRecipeModalOnOverlay(event) {
-    if (event.target && event.target.id === 'recipeModal') this.closeRecipeModal();
-  },
-
-  // MEJORA: Próximos 7 días ahora con tarjetas interactivas vinculadas al modal nativo.
   renderWeeklyPlan() {
     const container = document.getElementById('weeklyPlanContainer');
     if (!container) return;
-
     const profile = StorageApp.getProfile();
-    if (!profile) return;
-
-    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     const plan = MealEngine.getPlanForDays(profile, new Date(), 7);
+    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
-    container.innerHTML = plan.map(({ date, meals }) => {
-      const dayLabel = dayNames[date.getDay()];
-      return `
-        <div class="card" style="margin-bottom:16px; padding:16px; border-radius:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid rgba(0,0,0,0.05); padding-bottom:6px;">
-            <h3 style="color:var(--primary); margin:0;">${dayLabel}</h3>
-            <span style="font-size:12px; font-weight:bold; color:var(--primary); background:var(--primary-dim); padding:4px 10px; border-radius:20px;">Menú diario interactivo</span>
-          </div>
-          
-          <div style="display:flex; flex-direction:column; gap:8px;">
-            <div style="cursor:pointer; padding:4px;" onclick="UI.openRecipeModal('${meals.desayuno.id}')" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
-              <p style="font-size:14px; color:var(--text); margin:0;">☕ <b>Desayuno:</b> ${meals.desayuno.name} <span style="color:var(--text-muted); font-size:12px;">(${meals.desayuno.kcal} kcal) →</span></p>
-            </div>
-            <div style="cursor:pointer; padding:4px;" onclick="UI.openRecipeModal('${meals.almuerzo.id}')" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
-              <p style="font-size:14px; color:var(--text); margin:0;">🥗 <b>Almuerzo:</b> ${meals.almuerzo.name} <span style="color:var(--text-muted); font-size:12px;">(${meals.almuerzo.kcal} kcal) →</span></p>
-            </div>
-            <div style="cursor:pointer; padding:4px;" onclick="UI.openRecipeModal('${meals.meriendas.id}')" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
-              <p style="font-size:14px; color:var(--text); margin:0;">🥞 <b>Merienda:</b> ${meals.meriendas.name} <span style="color:var(--text-muted); font-size:12px;">(${meals.meriendas.kcal} kcal) →</span></p>
-            </div>
-            <div style="cursor:pointer; padding:4px;" onclick="UI.openRecipeModal('${meals.cena.id}')" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
-              <p style="font-size:14px; color:var(--text); margin:0;">🍽️ <b>Cena:</b> ${meals.cena.name} <span style="color:var(--text-muted); font-size:12px;">(${meals.cena.kcal} kcal) →</span></p>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
+    container.innerHTML = plan.map(({ date, meals }) => `
+      <div class="card" style="margin-bottom:12px; padding:12px;">
+        <h4>${days[date.getDay()]}</h4>
+        <p onclick="UI.openRecipeModal('${meals.desayuno.id}')">☕ Desayuno: ${meals.desayuno.name}</p>
+        <p onclick="UI.openRecipeModal('${meals.almuerzo.id}')">🥗 Almuerzo: ${meals.almuerzo.name}</p>
+        <p onclick="UI.openRecipeModal('${meals.cena.id}')">🍽️ Cena: ${meals.cena.name}</p>
+      </div>
+    `).join('');
   },
 
   regenerateCartForWeek() {
     const profile = StorageApp.getProfile();
     if (!profile) return;
     const plan = MealEngine.getPlanForDays(profile, new Date(), 7);
-    const itemsSet = new Set();
-    plan.forEach(({ meals }) => {
-      Object.values(meals).forEach(recipe => {
-        recipe.ingredients.forEach(ing => itemsSet.add(ing));
-      });
-    });
-    StorageApp.saveCart(Array.from(itemsSet));
+    const items = new Set();
+    plan.forEach(d => Object.values(d.meals).forEach(r => r.ingredients.forEach(i => items.add(i))));
+    StorageApp.saveCart(Array.from(items));
   },
 
-  // MEJORA: Carrito dinámico, organizado por góndolas del súper, con tachados interactivos y borrado.
+  // FIX DEFINTIVO: Los checkbox persisten por día e historial sin vaciar el perfil
   renderCart() {
     const cart = StorageApp.getCart();
     const container = document.getElementById('cartCard');
     if (!container) return;
 
-    if (cart.length === 0) {
-      container.innerHTML = `<p class="muted" style="text-align:center; padding: 20px;">🛒 Tu lista está vacía.<br>¡Completá tu perfil para planificar la semana!</p>`;
-      return;
-    }
+    const hoyKey = new Date().toLocaleDateString('es-AR');
+    let tildadosHoy = JSON.parse(localStorage.getItem(`nutrio_checked_${hoyKey}`)) || [];
 
-    // Clasificación de ingredientes
-    const categorias = {
-      "🥦 Verdulería / Frutería": ['zanahoria', 'arvejas', 'cebolla', 'tomate', 'lechuga', 'espinaca', 'palta', 'limón', 'manzana', 'banana', 'fruta', 'ajo', 'morrón', 'papa', 'zapallo'],
-      "🍗 Carnes y Proteínas": ['pollo', 'pechuga', 'carne', 'lomo', 'huevo', 'huevos', 'pescado', 'atún', 'salmón', 'bife', 'cerdo'],
-      "🌾 Almacén y Lácteos": ['arroz', 'integral', 'ricota', 'miel', 'yogur', 'cereal', 'avena', 'leche', 'queso', 'aceite', 'oliva', 'pan', 'fideos', 'harina', 'legumbres']
-    };
-
-    const fuentesAgrupadas = { "🥦 Verdulería / Frutería": [], "🍗 Carnes y Proteínas": [], "🌾 Almacén y Lácteos": [], "📦 Gondola General / Otros": [] };
-
+    let html = '<div>';
     cart.forEach(item => {
-      let categorizado = false;
-      const itemLower = item.toLowerCase();
-      
-      for (const [catName, keywords] of Object.entries(categorias)) {
-        if (keywords.some(kw => itemLower.includes(kw))) {
-          fuentesAgrupadas[catName].push(item);
-          categorizado = true;
-          break;
-        }
-      }
-      if (!categorizado) fuentesAgrupadas["📦 Gondola General / Otros"].push(item);
+      const isChecked = tildadosHoy.includes(item);
+      html += `
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+          <input type="checkbox" data-item="${item}" ${isChecked ? 'checked' : ''} onclick="UI.handleCheck(this, '${item}')">
+          <span style="${isChecked ? 'text-decoration:line-through; opacity:0.5;' : ''}">${item}</span>
+        </div>
+      `;
     });
 
-    let htmlResultado = '';
-
-    for (const [categoria, items] of Object.entries(fuentesAgrupadas)) {
-      if (items.length === 0) continue;
-
-      htmlResultado += `
-        <div style="margin-bottom: 20px;">
-          <h4 style="color: var(--primary); border-bottom: 1px solid var(--primary-dim); padding-bottom: 4px; margin-bottom: 10px; font-size: 15px;">${categoria}</h4>
-      `;
-
-      htmlResultado += items.map((item) => `
-        <div class="cart-item" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 4px 0;">
-          <input type="checkbox" 
-                 style="transform: scale(1.2); accent-color: var(--primary); cursor: pointer;" 
-                 onclick="this.nextElementSibling.style.textDecoration = this.checked ? 'line-through' : 'none'; this.nextElementSibling.style.opacity = this.checked ? '0.5' : '1';">
-          <span style="flex: 1; font-size: 14px; transition: all 0.2s;">${item}</span>
-        </div>
-      `).join('');
-
-      htmlResultado += `</div>`;
-    }
-
-    htmlResultado += `
-      <button onclick="StorageApp.saveCart([]); UI.renderCart();" 
-              style="width: 100%; margin-top: 15px; background: rgba(231, 76, 60, 0.1); color: #e74c3c; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s;"
-              onmouseover="this.style.background='rgba(231, 76, 60, 0.2)'"
-              onmouseout="this.style.background='rgba(231, 76, 60, 0.1)'">
-        🗑️ Vaciar Lista de Compras
+    html += `
+      <button onclick="UI.archivePurchases()" style="width:100%; margin-top:15px; background:var(--primary); color:white; border:none; padding:10px; border-radius:6px; font-weight:bold; cursor:pointer;">
+        🛒 Archivar lo comprado hoy (${hoyKey})
       </button>
-    `;
+    </div>`;
 
-    container.innerHTML = htmlResultado;
+    // Sección Historial
+    let historial = JSON.parse(localStorage.getItem('nutrio_history')) || [];
+    html += `<div style="margin-top:20px; border-top:1px dashed #ccc; padding-top:15px;"><h4>📦 Historial de compras guardadas</h4>`;
+    if (historial.length === 0) {
+      html += `<p style="font-size:12px; color:gray;">No hay registros de días anteriores.</p>`;
+    } else {
+      historial.forEach(h => {
+        html += `<p style="font-size:12px; margin-bottom:4px;"><b>Día ${h.date}:</b> ${h.items.join(', ')}</p>`;
+      });
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  },
+
+  handleCheck(cb, item) {
+    const hoyKey = new Date().toLocaleDateString('es-AR');
+    let tildadosHoy = JSON.parse(localStorage.getItem(`nutrio_checked_${hoyKey}`)) || [];
+    if (cb.checked) {
+      if (!tildadosHoy.includes(item)) tildadosHoy.push(item);
+      cb.nextElementSibling.style.textDecoration = 'line-through';
+      cb.nextElementSibling.style.opacity = '0.5';
+    } else {
+      tildadosHoy = tildadosHoy.filter(i => i !== item);
+      cb.nextElementSibling.style.textDecoration = 'none';
+      cb.nextElementSibling.style.opacity = '1';
+    }
+    localStorage.setItem(`nutrio_checked_${hoyKey}`, JSON.stringify(tildadosHoy));
+  },
+
+  archivePurchases() {
+    const hoyKey = new Date().toLocaleDateString('es-AR');
+    let tildadosHoy = JSON.parse(localStorage.getItem(`nutrio_checked_${hoyKey}`)) || [];
+    if (tildadosHoy.length === 0) return alert("Tildá algún ingrediente primero.");
+
+    let historial = JSON.parse(localStorage.getItem('nutrio_history')) || [];
+    historial.unshift({ date: hoyKey, items: tildadosHoy });
+    localStorage.setItem('nutrio_history', JSON.stringify(historial));
+    
+    // Limpiamos los checks para mañana sin borrar el plan semanal
+    localStorage.removeItem(`nutrio_checked_${hoyKey}`);
+    alert("¡Guardado en tu historial! Mañana tu lista amanecerá limpia para nuevas compras.");
+    this.renderCart();
   },
 
   renderProfile() {
-    const profile = StorageApp.getProfile();
-    if (!profile) return;
-    document.getElementById('profileNameDisplay').innerText = profile.name;
-    document.getElementById('profileMetaDisplay').innerText = `Meta diaria asignada: ${profile.targetKcal} kcal, adaptada a tu cuerpo, actividad y objetivo.`;
-
-    const prefsEl = document.getElementById('profilePrefsDisplay');
-    if (!prefsEl) return;
-
-    const countryLabels = {
-      mexico: 'México', guatemala: 'Guatemala', honduras: 'Honduras', el_salvador: 'El Salvador',
-      nicaragua: 'Nicaragua', costa_rica: 'Costa Rica', panama: 'Panamá', colombia: 'Colombia',
-      venezuela: 'Venezuela', ecuador: 'Ecuador', peru: 'Perú', bolivia: 'Bolivia', chile: 'Chile',
-      argentina: 'Argentina', uruguay: 'Uruguay', paraguay: 'Paraguay',
-      republica_dominicana: 'República Dominicana', cuba: 'Cuba', otro: 'Otro'
-    };
-    const activityLabels = {
-      sedentario: 'Sedentario', ligero: 'Ligero', moderado: 'Moderado',
-      activo: 'Activo', muy_activo: 'Muy activo'
-    };
-    const goalLabels = {
-      bajar_peso: 'Bajar de peso', mantener: 'Mantener mi peso', subir_peso: 'Subir de peso',
-      ganar_musculo: 'Ganar músculo', comer_saludable: 'Comer más saludable'
-    };
-    const healthLabels = {
-      colesterol_alto: 'Colesterol alto', hipertension: 'Hipertensión', diabetes: 'Diabetes'
-    };
-    const restrictionLabels = {
-      vegetariano: 'Vegetariano', vegano: 'Vegano', sin_gluten: 'Sin gluten',
-      sin_lactosa: 'Sin lactosa', sin_carbo: 'Bajo en carbohidratos'
-    };
-    const mealsPerDayLabels = { '3': '3 comidas grandes', '4': '4 comidas', '5_6': '5-6 comidas pequeñas' };
-    const cookTimeLabels = { poco: 'Poco tiempo', moderado: 'Tiempo moderado', mucho: 'Le dedico tiempo' };
-    const budgetLabels = { economico: 'Económico', medio: 'Medio', sin_restriccion: 'Sin restricciones' };
-    const cuisineLabels = {
-      italiana: 'Italiana', mexicana: 'Mexicana', asiatica: 'Asiática',
-      mediterranea: 'Mediterránea', criolla: 'Argentina/Criolla'
-    };
-    const chatStyleLabels = {
-      amigable: 'Amigable y cercano', motivador: 'Motivador y con energía',
-      tecnico: 'Técnico y directo', humor: 'Con humor y onda'
-    };
-
-    const countryText = countryLabels[profile.country] || '—';
-    const activityText = activityLabels[profile.activity] || '—';
-    const goalText = goalLabels[profile.goals?.[0]] || '—';
-    const healthText = (profile.healthConditions || []).map(h => healthLabels[h] || h).join(', ') || 'Ninguna';
-    const allergiesText = (profile.allergies || []).join(', ') || 'Ninguna';
-    const restrictionsText = (profile.restrictions || []).map(r => restrictionLabels[r] || r).join(', ') || 'Ninguna';
-    const dislikesText = (profile.dislikes || []).join(', ') || 'Ninguno';
-    const mealsPerDayText = mealsPerDayLabels[profile.mealsPerDay] || '—';
-    const cookTimeText = cookTimeLabels[profile.cookTime] || '—';
-    const budgetText = budgetLabels[profile.budget] || '—';
-    const waterText = profile.waterGlasses ? `${profile.waterGlasses} vasos/día` : 'No informado';
-    const sleepText = profile.sleepHours ? `${profile.sleepHours} hs/noche` : 'No informado';
-    const cuisinesText = (profile.cuisines || []).map(c => cuisineLabels[c] || c).join(', ') || 'Sin preferencia';
-    const favoriteFoodsText = (profile.favoriteFoods || []).join(', ') || 'No informado';
-    const chatStyleText = chatStyleLabels[profile.chatStyle] || 'Amigable y cercano';
-    const chatNoteText = profile.chatCustomNote ? ` — "${profile.chatCustomNote}"` : '';
-
-    prefsEl.innerHTML = `
-      <b>País:</b> ${countryText} · <b>Actividad:</b> ${activityText}<br>
-      <b>Objetivo:</b> ${goalText}<br>
-      <b>Condiciones de salud:</b> ${healthText}<br>
-      <b>Alergias:</b> ${allergiesText}<br>
-      <b>Restricciones:</b> ${restrictionsText}<br>
-      <b>Evita:</b> ${dislikesText}<br>
-      <b>Comidas por día:</b> ${mealsPerDayText} · <b>Tiempo para cocinar:</b> ${cookTimeText}<br>
-      <b>Presupuesto:</b> ${budgetText}<br>
-      <b>Agua:</b> ${waterText} · <b>Sueño:</b> ${sleepText}<br>
-      <b>Cocinas favoritas:</b> ${cuisinesText}<br>
-      <b>Comidas favoritas:</b> ${favoriteFoodsText}<br>
-      <b>Estilo de chat:</b> ${chatStyleText}${chatNoteText}
-    `;
+    const p = StorageApp.getProfile();
+    if (!p) return;
+    document.getElementById('profileNameDisplay').innerText = p.name;
+    document.getElementById('profilePrefsDisplay').innerHTML = `<b>Meta:</b> ${p.targetKcal} kcal <br> <b>Estilo Chat:</b> ${p.chatStyle}`;
   },
 
   sendChat() {
     const input = document.getElementById('chatInput');
     if (!input || !input.value.trim()) return;
     const msg = input.value.trim();
-
     const scroll = document.getElementById('chatScroll');
-    scroll.innerHTML += `<div style="text-align:right; margin-bottom:10px;"><span style="background:var(--primary-dim); color:var(--primary); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${msg}</span></div>`;
 
+    scroll.innerHTML += `<div style="text-align:right; margin-bottom:8px;"><span style="background:var(--primary-dim); padding:6px 12px; border-radius:12px; display:inline-block;">${msg}</span></div>`;
     input.value = '';
 
     setTimeout(() => {
-      const profile = StorageApp.getProfile();
-      const response = ChatApp.getBotResponse(msg, profile);
-      scroll.innerHTML += `<div style="text-align:left; margin-bottom:10px;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${response}</span></div>`;
+      const p = StorageApp.getProfile();
+      const res = ChatApp.getBotResponse(msg, p);
+      scroll.innerHTML += `<div style="text-align:left; margin-bottom:8px;"><span style="background:var(--bg); padding:6px 12px; border-radius:12px; display:inline-block;">${res}</span></div>`;
       scroll.scrollTop = scroll.scrollHeight;
-    }, 400);
+    }, 300);
   },
 
-  resetAll() {
-    StorageApp.clearAll();
-    location.reload();
-  }
+  resetAll() { localStorage.clear(); location.reload(); }
 };
 
 window.addEventListener('DOMContentLoaded', () => { UI.init(); });
