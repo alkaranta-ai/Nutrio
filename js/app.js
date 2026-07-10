@@ -172,69 +172,31 @@ const Onboarding = {
 };
 
 // ==========================================================================
-// Estilos inyectados para agrandar el cajón de chat en el celu.
-// No tengo acceso a tu CSS/HTML, así que esto se aplica en runtime.
-// Si tenés styles.css a mano, lo ideal es mover estas reglas ahí.
+// Metadata visual de cada momento de comida: ícono y color de acento.
+// Los colores usan las variables CSS definidas en :root (ver index.html).
 // ==========================================================================
-function injectChatInputStyles() {
-  if (document.getElementById('nutrio-chat-input-boost')) return;
-  const style = document.createElement('style');
-  style.id = 'nutrio-chat-input-boost';
-  style.textContent = `
-    #chatInputBar {
-      padding: 14px 16px !important;
-      display: flex !important;
-      align-items: flex-end !important;
-      gap: 10px !important;
-    }
-    #chatInputBar textarea,
-    #chatInputBar input[type="text"],
-    #chatInput {
-      min-height: 52px !important;
-      max-height: 140px !important;
-      font-size: 16px !important;
-      padding: 14px 16px !important;
-      border-radius: 16px !important;
-      line-height: 1.4 !important;
-      resize: none !important;
-    }
-    #chatInputBar button {
-      min-width: 52px !important;
-      min-height: 52px !important;
-      font-size: 18px !important;
-      border-radius: 14px !important;
-    }
-    .chat-feedback button {
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-size: 16px;
-      padding: 2px 4px;
-      opacity: 0.5;
-      transition: opacity 0.15s ease, transform 0.15s ease;
-    }
-    .chat-feedback button:hover {
-      transform: scale(1.15);
-    }
-    .chat-feedback button.active {
-      opacity: 1;
-    }
-  `;
-  document.head.appendChild(style);
-
-  // Si #chatInput es un <textarea>, además le agrandamos las filas visibles
-  const inputEl = document.getElementById('chatInput');
-  if (inputEl && inputEl.tagName === 'TEXTAREA' && !inputEl.getAttribute('rows')) {
-    inputEl.setAttribute('rows', '2');
-  }
-}
+const MEAL_META = {
+  desayuno: { label: 'Desayuno', icon: '☀️', color: 'var(--accent-desayuno)', dim: 'var(--accent-desayuno-dim)' },
+  almuerzo: { label: 'Almuerzo', icon: '🥗', color: 'var(--accent-almuerzo)', dim: 'var(--accent-almuerzo-dim)' },
+  merienda: { label: 'Merienda', icon: '🧉', color: 'var(--accent-merienda)', dim: 'var(--accent-merienda-dim)' },
+  cena: { label: 'Cena', icon: '🌙', color: 'var(--accent-cena)', dim: 'var(--accent-cena-dim)' },
+  antojo: { label: 'Piqueteo', icon: '🍿', color: 'var(--accent-antojo)', dim: 'var(--accent-antojo-dim)' }
+};
 
 const UI = {
-  init() {
-    injectChatInputStyles();
 
+  // Guarda referencias de recetas para poder abrir el modal sin serializar
+  // objetos completos dentro de atributos HTML.
+  _recipeRefs: {},
+
+  init() {
     // IMPORTANTE: Primero le damos vida a las escuchas de los chips pase lo que pase
     Onboarding.bindAllChips();
+    this._bindTapFeedback();
+    this._bindChatInputAutoGrow();
+
+    const firstTimeEl = document.getElementById('chatFirstMsgTime');
+    if (firstTimeEl) firstTimeEl.innerText = this._formatTime(new Date());
 
     const profile = StorageApp.getProfile();
     if (!profile) {
@@ -253,6 +215,36 @@ const UI = {
     this.goto('chat');
   },
 
+  // Da la sensación de "toque" en tarjetas y pestañas: agrega/quita
+  // la clase .pressed sin depender de :active (poco confiable en iOS/Safari).
+  _bindTapFeedback() {
+    const press = (e) => {
+      const el = e.target.closest('.tap-feedback');
+      if (el) el.classList.add('pressed');
+    };
+    const release = () => {
+      document.querySelectorAll('.tap-feedback.pressed').forEach(el => el.classList.remove('pressed'));
+    };
+    document.addEventListener('pointerdown', press);
+    document.addEventListener('pointerup', release);
+    document.addEventListener('pointercancel', release);
+    document.addEventListener('pointerleave', release, true);
+  },
+
+  // El textarea del chat crece hasta 120px a medida que se escribe más.
+  _bindChatInputAutoGrow() {
+    const input = document.getElementById('chatInput');
+    if (!input) return;
+    input.addEventListener('input', () => {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    });
+  },
+
+  _formatTime(date) {
+    return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  },
+
   goto(viewName) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
     document.querySelectorAll('.dock-item').forEach(b => b.classList.remove('active'));
@@ -269,11 +261,41 @@ const UI = {
     if (inputBar) inputBar.style.display = viewName === 'chat' ? 'block' : 'none';
   },
 
+  // --------------------------------------------------------------------
+  // Tarjetas de comida (usadas tanto en Inicio como en Semana)
+  // --------------------------------------------------------------------
+  _registerRecipeRef(refId, recipe, typeKey) {
+    this._recipeRefs[refId] = { recipe, typeKey };
+  },
+
+  _buildMealCardHTML(refId, typeKey, recipe) {
+    if (!recipe) return '';
+    this._registerRecipeRef(refId, recipe, typeKey);
+    const meta = MEAL_META[typeKey] || MEAL_META.antojo;
+    const ingredientsPreview = (recipe.ingredients || []).join(', ');
+
+    return `
+      <div class="meal-card tap-feedback" style="--accent:${meta.color}; --accent-dim:${meta.dim};" onclick="UI.openRecipeModalByRef('${refId}')">
+        <div class="meal-icon">${meta.icon}</div>
+        <div class="meal-card-body">
+          <div class="meal-card-top">
+            <span class="meal-card-label">${meta.label}</span>
+            <span class="meal-card-kcal">${recipe.kcal || '—'} kcal</span>
+          </div>
+          <div class="meal-card-name">${recipe.name || ''}</div>
+          <div class="meal-card-ingredients">${ingredientsPreview}</div>
+          <div class="meal-card-hint">Ver receta y preparación →</div>
+        </div>
+      </div>
+    `;
+  },
+
   renderHome() {
     const profile = StorageApp.getProfile();
     if (!profile || typeof RECIPES_DB === 'undefined') return;
     document.getElementById('homeGreeting').innerText = `¡Hola, ${profile.name}!`;
-    document.getElementById('kcalDisplayTarget').innerText = `Tu requerimiento diario: ${profile.targetKcal} kcal / Objetivo Activo.`;
+    document.getElementById('kcalDisplayNum').innerText = profile.targetKcal;
+    document.getElementById('kcalDisplayTarget').innerText = `Calculado según tu cuerpo, actividad y objetivo activo.`;
 
     const container = document.getElementById('dayMealsContainer');
     if (!container) return;
@@ -284,35 +306,122 @@ const UI = {
     const snack = isHigh ? RECIPES_DB[5] : RECIPES_DB[4];
     const dinner = isHigh ? RECIPES_DB[7] : RECIPES_DB[6];
 
-    container.innerHTML = `
-      <div class="card">
-        <div class="meal-slot"><div class="meal-title">Desayuno</div><h3>${breakfast?.name || 'Desayuno Saludable'}</h3><p style="font-size:13px; color:var(--text-muted);">${breakfast?.kcal || 350} kcal • ${breakfast?.ingredients.join(', ') || ''}</p></div>
-        <div class="meal-slot"><div class="meal-title">Almuerzo</div><h3>${lunch?.name || 'Almuerzo Balanced'}</h3><p style="font-size:13px; color:var(--text-muted);">${lunch?.kcal || 600} kcal • ${lunch?.ingredients.join(', ') || ''}</p></div>
-        <div class="meal-slot"><div class="meal-title">Merienda</div><h3>${snack?.name || 'Merienda Ligera'}</h3><p style="font-size:13px; color:var(--text-muted);">${snack?.kcal || 200} kcal • ${snack?.ingredients.join(', ') || ''}</p></div>
-        <div class="meal-slot"><div class="meal-title">Cena</div><h3>${dinner?.name || 'Cena Nutritiva'}</h3><p style="font-size:13px; color:var(--text-muted);">${dinner?.kcal || 500} kcal • ${dinner?.ingredients.join(', ') || ''}</p></div>
-      </div>
-    `;
+    container.innerHTML =
+      this._buildMealCardHTML('home-desayuno', 'desayuno', breakfast) +
+      this._buildMealCardHTML('home-almuerzo', 'almuerzo', lunch) +
+      this._buildMealCardHTML('home-merienda', 'merienda', snack) +
+      this._buildMealCardHTML('home-cena', 'cena', dinner);
   },
 
   renderWeeklyPlan() {
-    const container = document.getElementById('weeklyPlanContainer');
-    if (!container || typeof RECIPES_DB === 'undefined') return;
+    const tabsContainer = document.getElementById('weekDayTabs');
+    if (!tabsContainer || typeof RECIPES_DB === 'undefined') return;
 
     const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    this._weekDays = days;
+    this._weekData = days.map((day, idx) => ({
+      day,
+      lunch: RECIPES_DB[2 + (idx % 2)],
+      dinner: RECIPES_DB[6 + (idx % 2)]
+    }));
 
-    container.innerHTML = days.map((day, idx) => {
-      const mainPlate = RECIPES_DB[2 + (idx % 2)];
-      const dinnerPlate = RECIPES_DB[6 + (idx % 2)];
-      return `
-        <div class="card" style="margin-bottom:12px;">
-          <h3 style="color:var(--primary); margin-bottom:6px;">${day}</h3>
-          <p style="font-size:14px; color:var(--text);"><b>Almuerzo:</b> ${mainPlate?.name || 'Plato Principal'} (${mainPlate?.kcal || 550} kcal)</p>
-          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Cena:</b> ${dinnerPlate?.name || 'Plato Cena'} (${dinnerPlate?.kcal || 450} kcal)</p>
-        </div>
-      `;
-    }).join('');
+    // Lunes=0 ... Domingo=6, calculado a partir del día real de la semana.
+    const jsDay = new Date().getDay(); // 0=domingo
+    const todayIdx = (jsDay + 6) % 7;
+    this._weekTodayIdx = todayIdx;
+
+    tabsContainer.innerHTML = days.map((day, idx) => `
+      <div class="day-tab tap-feedback ${idx === todayIdx ? 'is-today' : ''}" data-idx="${idx}" onclick="UI.renderWeekDay(${idx})">
+        <span class="d-label">${day.slice(0, 3)}</span>
+        <span class="d-dot"></span>
+      </div>
+    `).join('');
+
+    this.renderWeekDay(todayIdx);
   },
 
+  renderWeekDay(idx) {
+    if (!this._weekData || !this._weekData[idx]) return;
+    const data = this._weekData[idx];
+
+    document.querySelectorAll('#weekDayTabs .day-tab').forEach(tab => {
+      tab.classList.toggle('active', parseInt(tab.dataset.idx, 10) === idx);
+    });
+
+    const heading = document.getElementById('weekDayHeading');
+    if (heading) {
+      const suffix = idx === this._weekTodayIdx ? ' · hoy' : '';
+      heading.innerHTML = `<b>${data.day}</b>${suffix}`;
+    }
+
+    const container = document.getElementById('weeklyPlanContainer');
+    if (!container) return;
+    container.innerHTML =
+      this._buildMealCardHTML(`week-${idx}-almuerzo`, 'almuerzo', data.lunch) +
+      this._buildMealCardHTML(`week-${idx}-cena`, 'cena', data.dinner);
+  },
+
+  // --------------------------------------------------------------------
+  // Modal de receta: ingredientes + preparación
+  // --------------------------------------------------------------------
+  openRecipeModalByRef(refId) {
+    const ref = this._recipeRefs[refId];
+    if (!ref) return;
+    this.openRecipeModal(ref.recipe, ref.typeKey);
+  },
+
+  openRecipeModal(recipe, typeKey) {
+    if (!recipe) return;
+    const meta = MEAL_META[typeKey] || MEAL_META.antojo;
+    const content = document.getElementById('recipeModalContent');
+    const modal = document.getElementById('recipeModal');
+    if (!content || !modal) return;
+
+    const ingredientsHTML = (recipe.ingredients || [])
+      .map(ing => `<span class="ingredient-chip">${ing}</span>`).join('');
+
+    const steps = recipe.instructions || recipe.steps || recipe.preparation || null;
+    let instructionsHTML;
+    if (Array.isArray(steps) && steps.length) {
+      instructionsHTML = `<ol class="instructions-list">${steps.map(s => `<li>${s}</li>`).join('')}</ol>`;
+    } else if (typeof steps === 'string' && steps.trim()) {
+      instructionsHTML = `<p style="font-size:14px; color:var(--text); line-height:1.5;">${steps}</p>`;
+    } else {
+      instructionsHTML = `<div class="instructions-empty">Todavía no cargaste los pasos de preparación para esta receta. Agregá un campo <code>instructions</code> (array de pasos) a la receta en <b>data.js</b> para que aparezcan acá.</div>`;
+    }
+
+    content.innerHTML = `
+      <div class="recipe-modal-header">
+        <span class="recipe-badge" style="background:${meta.dim}; color:${meta.color};">${meta.icon} ${meta.label}</span>
+        <button class="modal-close" onclick="UI.closeRecipeModal()">✕</button>
+      </div>
+      <div class="modal-recipe-name">${recipe.name || ''}</div>
+      <span class="modal-kcal-pill">${recipe.kcal || '—'} kcal</span>
+
+      <div class="modal-section-title">Ingredientes</div>
+      <div class="ingredient-chip-list">${ingredientsHTML}</div>
+
+      <div class="modal-section-title">Preparación</div>
+      ${instructionsHTML}
+    `;
+
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  },
+
+  closeRecipeModal() {
+    const modal = document.getElementById('recipeModal');
+    if (modal) modal.classList.remove('active');
+    document.body.style.overflow = '';
+  },
+
+  closeRecipeModalOnOverlay(event) {
+    if (event.target && event.target.id === 'recipeModal') {
+      this.closeRecipeModal();
+    }
+  },
+
+  // --------------------------------------------------------------------
   renderCart() {
     const cart = StorageApp.getCart();
     const container = document.getElementById('cartCard');
@@ -427,6 +536,10 @@ const UI = {
       vegetariano: 'Vegetariano', vegano: 'Vegano', sin_gluten: 'Sin gluten',
       sin_lactosa: 'Sin lactosa', sin_carbo: 'Bajo en carbohidratos'
     };
+    const chatStyleLabels = {
+      amigable: 'Amigable y cercano', motivador: 'Motivador y con energía',
+      tecnico: 'Técnico y directo', humor: 'Con humor y onda'
+    };
 
     const countryText = countryLabels[profile.country] || '—';
     const activityText = activityLabels[profile.activity] || '—';
@@ -435,6 +548,7 @@ const UI = {
     const allergiesText = (profile.allergies || []).join(', ') || 'Ninguna';
     const restrictionsText = (profile.restrictions || []).map(r => restrictionLabels[r] || r).join(', ') || 'Ninguna';
     const dislikesText = (profile.dislikes || []).join(', ') || 'Ninguno';
+    const chatStyleText = chatStyleLabels[profile.chatStyle] || 'Amigable con humor 🎭';
 
     prefsEl.innerHTML = `
       <b>País:</b> ${countryText} · <b>Actividad:</b> ${activityText}<br>
@@ -443,7 +557,7 @@ const UI = {
       <b>Alergias:</b> ${allergiesText}<br>
       <b>Restricciones:</b> ${restrictionsText}<br>
       <b>Evita:</b> ${dislikesText}<br>
-      <b>Estilo de Chat:</b> Amigable con Humor 🎭
+      <b>Estilo de Chat:</b> ${chatStyleText}
     `;
   },
 
@@ -451,26 +565,39 @@ const UI = {
     const input = document.getElementById('chatInput');
     if (!input || !input.value.trim()) return;
     const msg = input.value.trim();
+    const now = new Date();
 
     const scroll = document.getElementById('chatScroll');
     if (scroll) {
-      scroll.innerHTML += `<div style="text-align:right; margin-bottom:10px;"><span style="background:var(--primary-dim); color:var(--primary); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${msg}</span></div>`;
+      scroll.innerHTML += `
+        <div class="msg-row user">
+          <div class="msg-wrap">
+            <div class="msg-bubble user">${msg}</div>
+            <div class="msg-time">${this._formatTime(now)}</div>
+          </div>
+        </div>`;
+      scroll.scrollTop = scroll.scrollHeight;
     }
 
     input.value = '';
+    input.style.height = 'auto';
 
     setTimeout(() => {
       const profile = StorageApp.getProfile();
       const response = ChatApp.getBotResponse(msg, profile);
       const msgId = 'chatmsg_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+      const botTime = new Date();
 
       if (scroll) {
         scroll.innerHTML += `
-          <div style="text-align:left; margin-bottom:10px;" id="${msgId}">
-            <span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${response.text}</span>
-            <div class="chat-feedback" style="margin-top:2px;">
-              <button type="button" data-role="like" title="Me gusta" onclick="UI.rateResponse('${msgId}', '${response.category}', ${response.idx}, true)">👍</button>
-              <button type="button" data-role="dislike" title="No me gusta" onclick="UI.rateResponse('${msgId}', '${response.category}', ${response.idx}, false)">👎</button>
+          <div class="msg-row bot" id="${msgId}">
+            <div class="msg-wrap">
+              <div class="msg-bubble bot">${response.text}</div>
+              <div class="msg-time">${this._formatTime(botTime)}</div>
+              <div class="chat-feedback">
+                <button type="button" data-role="like" title="Me gusta" onclick="UI.rateResponse('${msgId}', '${response.category}', ${response.idx}, true)">👍</button>
+                <button type="button" data-role="dislike" title="No me gusta" onclick="UI.rateResponse('${msgId}', '${response.category}', ${response.idx}, false)">👎</button>
+              </div>
             </div>
           </div>`;
         scroll.scrollTop = scroll.scrollHeight;
