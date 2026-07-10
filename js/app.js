@@ -172,52 +172,126 @@ const Onboarding = {
 };
 
 // ==========================================================================
-// Estilos inyectados para agrandar el cajón de chat en el celu.
-// No tengo acceso a tu CSS/HTML, así que esto se aplica en runtime.
-// Si tenés styles.css a mano, lo ideal es mover estas reglas ahí.
+// Estilos mejorados para la visual del chat (Barra, burbujas y feedback).
 // ==========================================================================
 function injectChatInputStyles() {
   if (document.getElementById('nutrio-chat-input-boost')) return;
   const style = document.createElement('style');
   style.id = 'nutrio-chat-input-boost';
   style.textContent = `
-    #chatInputBar {
-      padding: 14px 16px !important;
-      display: flex !important;
-      align-items: flex-end !important;
-      gap: 10px !important;
+    #chatScroll { 
+      background-color: #f8fafc; 
+      padding: 20px; 
+      display: flex; 
+      flex-direction: column; 
+      gap: 16px; 
+      scroll-behavior: smooth; 
     }
-    #chatInputBar textarea,
-    #chatInputBar input[type="text"],
-    #chatInput {
-      min-height: 52px !important;
-      max-height: 140px !important;
-      font-size: 16px !important;
-      padding: 14px 16px !important;
-      border-radius: 16px !important;
-      line-height: 1.4 !important;
-      resize: none !important;
+    #chatScroll div[style*="text-align:right"] { 
+      text-align: right !important; 
+      margin-bottom: 0 !important; 
     }
-    #chatInputBar button {
-      min-width: 52px !important;
-      min-height: 52px !important;
-      font-size: 18px !important;
-      border-radius: 14px !important;
+    #chatScroll div[style*="text-align:right"] span { 
+      background: var(--primary, #10b981) !important; 
+      color: white !important; 
+      padding: 12px 16px !important; 
+      border-radius: 16px 16px 2px 16px !important; 
+      box-shadow: 0 2px 4px rgba(16, 185, 129, 0.15); 
+      font-weight: 500; 
+      max-width: 80%; 
+      display: inline-block; 
     }
-    .chat-feedback button {
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-size: 16px;
-      padding: 2px 4px;
-      opacity: 0.5;
-      transition: opacity 0.15s ease, transform 0.15s ease;
+    #chatScroll div[style*="text-align:left"] { 
+      text-align: left !important; 
+      margin-bottom: 0 !important; 
+      display: flex; 
+      flex-direction: column; 
+      align-items: flex-start; 
+      gap: 6px; 
     }
-    .chat-feedback button:hover {
-      transform: scale(1.15);
+    #chatScroll div[style*="text-align:left"] > span { 
+      background: #ffffff !important; 
+      color: #1e293b !important; 
+      padding: 14px 18px !important; 
+      border-radius: 16px 16px 16px 2px !important; 
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); 
+      border: 1px solid #e2e8f0; 
+      max-width: 85%; 
+      line-height: 1.5 !important; 
+      display: inline-block; 
     }
-    .chat-feedback button.active {
-      opacity: 1;
+    #chatInputBar { 
+      background: #ffffff !important; 
+      padding: 12px 16px !important; 
+      border-top: 1px solid #e2e8f0 !important; 
+      display: flex !important; 
+      align-items: center !important; 
+      gap: 12px !important; 
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.03); 
+    }
+    #chatInput { 
+      flex: 1; 
+      min-height: 48px !important; 
+      max-height: 120px !important; 
+      font-size: 16px !important; 
+      padding: 12px 16px !important; 
+      border-radius: 24px !important; 
+      border: 1px solid #e2e8f0 !important; 
+      background-color: #f1f5f9 !important; 
+      color: #1e293b !important; 
+      transition: all 0.2s ease; 
+      resize: none !important; 
+    }
+    #chatInput:focus { 
+      outline: none !important; 
+      border-color: var(--primary, #10b981) !important; 
+      background-color: #ffffff !important; 
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15) !important; 
+    }
+    #chatInputBar button { 
+      min-width: 48px !important; 
+      min-height: 48px !important; 
+      background: var(--primary, #10b981) !important; 
+      color: white !important; 
+      border: none !important; 
+      border-radius: 50% !important; 
+      cursor: pointer; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      transition: transform 0.1s ease; 
+      box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2); 
+    }
+    #chatInputBar button:active { 
+      transform: scale(0.95); 
+    }
+    .chat-feedback { 
+      display: flex; 
+      gap: 8px; 
+      padding-left: 4px; 
+      margin-top: 4px !important; 
+    }
+    .chat-feedback button { 
+      background: #ffffff !important; 
+      border: 1px solid #e2e8f0 !important; 
+      border-radius: 20px !important; 
+      padding: 4px 12px !important; 
+      font-size: 13px !important; 
+      cursor: pointer; 
+      opacity: 0.7; 
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05); 
+      transition: all 0.2s ease !important; 
+      transform: none !important; 
+    }
+    .chat-feedback button:hover { 
+      opacity: 1; 
+      background: #f8fafc !important; 
+    }
+    .chat-feedback button.active { 
+      opacity: 1 !important; 
+      background: #e6f4ea !important; 
+      border-color: var(--primary, #10b981) !important; 
+      color: var(--primary, #10b981) !important; 
     }
   `;
   document.head.appendChild(style);
@@ -225,7 +299,7 @@ function injectChatInputStyles() {
   // Si #chatInput es un <textarea>, además le agrandamos las filas visibles
   const inputEl = document.getElementById('chatInput');
   if (inputEl && inputEl.tagName === 'TEXTAREA' && !inputEl.getAttribute('rows')) {
-    inputEl.setAttribute('rows', '2');
+    inputEl.setAttribute('rows', '1');
   }
 }
 
@@ -355,7 +429,7 @@ const UI = {
       historial.forEach(h => {
         html += `<div style="background:rgba(0,0,0,0.02); padding:8px; border-radius:6px; margin-bottom:6px; font-size:13px;">
                   <b>📅 Día ${h.date}:</b> ${h.items.join(', ')}
-                 </div>`;
+                  </div>`;
       });
     }
     html += '</div>';
@@ -717,35 +791,13 @@ window.ChatApp = {
         ], profile);
       }
       return this.pickVariant('receta_sin_restricciones', [
-        `¡Uff, alta hora para comer! Pegale una mirada a la solapa de **Inicio** o **Semana**. Te armé un menú personalizado espectacular para tu objetivo.`,
-        `Dale, andá a **Inicio** o **Semana** que ahí tenés el menú pensado para vos según tu objetivo. ¡A comer rico! 🍴`
+        `¡Uff, alta hora para comer! Pegale una mirada a la solapa de **Inicio** o **Semana**. Te armé un menú personalizado.`
       ]);
     }
 
-    // --- No me gusta / alergias / evitar ---
-    if (msg.includes('no me gusta') || msg.includes('alerg') || msg.includes('evitar')) {
-      return this.pickVariant('alergia', [
-        `Che, si hay cosas que te dan alergia o te caen como una patada, podés resetear la app abajo de todo en tu Perfil y armamos el Onboarding de cero en dos patadas.`,
-        `Si notás que algo te cae mal o te da alergia, resetealo desde tu Perfil (al final de todo) y rehacemos el Onboarding tranquilo.`
-      ]);
-    }
-
-    // --- Agradecimientos ---
-    if (msg.includes('gracias') || msg.includes('bueno') || msg.includes('joya') || msg.includes('genial') || msg.includes('de diez')) {
-      return this.pickVariant('gracias', [
-        `¡De nada, genio/a! Si sentís olor a quemado en la cocina, chiflá que lo resolvemos. 😎`,
-        `¡De una! Cualquier cosita, ya sabés, acá ando. 🙌`,
-        `¡Buenísimo! Me alegro que te sirva. Seguimos en contacto por acá. 😄`
-      ]);
-    }
-
-    // --- Default ---
-    return this.pickVariant('default', [
-      `Mirá, me mataste con esa pregunta, pero te lo resumo al estilo NutriO: seguí metiéndole pilas, no te tientes con el delivery de hamburguesas y consultame lo que quieras. 😉`,
-      `Uy, esa me la tenés que explicar mejor jaja. Mientras tanto, dale para adelante y consultame lo que necesites. 😉`,
-      `No estoy 100% seguro de esa, pero mientras tanto: metele con todo, evitá el delivery a las 3am, y preguntame cualquier cosa de comida. 🍽️`
+    // --- Fallback por defecto ---
+    return this.pickVariant('fallback', [
+      `Che, no alcancé a entenderte del todo. Recordá que podés preguntarme cosas como "¿Qué puedo comer ahora?", "Pasame la receta", o decirme si tenés hambre.`
     ]);
   }
 };
-
-window.addEventListener('DOMContentLoaded', () => { UI.init(); });
