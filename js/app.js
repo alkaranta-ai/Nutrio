@@ -1,14 +1,9 @@
 // ARMADO DE PERFIL — pantalla única, sin pasos.
 //
-// Antes el formulario estaba dividido en varios "onb-step" y se trababa en el
-// paso de restricciones porque faltaba una función. Ahora todo el perfil se
-// completa y se valida en una sola pantalla con Onboarding.finish().
-//
-// RECIPES_DB vive en js/data.js (se carga antes que este archivo).
+// El formulario se completa y se valida en una sola pantalla con Onboarding.finish().
+// RECIPES_DB y MealEngine viven en js/data.js (se carga antes que este archivo).
 
 const Onboarding = {
-  // Selecciones de chips en memoria (selección única para actividad/objetivo,
-  // selección múltiple para salud/restricciones).
   selected: {
     activity: null,
     goal: null,
@@ -16,7 +11,6 @@ const Onboarding = {
     restrictions: []
   },
 
-  // Un chip por grupo (actividad, objetivo): al tocarlo se desactivan los demás.
   _bindSingleSelect(groupId, stateKey) {
     const group = document.getElementById(groupId);
     if (!group) return;
@@ -29,9 +23,6 @@ const Onboarding = {
     });
   },
 
-  // Varios chips por grupo (salud, restricciones): se pueden marcar varios a la vez.
-  // Si el chip se llama "ninguna", al tocarlo se desmarcan los demás del grupo
-  // (y viceversa: si tocás otro, se desmarca "ninguna").
   _bindMultiSelect(groupId, stateKey) {
     const group = document.getElementById(groupId);
     if (!group) return;
@@ -112,7 +103,7 @@ const Onboarding = {
     profile.targetKcal = this._calculateTargetKcal(profile);
 
     StorageApp.saveProfile(profile);
-    this.autoGenerateCart();
+    UI.regenerateCartForWeek();
     UI.init();
   },
 
@@ -139,15 +130,6 @@ const Onboarding = {
     // 'mantener' y 'comer_saludable' no ajustan las kcal base.
 
     return targetKcal;
-  },
-
-  autoGenerateCart() {
-    let itemsSet = new Set();
-    RECIPES_DB.forEach(r => {
-      if (r.category === 'antojo') return; // los antojos no van al carrito automático
-      r.ingredients.forEach(ing => itemsSet.add(ing));
-    });
-    StorageApp.saveCart(Array.from(itemsSet));
   }
 };
 
@@ -186,6 +168,8 @@ const UI = {
     document.getElementById('chatInputBar').style.display = viewName === 'chat' ? 'block' : 'none';
   },
 
+  // Comidas de HOY, resueltas por MealEngine contra el perfil (restricciones,
+  // alergias, condiciones de salud y calorías objetivo).
   renderHome() {
     const profile = StorageApp.getProfile();
     if (!profile) return;
@@ -195,12 +179,11 @@ const UI = {
     const container = document.getElementById('dayMealsContainer');
     if (!container) return;
 
-    // Selección segura de índices basada en calorías (evita error de índice fuera de rango)
-    const isHigh = profile.targetKcal > 1700;
-    const breakfast = isHigh ? RECIPES_DB[1] : RECIPES_DB[0];
-    const lunch = isHigh ? RECIPES_DB[3] : RECIPES_DB[2];
-    const snack = isHigh ? RECIPES_DB[5] : RECIPES_DB[4];
-    const dinner = isHigh ? RECIPES_DB[7] : RECIPES_DB[6];
+    const today = new Date();
+    const breakfast = MealEngine.getMealForDate('desayuno', profile, today);
+    const lunch = MealEngine.getMealForDate('almuerzo', profile, today);
+    const snack = MealEngine.getMealForDate('meriendas', profile, today);
+    const dinner = MealEngine.getMealForDate('cena', profile, today);
 
     container.innerHTML = `
       <div class="card">
@@ -212,23 +195,45 @@ const UI = {
     `;
   },
 
+  // Próximos 7 días, resueltos por MealEngine (no se repite una receta hasta
+  // agotar el pool filtrado del perfil).
   renderWeeklyPlan() {
     const container = document.getElementById('weeklyPlanContainer');
     if (!container) return;
 
-    const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    const profile = StorageApp.getProfile();
+    if (!profile) return;
 
-    container.innerHTML = days.map((day, idx) => {
-      const mainPlate = RECIPES_DB[2 + (idx % 2)];
-      const dinnerPlate = RECIPES_DB[6 + (idx % 2)];
+    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const plan = MealEngine.getPlanForDays(profile, new Date(), 7);
+
+    container.innerHTML = plan.map(({ date, meals }) => {
+      const dayLabel = dayNames[date.getDay()];
       return `
         <div class="card" style="margin-bottom:12px;">
-          <h3 style="color:var(--primary); margin-bottom:6px;">${day}</h3>
-          <p style="font-size:14px; color:var(--text);"><b>Almuerzo:</b> ${mainPlate.name} (${mainPlate.kcal} kcal)</p>
-          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Cena:</b> ${dinnerPlate.name} (${dinnerPlate.kcal} kcal)</p>
+          <h3 style="color:var(--primary); margin-bottom:6px;">${dayLabel}</h3>
+          <p style="font-size:14px; color:var(--text);"><b>Desayuno:</b> ${meals.desayuno.name} (${meals.desayuno.kcal} kcal)</p>
+          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Almuerzo:</b> ${meals.almuerzo.name} (${meals.almuerzo.kcal} kcal)</p>
+          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Merienda:</b> ${meals.meriendas.name} (${meals.meriendas.kcal} kcal)</p>
+          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Cena:</b> ${meals.cena.name} (${meals.cena.kcal} kcal)</p>
         </div>
       `;
     }).join('');
+  },
+
+  // El carrito ahora sale de las comidas REALES de la semana (ya filtradas
+  // por perfil), no de toda la base de datos entera.
+  regenerateCartForWeek() {
+    const profile = StorageApp.getProfile();
+    if (!profile) return;
+    const plan = MealEngine.getPlanForDays(profile, new Date(), 7);
+    const itemsSet = new Set();
+    plan.forEach(({ meals }) => {
+      Object.values(meals).forEach(recipe => {
+        recipe.ingredients.forEach(ing => itemsSet.add(ing));
+      });
+    });
+    StorageApp.saveCart(Array.from(itemsSet));
   },
 
   renderCart() {
