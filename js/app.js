@@ -1,7 +1,16 @@
 // ARMADO DE PERFIL — pantalla única, sin pasos.
 //
 // El formulario se completa y se valida en una sola pantalla con Onboarding.finish().
-// RECIPES_DB y MealEngine viven en js/data.js (se carga antes que este archivo).
+// RECIPES_DB, CATEGORY_META y MealEngine viven en js/data.js (se carga antes que este archivo).
+
+// Colores de acento por categoría, para darle vida visual a las tarjetas de
+// Inicio y al modal de receta. Es solo presentación, no toca data.js.
+const CATEGORY_ACCENTS = {
+  desayuno: { color: '#f59e0b', dim: '#fff7ed' },
+  almuerzo: { color: '#22c55e', dim: '#f0fdf4' },
+  meriendas: { color: '#ec4899', dim: '#fdf2f8' },
+  cena: { color: '#6366f1', dim: '#eef2ff' }
+};
 
 const Onboarding = {
   selected: {
@@ -208,7 +217,8 @@ const UI = {
   },
 
   // Comidas de HOY, resueltas por MealEngine contra el perfil (restricciones,
-  // alergias, condiciones de salud y calorías objetivo).
+  // alergias, condiciones de salud y calorías objetivo). Cada tarjeta es
+  // tappable y abre el modal con la receta completa.
   renderHome() {
     const profile = StorageApp.getProfile();
     if (!profile) return;
@@ -219,19 +229,77 @@ const UI = {
     if (!container) return;
 
     const today = new Date();
-    const breakfast = MealEngine.getMealForDate('desayuno', profile, today);
-    const lunch = MealEngine.getMealForDate('almuerzo', profile, today);
-    const snack = MealEngine.getMealForDate('meriendas', profile, today);
-    const dinner = MealEngine.getMealForDate('cena', profile, today);
+    const meals = [
+      { slot: 'desayuno', label: 'Desayuno', recipe: MealEngine.getMealForDate('desayuno', profile, today) },
+      { slot: 'almuerzo', label: 'Almuerzo', recipe: MealEngine.getMealForDate('almuerzo', profile, today) },
+      { slot: 'meriendas', label: 'Merienda', recipe: MealEngine.getMealForDate('meriendas', profile, today) },
+      { slot: 'cena', label: 'Cena', recipe: MealEngine.getMealForDate('cena', profile, today) }
+    ];
 
-    container.innerHTML = `
-      <div class="card">
-        <div class="meal-slot"><div class="meal-title">Desayuno</div><h3>${breakfast.name}</h3><p style="font-size:13px; color:var(--text-muted);">${breakfast.kcal} kcal • ${breakfast.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Almuerzo</div><h3>${lunch.name}</h3><p style="font-size:13px; color:var(--text-muted);">${lunch.kcal} kcal • ${lunch.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Merienda</div><h3>${snack.name}</h3><p style="font-size:13px; color:var(--text-muted);">${snack.kcal} kcal • ${snack.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Cena</div><h3>${dinner.name}</h3><p style="font-size:13px; color:var(--text-muted);">${dinner.kcal} kcal • ${dinner.ingredients.join(', ')}</p></div>
+    container.innerHTML = `<div class="meal-card-grid">${meals.map(m => this._renderMealCard(m)).join('')}</div>`;
+  },
+
+  _renderMealCard({ slot, label, recipe }) {
+    const accent = CATEGORY_ACCENTS[slot] || CATEGORY_ACCENTS.almuerzo;
+    const icon = (CATEGORY_META[slot] && CATEGORY_META[slot].icon) || '🍽️';
+    const preview = recipe.ingredients.slice(0, 3).join(', ') + (recipe.ingredients.length > 3 ? '…' : '');
+
+    return `
+      <div class="meal-card" style="--accent:${accent.color}; --accent-dim:${accent.dim};" onclick="UI.openRecipeModal('${recipe.id}')">
+        <div class="meal-icon">${icon}</div>
+        <div class="meal-card-body">
+          <div class="meal-card-top">
+            <span class="meal-card-label">${label}</span>
+            <span class="meal-card-kcal">${recipe.kcal} kcal</span>
+          </div>
+          <div class="meal-card-name">${recipe.name}</div>
+          <div class="meal-card-ingredients">${preview}</div>
+          <div class="meal-card-hint">Toca para ver la receta completa →</div>
+        </div>
       </div>
     `;
+  },
+
+  // Abre el modal flotante con ingredientes (como chips) y preparación paso a paso.
+  openRecipeModal(recipeId) {
+    const recipe = RECIPES_DB.find(r => r.id === recipeId);
+    if (!recipe) return;
+    const meta = CATEGORY_META[recipe.category] || {};
+
+    const content = document.getElementById('recipeModalContent');
+    content.innerHTML = `
+      <div class="recipe-modal-header">
+        <span class="recipe-badge">${meta.icon || ''} ${meta.label || recipe.category}</span>
+        <button class="modal-close" onclick="UI.closeRecipeModal()">✕</button>
+      </div>
+      <h2>${recipe.name}</h2>
+      <span class="modal-kcal-pill">${recipe.kcal} kcal</span>
+      ${recipe.country && recipe.country !== 'General'
+        ? `<span class="modal-kcal-pill" style="margin-left:8px; background:var(--bg); color:var(--text-muted);">${recipe.country}</span>`
+        : ''}
+
+      <div class="modal-section-title">Ingredientes</div>
+      <div class="ingredient-chip-list">
+        ${recipe.ingredients.map(ing => `<span class="ingredient-chip">${ing}</span>`).join('')}
+      </div>
+
+      <div class="modal-section-title">Preparación</div>
+      <ol class="instructions-list">
+        ${recipe.instructions.map(step => `<li>${step}</li>`).join('')}
+      </ol>
+    `;
+
+    document.getElementById('recipeModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+  },
+
+  closeRecipeModal() {
+    document.getElementById('recipeModal').classList.remove('active');
+    document.body.style.overflow = '';
+  },
+
+  closeRecipeModalOnOverlay(event) {
+    if (event.target && event.target.id === 'recipeModal') this.closeRecipeModal();
   },
 
   // Próximos 7 días, resueltos por MealEngine (no se repite una receta hasta
