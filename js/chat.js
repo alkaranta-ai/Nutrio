@@ -1,8 +1,91 @@
 // CHAT DE NUTRIO — respuestas por reglas, con 4 "personalidades" que el usuario
-// elige en el onboarding (profile.chatStyle). Si el usuario dejó una nota
-// personalizada (profile.chatCustomNote), se la recordamos al final del saludo
-// para que sepa que la tuvimos en cuenta, aunque el motor de reglas no la
-// interprete libremente (no hay backend de IA en esta versión de Nutrio).
+// elige en el onboarding (profile.chatStyle), y reconocimiento de antojos /
+// pedidos de acompañamiento ("quiero un café, no sé con qué acompañarlo",
+// "tengo hambre", "algo dulce", etc.) que sugiere recetas reales de RECIPES_DB
+// filtradas por alergias y restricciones del perfil.
+//
+// No hay backend de IA en esta versión (eso vive en la arquitectura NutrIA
+// aparte), así que la comprensión es por palabras clave normalizadas
+// (sin acentos), no por interpretación libre del lenguaje.
+
+// ---------- Utilidades de texto y filtrado ----------
+
+function normalizeText(str) {
+  return (str || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function _ingredientsMatchKeyword(ingredients, keyword) {
+  const kw = normalizeText(keyword);
+  return ingredients.some(ing => normalizeText(ing).includes(kw));
+}
+
+// Filtra recetas de una categoría descartando alergias/ingredientes que no
+// gustan, y priorizando las que calzan con las restricciones del perfil
+// (vegetariano, sin_lactosa, sin_carbo, etc.) si hay alguna disponible.
+function filterRecipesForProfile(category, profile) {
+  let pool = getRecipesByCategory(category);
+  if (!profile) return pool;
+
+  const blocked = [...(profile.allergies || []), ...(profile.dislikes || [])];
+  if (blocked.length) {
+    pool = pool.filter(r => !blocked.some(b => _ingredientsMatchKeyword(r.ingredients, b)));
+  }
+
+  const restrictions = profile.restrictions || [];
+  if (restrictions.length) {
+    const tagged = pool.filter(r => restrictions.some(res => (r.tags || []).includes(res)));
+    if (tagged.length) pool = tagged;
+  }
+
+  return pool;
+}
+
+function _pickRandom(arr, n) {
+  const copy = [...arr];
+  const result = [];
+  while (copy.length && result.length < n) {
+    const idx = Math.floor(Math.random() * copy.length);
+    result.push(copy.splice(idx, 1)[0]);
+  }
+  return result;
+}
+
+function _formatSuggestions(items) {
+  return items.map(r => `${r.name} (${r.kcal} kcal)`).join(' o ');
+}
+
+// Categoría según la hora del día, para cuando el pedido es genérico
+// ("tengo hambre", "no sé qué comer") sin mencionar café/mate.
+function _categoryByHour() {
+  const hour = new Date().getHours();
+  if (hour >= 6 && hour < 11) return 'desayuno';
+  if (hour >= 11 && hour < 15) return 'almuerzo';
+  if (hour >= 15 && hour < 19) return 'meriendas';
+  if (hour >= 19 && hour < 23) return 'cena';
+  return 'meriendas';
+}
+
+// Palabras/raíces que disparan el modo "sugerir algo para acompañar/comer".
+const PAIRING_KEYWORDS = ['cafe', 'mate', 'infusion'];
+const CRAVING_KEYWORDS = [
+  'no se que comer', 'no se con que', 'que como', 'tengo hambre',
+  'antoj', 'acompan', 'algo dulce', 'algo salado', 'que le pongo',
+  'para picar', 'ganas de comer'
+];
+
+function _detectsCraving(msgNorm) {
+  return PAIRING_KEYWORDS.some(k => msgNorm.includes(k)) ||
+         CRAVING_KEYWORDS.some(k => msgNorm.includes(k));
+}
+
+function _categoryForCraving(msgNorm) {
+  if (PAIRING_KEYWORDS.some(k => msgNorm.includes(k))) return 'meriendas';
+  return _categoryByHour();
+}
+
+// ---------- Personalidades ----------
 
 const PERSONAS = {
   amigable: {
@@ -18,6 +101,8 @@ const PERSONAS = {
     agua: (vasos) => vasos
       ? `¡Dale para adelante con esos ${vasos} vasos de agua! Te ayuda un montón con la energía del día.`
       : `Tomar agua seguido te va a ayudar mucho, ¡metele!`,
+    antojo: (suggestions) => `¡Buena onda! Para acompañar te tiro algunas ideas: ${suggestions}. Tocá la receta en Inicio o Semana si querés ver el paso a paso.`,
+    antojoEmpty: `Mmm, no encontré algo que calce 100% con tu perfil ahora mismo, pero date una vuelta por la pestaña Semana, seguro hay algo rico esperándote.`,
     default: `Todo bien, contame más así te ayudo mejor con recetas o dudas puntuales.`
   },
 
@@ -34,6 +119,8 @@ const PERSONAS = {
     agua: (vasos) => vasos
       ? `¡${vasos} vasos de agua por día, sin excusas! Hidratarte es parte del entrenamiento invisible.`
       : `¡Tomá agua todo el día, eso también es parte de ganar!`,
+    antojo: (suggestions) => `¡Ahí vamos! Para acompañar, metele con: ${suggestions}. ¡Elegí y seguí rindiendo al máximo!`,
+    antojoEmpty: `No tengo una sugerencia exacta para tu perfil ahora, pero no aflojes: mirá la pestaña Semana y elegí algo que te sume.`,
     default: `¡Dale que vamos bien! Contame más para seguir ayudándote a cumplir tu objetivo.`
   },
 
@@ -50,6 +137,8 @@ const PERSONAS = {
     agua: (vasos) => vasos
       ? `Tu ingesta de referencia registrada es de ${vasos} vasos de agua por día. Es un valor orientativo, ajustalo según tu actividad y clima.`
       : `Se recomienda una hidratación adecuada y constante a lo largo del día.`,
+    antojo: (suggestions) => `Opciones compatibles con tu perfil para este momento: ${suggestions}. Podés ver el detalle completo tocando la receta en Inicio o Semana.`,
+    antojoEmpty: `No hay una coincidencia exacta con tu perfil en este momento. Revisá la pestaña Semana para otras alternativas disponibles.`,
     default: `Indicame más detalles de tu consulta para poder responderte con precisión.`
   },
 
@@ -66,9 +155,13 @@ const PERSONAS = {
     agua: (vasos) => vasos
       ? `${vasos} vasos de agua al día, ¡y no, el mate no cuenta como los siete! (bueno, un poco sí).`
       : `Tomá agua, que la deshidratación no perdona ni a los más aguantadores.`,
+    antojo: (suggestions) => `Para que ese café no tome solo: ${suggestions}. Elegí rápido antes de que se enfríe (el café, no vos).`,
+    antojoEmpty: `Che, con tu perfil no me cerró ninguna opción justo ahora, ni que fuera receta de la abuela con ingrediente secreto. Fijate en Semana, ahí seguro hay algo.`,
     default: `Contame un poco más, que con media pregunta ni yo ni la heladera sabemos bien qué hacer.`
   }
 };
+
+// ---------- Motor principal ----------
 
 const ChatApp = {
   _getPersona(profile) {
@@ -92,26 +185,37 @@ const ChatApp = {
   // profile es opcional: si se pasa, el bot responde de forma más personalizada
   // y según la personalidad elegida en el onboarding (profile.chatStyle).
   getBotResponse(userMessage, profile) {
-    const msg = userMessage.toLowerCase();
+    const msgNorm = normalizeText(userMessage);
     const persona = this._getPersona(profile);
     const name = profile && profile.name ? `, ${profile.name}` : '';
 
-    if (msg.includes('hola') || msg.includes('buen')) {
+    // 1) Antojos / pedidos de acompañamiento: "quiero un café, no sé con qué
+    //    acompañarlo", "tengo hambre", "algo dulce", etc. Se resuelve con
+    //    recetas reales, filtradas por alergias y restricciones del perfil.
+    if (_detectsCraving(msgNorm)) {
+      const category = _categoryForCraving(msgNorm);
+      const pool = filterRecipesForProfile(category, profile);
+      const picks = _pickRandom(pool, Math.min(3, pool.length));
+      if (!picks.length) return persona.antojoEmpty;
+      return persona.antojo(_formatSuggestions(picks));
+    }
+
+    if (msgNorm.includes('hola') || msgNorm.includes('buen')) {
       return persona.saludo(name);
     }
-    if (msg.includes('dieta') || msg.includes('calorias') || msg.includes('calorías') || msg.includes('kcal')) {
+    if (msgNorm.includes('dieta') || msgNorm.includes('calorias') || msgNorm.includes('kcal')) {
       return persona.dieta(profile && profile.targetKcal ? profile.targetKcal : null);
     }
-    if (msg.includes('agua') || msg.includes('hidrat')) {
+    if (msgNorm.includes('agua') || msgNorm.includes('hidrat')) {
       return persona.agua(profile && profile.waterGlasses ? profile.waterGlasses : null);
     }
-    if (msg.includes('receta') || msg.includes('cocinar') || msg.includes('comer')) {
+    if (msgNorm.includes('receta') || msgNorm.includes('cocinar') || msgNorm.includes('comer')) {
       const restr = profile && profile.restrictions && profile.restrictions.length
         ? profile.restrictions.join(', ')
         : null;
       return persona.receta(restr);
     }
-    if (msg.includes('no me gusta') || msg.includes('alerg') || msg.includes('evitar')) {
+    if (msgNorm.includes('no me gusta') || msgNorm.includes('alerg') || msgNorm.includes('evitar')) {
       return persona.evitar;
     }
     return persona.default;
