@@ -8,7 +8,12 @@ const Onboarding = {
     activity: null,
     goal: null,
     health: [],
-    restrictions: []
+    restrictions: [],
+    mealsPerDay: null,
+    cookTime: null,
+    budget: null,
+    cuisines: [],
+    chatStyle: null
   },
 
   _bindSingleSelect(groupId, stateKey) {
@@ -23,26 +28,27 @@ const Onboarding = {
     });
   },
 
-  _bindMultiSelect(groupId, stateKey) {
+  _bindMultiSelect(groupId, stateKey, exclusiveVal) {
     const group = document.getElementById(groupId);
     if (!group) return;
     group.addEventListener('click', (e) => {
       const chip = e.target.closest('.chip');
       if (!chip) return;
       const val = chip.dataset.val;
+      const exclusive = exclusiveVal || 'ninguna';
 
-      if (val === 'ninguna') {
+      if (val === exclusive) {
         group.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
         chip.classList.add('active');
-        this.selected[stateKey] = ['ninguna'];
+        this.selected[stateKey] = [val];
         return;
       }
 
       chip.classList.toggle('active');
-      const ningunaChip = group.querySelector('[data-val="ninguna"]');
-      if (ningunaChip) ningunaChip.classList.remove('active');
+      const exclusiveChip = group.querySelector(`[data-val="${exclusive}"]`);
+      if (exclusiveChip) exclusiveChip.classList.remove('active');
 
-      const list = this.selected[stateKey].filter(v => v !== 'ninguna');
+      const list = this.selected[stateKey].filter(v => v !== exclusive);
       const idx = list.indexOf(val);
       if (chip.classList.contains('active') && idx === -1) {
         list.push(val);
@@ -56,8 +62,13 @@ const Onboarding = {
   bindAllChips() {
     this._bindSingleSelect('activityChips', 'activity');
     this._bindSingleSelect('goalChips', 'goal');
-    this._bindMultiSelect('healthChips', 'health');
-    this._bindMultiSelect('restrictionChips', 'restrictions');
+    this._bindMultiSelect('healthChips', 'health', 'ninguna');
+    this._bindMultiSelect('restrictionChips', 'restrictions', 'ninguna');
+    this._bindSingleSelect('mealsPerDayChips', 'mealsPerDay');
+    this._bindSingleSelect('cookTimeChips', 'cookTime');
+    this._bindSingleSelect('budgetChips', 'budget');
+    this._bindMultiSelect('cuisineChips', 'cuisines', 'sin_preferencia');
+    this._bindSingleSelect('chatStyleChips', 'chatStyle');
   },
 
   finish() {
@@ -84,6 +95,10 @@ const Onboarding = {
 
     const allergiesRaw = document.getElementById('fAllergies').value.trim();
     const dislikesRaw = document.getElementById('fDislikes').value.trim();
+    const favoriteFoodsRaw = document.getElementById('fFavoriteFoods').value.trim();
+    const chatCustomRaw = document.getElementById('fChatCustom').value.trim();
+    const waterVal = document.getElementById('fWaterGlasses').value;
+    const sleepVal = document.getElementById('fSleepHours').value;
 
     const profile = {
       name,
@@ -97,7 +112,22 @@ const Onboarding = {
       healthConditions: this.selected.health.filter(v => v !== 'ninguna'),
       allergies: allergiesRaw ? allergiesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
       restrictions: this.selected.restrictions,
-      dislikes: dislikesRaw ? dislikesRaw.split(',').map(s => s.trim()).filter(Boolean) : []
+      dislikes: dislikesRaw ? dislikesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+
+      // Hábitos y rutina
+      mealsPerDay: this.selected.mealsPerDay || '3',
+      cookTime: this.selected.cookTime || 'moderado',
+      budget: this.selected.budget || 'medio',
+      waterGlasses: waterVal ? parseInt(waterVal, 10) : null,
+      sleepHours: sleepVal ? parseFloat(sleepVal) : null,
+
+      // Gustos
+      cuisines: this.selected.cuisines.filter(v => v !== 'sin_preferencia'),
+      favoriteFoods: favoriteFoodsRaw ? favoriteFoodsRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+
+      // Estilo del chat
+      chatStyle: this.selected.chatStyle || 'amigable',
+      chatCustomNote: chatCustomRaw || ''
     };
 
     profile.targetKcal = this._calculateTargetKcal(profile);
@@ -150,6 +180,7 @@ const UI = {
     this.renderWeeklyPlan();
     this.renderCart();
     this.renderProfile();
+    this.renderChatGreeting(profile);
     this.goto('chat'); // Abre el chat primero
   },
 
@@ -166,6 +197,14 @@ const UI = {
     if (buttons[idx]) buttons[idx].classList.add('active');
 
     document.getElementById('chatInputBar').style.display = viewName === 'chat' ? 'block' : 'none';
+  },
+
+  // Primer mensaje del chat, adaptado al estilo elegido por el usuario en el onboarding.
+  renderChatGreeting(profile) {
+    const scroll = document.getElementById('chatScroll');
+    if (!scroll || !profile) return;
+    const greeting = ChatApp.getGreeting(profile);
+    scroll.innerHTML = `<div style="text-align:left;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block;">${greeting}</span></div>`;
   },
 
   // Comidas de HOY, resueltas por MealEngine contra el perfil (restricciones,
@@ -282,6 +321,17 @@ const UI = {
       vegetariano: 'Vegetariano', vegano: 'Vegano', sin_gluten: 'Sin gluten',
       sin_lactosa: 'Sin lactosa', sin_carbo: 'Bajo en carbohidratos'
     };
+    const mealsPerDayLabels = { '3': '3 comidas grandes', '4': '4 comidas', '5_6': '5-6 comidas pequeñas' };
+    const cookTimeLabels = { poco: 'Poco tiempo', moderado: 'Tiempo moderado', mucho: 'Le dedico tiempo' };
+    const budgetLabels = { economico: 'Económico', medio: 'Medio', sin_restriccion: 'Sin restricciones' };
+    const cuisineLabels = {
+      italiana: 'Italiana', mexicana: 'Mexicana', asiatica: 'Asiática',
+      mediterranea: 'Mediterránea', criolla: 'Argentina/Criolla'
+    };
+    const chatStyleLabels = {
+      amigable: 'Amigable y cercano', motivador: 'Motivador y con energía',
+      tecnico: 'Técnico y directo', humor: 'Con humor y onda'
+    };
 
     const countryText = countryLabels[profile.country] || '—';
     const activityText = activityLabels[profile.activity] || '—';
@@ -290,6 +340,15 @@ const UI = {
     const allergiesText = (profile.allergies || []).join(', ') || 'Ninguna';
     const restrictionsText = (profile.restrictions || []).map(r => restrictionLabels[r] || r).join(', ') || 'Ninguna';
     const dislikesText = (profile.dislikes || []).join(', ') || 'Ninguno';
+    const mealsPerDayText = mealsPerDayLabels[profile.mealsPerDay] || '—';
+    const cookTimeText = cookTimeLabels[profile.cookTime] || '—';
+    const budgetText = budgetLabels[profile.budget] || '—';
+    const waterText = profile.waterGlasses ? `${profile.waterGlasses} vasos/día` : 'No informado';
+    const sleepText = profile.sleepHours ? `${profile.sleepHours} hs/noche` : 'No informado';
+    const cuisinesText = (profile.cuisines || []).map(c => cuisineLabels[c] || c).join(', ') || 'Sin preferencia';
+    const favoriteFoodsText = (profile.favoriteFoods || []).join(', ') || 'No informado';
+    const chatStyleText = chatStyleLabels[profile.chatStyle] || 'Amigable y cercano';
+    const chatNoteText = profile.chatCustomNote ? ` — "${profile.chatCustomNote}"` : '';
 
     prefsEl.innerHTML = `
       <b>País:</b> ${countryText} · <b>Actividad:</b> ${activityText}<br>
@@ -297,7 +356,13 @@ const UI = {
       <b>Condiciones de salud:</b> ${healthText}<br>
       <b>Alergias:</b> ${allergiesText}<br>
       <b>Restricciones:</b> ${restrictionsText}<br>
-      <b>Evita:</b> ${dislikesText}
+      <b>Evita:</b> ${dislikesText}<br>
+      <b>Comidas por día:</b> ${mealsPerDayText} · <b>Tiempo para cocinar:</b> ${cookTimeText}<br>
+      <b>Presupuesto:</b> ${budgetText}<br>
+      <b>Agua:</b> ${waterText} · <b>Sueño:</b> ${sleepText}<br>
+      <b>Cocinas favoritas:</b> ${cuisinesText}<br>
+      <b>Comidas favoritas:</b> ${favoriteFoodsText}<br>
+      <b>Estilo de chat:</b> ${chatStyleText}${chatNoteText}
     `;
   },
 
