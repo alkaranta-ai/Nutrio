@@ -183,10 +183,22 @@ const MEAL_META = {
   antojo: { label: 'Piqueteo', icon: '🍿', color: 'var(--accent-antojo)', dim: 'var(--accent-antojo-dim)' }
 };
 
+// Mapea las claves "de UI" (singular, usadas en MEAL_META / chat) a las
+// claves reales de categoría que usan RECIPES_DB, BEBIDAS_DB y MealEngine
+// ("meriendas" en plural). Única fuente de verdad para esta traducción,
+// así evitamos strings sueltos repetidos por todo el archivo.
+const SLOT_TO_CATEGORY = {
+  desayuno: 'desayuno',
+  almuerzo: 'almuerzo',
+  merienda: 'meriendas',
+  cena: 'cena',
+  antojo: 'meriendas' // de madrugada, si no hay nada mejor, caemos a merienda
+};
+
 const UI = {
 
-  // Guarda referencias de recetas para poder abrir el modal sin serializar
-  // objetos completos dentro de atributos HTML.
+  // Guarda referencias de recetas (y su bebida sugerida) para poder abrir
+  // el modal sin serializar objetos completos dentro de atributos HTML.
   _recipeRefs: {},
 
   init() {
@@ -264,15 +276,24 @@ const UI = {
   // --------------------------------------------------------------------
   // Tarjetas de comida (usadas tanto en Inicio como en Semana)
   // --------------------------------------------------------------------
-  _registerRecipeRef(refId, recipe, typeKey) {
-    this._recipeRefs[refId] = { recipe, typeKey };
+  _registerRecipeRef(refId, recipe, typeKey, drink) {
+    this._recipeRefs[refId] = { recipe, typeKey, drink };
   },
 
-  _buildMealCardHTML(refId, typeKey, recipe) {
+  _buildDrinkPreviewHTML(drink) {
+    if (!drink) return '';
+    const altHTML = drink.conAlcohol
+      ? ` <span class="meal-card-drink-alt">· 🍷 ${drink.conAlcohol}</span>`
+      : '';
+    return `<div class="meal-card-drink">🥤 ${drink.sinAlcohol}${altHTML}</div>`;
+  },
+
+  _buildMealCardHTML(refId, typeKey, recipe, drink) {
     if (!recipe) return '';
-    this._registerRecipeRef(refId, recipe, typeKey);
+    this._registerRecipeRef(refId, recipe, typeKey, drink);
     const meta = MEAL_META[typeKey] || MEAL_META.antojo;
     const ingredientsPreview = (recipe.ingredients || []).join(', ');
+    const drinkPreview = this._buildDrinkPreviewHTML(drink);
 
     return `
       <div class="meal-card tap-feedback" style="--accent:${meta.color}; --accent-dim:${meta.dim};" onclick="UI.openRecipeModalByRef('${refId}')">
@@ -284,6 +305,7 @@ const UI = {
           </div>
           <div class="meal-card-name">${recipe.name || ''}</div>
           <div class="meal-card-ingredients">${ingredientsPreview}</div>
+          ${drinkPreview}
           <div class="meal-card-hint">Ver receta y preparación →</div>
         </div>
       </div>
@@ -292,7 +314,7 @@ const UI = {
 
   renderHome() {
     const profile = StorageApp.getProfile();
-    if (!profile || typeof RECIPES_DB === 'undefined') return;
+    if (!profile || typeof RECIPES_DB === 'undefined' || typeof MealEngine === 'undefined') return;
     document.getElementById('homeGreeting').innerText = `¡Hola, ${profile.name}!`;
     document.getElementById('kcalDisplayNum').innerText = profile.targetKcal;
     document.getElementById('kcalDisplayTarget').innerText = `Calculado según tu cuerpo, actividad y objetivo activo.`;
@@ -300,37 +322,60 @@ const UI = {
     const container = document.getElementById('dayMealsContainer');
     if (!container) return;
 
-    const isHigh = profile.targetKcal > 1700;
-    const breakfast = isHigh ? RECIPES_DB[1] : RECIPES_DB[0];
-    const lunch = isHigh ? RECIPES_DB[3] : RECIPES_DB[2];
-    const snack = isHigh ? RECIPES_DB[5] : RECIPES_DB[4];
-    const dinner = isHigh ? RECIPES_DB[7] : RECIPES_DB[6];
+    // Usamos el MealEngine real (filtra por restricciones/alergias/salud,
+    // ajusta por kcal y rota sin repetir) en vez de índices fijos.
+    const today = new Date();
+    const slots = [
+      { typeKey: 'desayuno', refId: 'home-desayuno' },
+      { typeKey: 'almuerzo', refId: 'home-almuerzo' },
+      { typeKey: 'merienda', refId: 'home-merienda' },
+      { typeKey: 'cena', refId: 'home-cena' }
+    ];
 
-    container.innerHTML =
-      this._buildMealCardHTML('home-desayuno', 'desayuno', breakfast) +
-      this._buildMealCardHTML('home-almuerzo', 'almuerzo', lunch) +
-      this._buildMealCardHTML('home-merienda', 'merienda', snack) +
-      this._buildMealCardHTML('home-cena', 'cena', dinner);
+    container.innerHTML = slots.map(({ typeKey, refId }) => {
+      const category = SLOT_TO_CATEGORY[typeKey];
+      const recipe = MealEngine.getMealForDate(category, profile, today);
+      const drink = MealEngine.getDrinkSuggestion(category, profile, today);
+      return this._buildMealCardHTML(refId, typeKey, recipe, drink);
+    }).join('');
   },
 
   renderWeeklyPlan() {
     const tabsContainer = document.getElementById('weekDayTabs');
-    if (!tabsContainer || typeof RECIPES_DB === 'undefined') return;
+    const profile = StorageApp.getProfile();
+    if (!tabsContainer || typeof RECIPES_DB === 'undefined' || typeof MealEngine === 'undefined' || !profile) return;
 
     const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
     this._weekDays = days;
-    this._weekData = days.map((day, idx) => ({
-      day,
-      breakfast: RECIPES_DB[0 + (idx % 2)],
-      lunch: RECIPES_DB[2 + (idx % 2)],
-      snack: RECIPES_DB[4 + (idx % 2)],
-      dinner: RECIPES_DB[6 + (idx % 2)]
-    }));
 
     // Lunes=0 ... Domingo=6, calculado a partir del día real de la semana.
     const jsDay = new Date().getDay(); // 0=domingo
     const todayIdx = (jsDay + 6) % 7;
     this._weekTodayIdx = todayIdx;
+
+    // Arrancamos el plan el lunes de esta semana, así el domingo (día
+    // permitido, con opción de bebida con alcohol) siempre cae en su lugar.
+    const monday = new Date();
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - todayIdx);
+
+    const plan = MealEngine.getPlanForDays(profile, monday, 7);
+
+    this._weekData = days.map((day, idx) => {
+      const dayPlan = plan[idx];
+      return {
+        day,
+        isCheatDay: dayPlan.isCheatDay,
+        breakfast: dayPlan.meals.desayuno.recipe,
+        breakfastDrink: dayPlan.meals.desayuno.drink,
+        lunch: dayPlan.meals.almuerzo.recipe,
+        lunchDrink: dayPlan.meals.almuerzo.drink,
+        snack: dayPlan.meals.meriendas.recipe,
+        snackDrink: dayPlan.meals.meriendas.drink,
+        dinner: dayPlan.meals.cena.recipe,
+        dinnerDrink: dayPlan.meals.cena.drink
+      };
+    });
 
     tabsContainer.innerHTML = days.map((day, idx) => `
       <div class="day-tab tap-feedback ${idx === todayIdx ? 'is-today' : ''}" data-idx="${idx}" onclick="UI.renderWeekDay(${idx})">
@@ -353,28 +398,29 @@ const UI = {
     const heading = document.getElementById('weekDayHeading');
     if (heading) {
       const suffix = idx === this._weekTodayIdx ? ' · hoy' : '';
-      heading.innerHTML = `<b>${data.day}</b>${suffix}`;
+      const cheatSuffix = data.isCheatDay ? ' · 🍷 día permitido' : '';
+      heading.innerHTML = `<b>${data.day}</b>${suffix}${cheatSuffix}`;
     }
 
     const container = document.getElementById('weeklyPlanContainer');
     if (!container) return;
     container.innerHTML =
-      this._buildMealCardHTML(`week-${idx}-desayuno`, 'desayuno', data.breakfast) +
-      this._buildMealCardHTML(`week-${idx}-almuerzo`, 'almuerzo', data.lunch) +
-      this._buildMealCardHTML(`week-${idx}-merienda`, 'merienda', data.snack) +
-      this._buildMealCardHTML(`week-${idx}-cena`, 'cena', data.dinner);
+      this._buildMealCardHTML(`week-${idx}-desayuno`, 'desayuno', data.breakfast, data.breakfastDrink) +
+      this._buildMealCardHTML(`week-${idx}-almuerzo`, 'almuerzo', data.lunch, data.lunchDrink) +
+      this._buildMealCardHTML(`week-${idx}-merienda`, 'merienda', data.snack, data.snackDrink) +
+      this._buildMealCardHTML(`week-${idx}-cena`, 'cena', data.dinner, data.dinnerDrink);
   },
 
   // --------------------------------------------------------------------
-  // Modal de receta: ingredientes + preparación
+  // Modal de receta: ingredientes + preparación + bebida sugerida
   // --------------------------------------------------------------------
   openRecipeModalByRef(refId) {
     const ref = this._recipeRefs[refId];
     if (!ref) return;
-    this.openRecipeModal(ref.recipe, ref.typeKey);
+    this.openRecipeModal(ref.recipe, ref.typeKey, ref.drink);
   },
 
-  openRecipeModal(recipe, typeKey) {
+  openRecipeModal(recipe, typeKey, drink) {
     if (!recipe) return;
     const meta = MEAL_META[typeKey] || MEAL_META.antojo;
     const content = document.getElementById('recipeModalContent');
@@ -394,6 +440,20 @@ const UI = {
       instructionsHTML = `<div class="instructions-empty">Todavía no cargaste los pasos de preparación para esta receta. Agregá un campo <code>instructions</code> (array de pasos) a la receta en <b>data.js</b> para que aparezcan acá.</div>`;
     }
 
+    let drinkHTML = '';
+    if (drink) {
+      const alcoholHTML = drink.conAlcohol
+        ? `<span class="ingredient-chip drink-alcohol-chip">🍷 ${drink.conAlcohol} <small>(día permitido)</small></span>`
+        : '';
+      drinkHTML = `
+        <div class="modal-section-title">Bebida sugerida</div>
+        <div class="ingredient-chip-list">
+          <span class="ingredient-chip">🥤 ${drink.sinAlcohol}</span>
+          ${alcoholHTML}
+        </div>
+      `;
+    }
+
     content.innerHTML = `
       <div class="recipe-modal-header">
         <span class="recipe-badge" style="background:${meta.dim}; color:${meta.color};">${meta.icon} ${meta.label}</span>
@@ -407,6 +467,8 @@ const UI = {
 
       <div class="modal-section-title">Preparación</div>
       ${instructionsHTML}
+
+      ${drinkHTML}
     `;
 
     modal.classList.add('active');
@@ -671,24 +733,19 @@ window.ChatApp = {
     return { key: 'antojo', label: 'Piqueteo / algo ligero' }; // madrugada
   },
 
-  // Usa exactamente la misma lógica que UI.renderHome() para elegir la receta,
-  // así el chat y la solapa de Inicio jamás se contradicen.
+  // Usa exactamente el mismo MealEngine que UI.renderHome()/renderWeekDay(),
+  // así el chat y las solapas de Inicio/Semana jamás se contradicen entre sí.
   _getRecipeForSlot(slotKey, profile) {
-    if (typeof RECIPES_DB === 'undefined' || !RECIPES_DB.length) return null;
-    const isHigh = profile && profile.targetKcal > 1700;
+    if (typeof MealEngine === 'undefined') return null;
+    const category = SLOT_TO_CATEGORY[slotKey] || 'meriendas';
+    return MealEngine.getMealForDate(category, profile, new Date());
+  },
 
-    const map = {
-      desayuno: isHigh ? RECIPES_DB[1] : RECIPES_DB[0],
-      almuerzo: isHigh ? RECIPES_DB[3] : RECIPES_DB[2],
-      merienda: isHigh ? RECIPES_DB[5] : RECIPES_DB[4],
-      cena: isHigh ? RECIPES_DB[7] : RECIPES_DB[6]
-    };
-
-    if (map[slotKey]) return map[slotKey];
-
-    // Madrugada: buscamos algo categorizado como "antojo"; si no hay, caemos a merienda.
-    const antojoRecipe = RECIPES_DB.find(r => r.category === 'antojo');
-    return antojoRecipe || map.merienda;
+  // Misma lógica pero para la bebida sugerida de esa franja horaria.
+  _getDrinkForSlot(slotKey, profile) {
+    if (typeof MealEngine === 'undefined') return null;
+    const category = SLOT_TO_CATEGORY[slotKey] || 'meriendas';
+    return MealEngine.getDrinkSuggestion(category, profile, new Date());
   },
 
   // --------------------------------------------------------------------
@@ -792,6 +849,7 @@ window.ChatApp = {
     if (preguntaQueComer) {
       const slot = this._getMealSlot();
       const recipe = this._getRecipeForSlot(slot.key, profile);
+      const drink = this._getDrinkForSlot(slot.key, profile);
       const now = new Date();
       const horaTxt = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
 
@@ -807,11 +865,20 @@ window.ChatApp = {
         restriccionesNote = ` (ya tuve en cuenta que sos ${profile.restrictions.join(', ')})`;
       }
 
+      // Armamos la frase de bebida acá para no repetir la lógica en las 3 variantes.
+      let drinkTxt = '';
+      if (drink) {
+        drinkTxt = ` Para acompañar, va bien con ${drink.sinAlcohol}`;
+        drinkTxt += drink.conAlcohol
+          ? `, o si querés date el gusto con ${drink.conAlcohol} (hoy es día permitido 🍷).`
+          : '.';
+      }
+
       return this.pickVariant('que_comer', [
-        (h, l, r, ing, note) => `Son las ${h}, así que te toca **${l}**${note}: **${r.name}** (${r.kcal} kcal) con ${ing}. Está armado también en la solapa de Inicio si querés verlo con detalle. 🍽️`,
-        (h, l, r, ing, note) => `Mirá la hora, son las ${h}: momento de **${l}**${note}. Te tiro esta: **${r.name}** (${r.kcal} kcal) con ${ing}. Lo tenés también en Inicio. 😋`,
-        (h, l, r, ing, note) => `A las ${h} te toca directamente **${l}**${note}. Va **${r.name}** (${r.kcal} kcal), con ${ing}. Chequealo en Inicio si querés más detalle. 🍽️`
-      ], horaTxt, slot.label, recipe, ingredientesTxt, restriccionesNote);
+        (h, l, r, ing, note, d) => `Son las ${h}, así que te toca **${l}**${note}: **${r.name}** (${r.kcal} kcal) con ${ing}.${d} Está armado también en la solapa de Inicio si querés verlo con detalle. 🍽️`,
+        (h, l, r, ing, note, d) => `Mirá la hora, son las ${h}: momento de **${l}**${note}. Te tiro esta: **${r.name}** (${r.kcal} kcal) con ${ing}.${d} Lo tenés también en Inicio. 😋`,
+        (h, l, r, ing, note, d) => `A las ${h} te toca directamente **${l}**${note}. Va **${r.name}** (${r.kcal} kcal), con ${ing}.${d} Chequealo en Inicio si querés más detalle. 🍽️`
+      ], horaTxt, slot.label, recipe, ingredientesTxt, restriccionesNote, drinkTxt);
     }
 
     // --- Saludos ---
