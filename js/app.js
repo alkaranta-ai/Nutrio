@@ -19,7 +19,7 @@ const Onboarding = {
   // Un chip por grupo (actividad, objetivo): al tocarlo se desactivan los demás.
   _bindSingleSelect(groupId, stateKey) {
     const group = document.getElementById(groupId);
-    if (!group) return; 
+    if (!group) return;
     group.addEventListener('click', (e) => {
       const chip = e.target.closest('.chip');
       if (!chip) return;
@@ -32,7 +32,7 @@ const Onboarding = {
   // Varios chips por grupo (salud, restricciones): se pueden marcar varios a la vez.
   _bindMultiSelect(groupId, stateKey) {
     const group = document.getElementById(groupId);
-    if (!group) return; 
+    if (!group) return;
     group.addEventListener('click', (e) => {
       const chip = e.target.closest('.chip');
       if (!chip) return;
@@ -171,8 +171,68 @@ const Onboarding = {
   }
 };
 
+// ==========================================================================
+// Estilos inyectados para agrandar el cajón de chat en el celu.
+// No tengo acceso a tu CSS/HTML, así que esto se aplica en runtime.
+// Si tenés styles.css a mano, lo ideal es mover estas reglas ahí.
+// ==========================================================================
+function injectChatInputStyles() {
+  if (document.getElementById('nutrio-chat-input-boost')) return;
+  const style = document.createElement('style');
+  style.id = 'nutrio-chat-input-boost';
+  style.textContent = `
+    #chatInputBar {
+      padding: 14px 16px !important;
+      display: flex !important;
+      align-items: flex-end !important;
+      gap: 10px !important;
+    }
+    #chatInputBar textarea,
+    #chatInputBar input[type="text"],
+    #chatInput {
+      min-height: 52px !important;
+      max-height: 140px !important;
+      font-size: 16px !important;
+      padding: 14px 16px !important;
+      border-radius: 16px !important;
+      line-height: 1.4 !important;
+      resize: none !important;
+    }
+    #chatInputBar button {
+      min-width: 52px !important;
+      min-height: 52px !important;
+      font-size: 18px !important;
+      border-radius: 14px !important;
+    }
+    .chat-feedback button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 2px 4px;
+      opacity: 0.5;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .chat-feedback button:hover {
+      transform: scale(1.15);
+    }
+    .chat-feedback button.active {
+      opacity: 1;
+    }
+  `;
+  document.head.appendChild(style);
+
+  // Si #chatInput es un <textarea>, además le agrandamos las filas visibles
+  const inputEl = document.getElementById('chatInput');
+  if (inputEl && inputEl.tagName === 'TEXTAREA' && !inputEl.getAttribute('rows')) {
+    inputEl.setAttribute('rows', '2');
+  }
+}
+
 const UI = {
   init() {
+    injectChatInputStyles();
+
     // IMPORTANTE: Primero le damos vida a las escuchas de los chips pase lo que pase
     Onboarding.bindAllChips();
 
@@ -271,8 +331,8 @@ const UI = {
       const isChecked = tildadosHoy.includes(item);
       html += `
         <div class="cart-item" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-          <input type="checkbox" data-item="${item}" ${isChecked ? 'checked' : ''} 
-                 style="transform: scale(1.1); accent-color: var(--primary); cursor:pointer;" 
+          <input type="checkbox" data-item="${item}" ${isChecked ? 'checked' : ''}
+                 style="transform: scale(1.1); accent-color: var(--primary); cursor:pointer;"
                  onclick="UI.handleCheck(this, '${item}')">
           <span style="flex:1; ${isChecked ? 'text-decoration:line-through; opacity:0.5;' : ''}">${item}</span>
         </div>
@@ -288,7 +348,7 @@ const UI = {
     let historial = JSON.parse(localStorage.getItem('nutrio_history')) || [];
     html += `<div style="margin-top:25px; border-top:1px dashed #ccc; padding-top:15px;">
               <h4 style="margin-bottom:10px; color:var(--text);">🗃️ Carrito e Historial de Compras</h4>`;
-    
+
     if (historial.length === 0) {
       html += `<p style="font-size:12px; color:gray;">Aún no guardaste compras. Lo que tildes arriba quedará registrado acá por día.</p>`;
     } else {
@@ -305,7 +365,7 @@ const UI = {
   handleCheck(cb, item) {
     const hoyKey = new Date().toLocaleDateString('es-AR');
     let tildadosHoy = JSON.parse(localStorage.getItem(`nutrio_checked_${hoyKey}`)) || [];
-    
+
     if (cb.checked) {
       if (!tildadosHoy.includes(item)) tildadosHoy.push(item);
       cb.nextElementSibling.style.textDecoration = 'line-through';
@@ -321,7 +381,7 @@ const UI = {
   archivePurchases() {
     const hoyKey = new Date().toLocaleDateString('es-AR');
     let tildadosHoy = JSON.parse(localStorage.getItem(`nutrio_checked_${hoyKey}`)) || [];
-    
+
     if (tildadosHoy.length === 0) {
       alert("¡Che! Primero tildá en la lista los artículos que ya compraste.");
       return;
@@ -330,7 +390,7 @@ const UI = {
     let historial = JSON.parse(localStorage.getItem('nutrio_history')) || [];
     historial.unshift({ date: hoyKey, items: [...tildadosHoy] });
     localStorage.setItem('nutrio_history', JSON.stringify(historial));
-    
+
     localStorage.removeItem(`nutrio_checked_${hoyKey}`);
     alert("¡Espectacular! Guardado en tu historial. Los artículos se destildaron para que la lista te quede limpia.");
     this.renderCart();
@@ -402,11 +462,34 @@ const UI = {
     setTimeout(() => {
       const profile = StorageApp.getProfile();
       const response = ChatApp.getBotResponse(msg, profile);
+      const msgId = 'chatmsg_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+
       if (scroll) {
-        scroll.innerHTML += `<div style="text-align:left; margin-bottom:10px;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${response}</span></div>`;
+        scroll.innerHTML += `
+          <div style="text-align:left; margin-bottom:10px;" id="${msgId}">
+            <span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block; font-size:14px;">${response.text}</span>
+            <div class="chat-feedback" style="margin-top:2px;">
+              <button type="button" data-role="like" title="Me gusta" onclick="UI.rateResponse('${msgId}', '${response.category}', ${response.idx}, true)">👍</button>
+              <button type="button" data-role="dislike" title="No me gusta" onclick="UI.rateResponse('${msgId}', '${response.category}', ${response.idx}, false)">👎</button>
+            </div>
+          </div>`;
         scroll.scrollTop = scroll.scrollHeight;
       }
     }, 400);
+  },
+
+  // Guarda si al usuario le gustó o no una respuesta puntual del bot.
+  // Esto hace que ChatApp deje de repetir las variantes marcadas con 👎
+  // (y priorice, dentro de lo posible, las que tuvieron 👍).
+  rateResponse(msgId, category, idx, liked) {
+    ChatApp.recordFeedback(category, idx, liked);
+
+    const container = document.getElementById(msgId);
+    if (!container) return;
+    const likeBtn = container.querySelector('[data-role="like"]');
+    const dislikeBtn = container.querySelector('[data-role="dislike"]');
+    if (likeBtn) likeBtn.classList.toggle('active', liked);
+    if (dislikeBtn) dislikeBtn.classList.toggle('active', !liked);
   },
 
   resetAll() {
@@ -419,6 +502,9 @@ const UI = {
 // MÓDULO DE CHAT (única declaración global, sin duplicados)
 // ==========================================================================
 window.ChatApp = {
+
+  // Guarda el último índice mostrado por categoría, para no repetir dos veces seguidas.
+  _lastVariantByCategory: {},
 
   // Saca tildes y pasa a minúsculas para que el matching de palabras clave
   // sea más flexible ("qué puedo comer" == "que puedo comer").
@@ -474,19 +560,89 @@ window.ChatApp = {
     return antojoRecipe || map.merienda;
   },
 
+  // --------------------------------------------------------------------
+  // Sistema de feedback (👍/👎) por categoría de respuesta.
+  // Estructura en localStorage:
+  // { [categoria]: { liked: [idx,...], disliked: [idx,...] } }
+  // --------------------------------------------------------------------
+  _getFeedbackStore() {
+    return JSON.parse(localStorage.getItem('nutrio_chat_feedback')) || {};
+  },
+
+  recordFeedback(category, idx, liked) {
+    const feedback = this._getFeedbackStore();
+    if (!feedback[category]) feedback[category] = { liked: [], disliked: [] };
+    feedback[category].liked = feedback[category].liked.filter(i => i !== idx);
+    feedback[category].disliked = feedback[category].disliked.filter(i => i !== idx);
+    if (liked) feedback[category].liked.push(idx);
+    else feedback[category].disliked.push(idx);
+    localStorage.setItem('nutrio_chat_feedback', JSON.stringify(feedback));
+  },
+
+  // Elige una variante para "category" dentro de "variants" (array de strings
+  // o de funciones que reciben los args extra), evitando las marcadas con 👎
+  // y evitando repetir la misma dos veces seguidas cuando hay opciones.
+  pickVariant(category, variants, ...args) {
+    const feedback = this._getFeedbackStore();
+    const catFeedback = feedback[category] || { liked: [], disliked: [] };
+
+    let available = variants.map((_, i) => i).filter(i => !catFeedback.disliked.includes(i));
+    if (available.length === 0) available = variants.map((_, i) => i); // si están todas con 👎, reseteamos
+
+    const last = this._lastVariantByCategory[category];
+    if (available.length > 1 && last !== undefined) {
+      const withoutLast = available.filter(i => i !== last);
+      if (withoutLast.length > 0) available = withoutLast;
+    }
+
+    const idx = available[Math.floor(Math.random() * available.length)];
+    this._lastVariantByCategory[category] = idx;
+
+    const raw = variants[idx];
+    const text = typeof raw === 'function' ? raw(...args) : raw;
+
+    return { text, category, idx };
+  },
+
   getBotResponse(userMessage, profile) {
     const msg = this._normalize(userMessage);
-    const name = profile && profile.name ? ` ${profile.name}` : 'che';
+    const name = profile && profile.name ? ` ${profile.name}` : ' che';
 
     // --- Caso especial: pregunta por el mate (antes de todo lo demás) ---
     const hablaDeMate = /\bmate\b/.test(msg) && !msg.includes('matematica');
     if (hablaDeMate && !msg.includes('no me gusta')) {
       const now = new Date();
       const horaTxt = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
-      return `Son las ${horaTxt}, así que el mate pide algo dulce o tostado: bizcochitos, tostadas con manteca y mermelada, factura si estás con onda, o algo salado tipo tostadas con queso si preferís no llenarte de azúcar. Si querés algo más completo, mirá la solapa de **Inicio**, ahí tenés armado el resto del día. 🧉`;
+      return this.pickVariant('mate', [
+        (h) => `Son las ${h}, así que el mate pide algo dulce o tostado: bizcochitos, tostadas con manteca y mermelada, factura si estás con onda, o algo salado tipo tostadas con queso si preferís no llenarte de azúcar. Si querés algo más completo, mirá la solapa de **Inicio**, ahí tenés armado el resto del día. 🧉`,
+        (h) => `A las ${h} el mate pega bien con algo simple: tostadas, un pancito con queso, o una fruta si querés ir más liviano. En la solapa de **Inicio** tenés el resto del día armado. 🧉`,
+        (h) => `Mate a las ${h}... buena elección. Acompañalo con algo tostado o una fruta, y si querés algo más armado fijate en **Inicio** o **Semana**. 🧉`
+      ], horaTxt);
     }
 
-    // --- "¿Qué puedo comer ahora?" tiene prioridad sobre todo lo demás ---
+    // --- Despedidas: chau, nos vemos, hasta luego, me voy, etc. ---
+    const esDespedida =
+      /\bchau\b/.test(msg) ||
+      /\bnos vemos\b/.test(msg) ||
+      /\bhasta luego\b/.test(msg) ||
+      /\bhasta manana\b/.test(msg) ||
+      /\bhasta la proxima\b/.test(msg) ||
+      /\bme voy\b/.test(msg) ||
+      /\bme tengo que ir\b/.test(msg) ||
+      /\badios\b/.test(msg) ||
+      /\bbye\b/.test(msg);
+
+    if (esDespedida) {
+      return this.pickVariant('despedida', [
+        (n) => `¡Chau${n}! Que la vayas bien, nos vemos en la próxima. Recordá tomar agua y no saltearte las comidas. 👋`,
+        (n) => `¡Nos vemos${n}! Cualquier cosa acá ando. Que tengas un lindo resto del día. 🌱`,
+        (n) => `¡Listo${n}, hasta la próxima! Si te tienta algo raro de comer, ya sabés dónde encontrarme. 😉`,
+        (n) => `¡Dale${n}, cuidate! Nos vemos prontito por acá. 🍎`,
+        (n) => `¡Chau chau${n}! Fue un gusto charlar, ¡a comer rico! 🥗`
+      ], name);
+    }
+
+    // --- "¿Qué puedo comer ahora?" tiene prioridad sobre el resto ---
     // (incluye variantes en lunfardo, ya normalizadas arriba a "comer")
     const preguntaQueComer =
       (msg.includes('que puedo comer') ||
@@ -509,7 +665,9 @@ window.ChatApp = {
       const horaTxt = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
 
       if (!recipe) {
-        return `Son las ${horaTxt}, momento de **${slot.label}**. Todavía no tengo tus recetas cargadas, pero fijate en Inicio o en la Semana para ver qué te armé.`;
+        return this.pickVariant('que_comer_sin_receta', [
+          (h, l) => `Son las ${h}, momento de **${l}**. Todavía no tengo tus recetas cargadas, pero fijate en Inicio o en la Semana para ver qué te armé.`
+        ], horaTxt, slot.label);
       }
 
       const ingredientesTxt = recipe.ingredients ? recipe.ingredients.join(', ') : '';
@@ -518,36 +676,75 @@ window.ChatApp = {
         restriccionesNote = ` (ya tuve en cuenta que sos ${profile.restrictions.join(', ')})`;
       }
 
-      return `Son las ${horaTxt}, así que te toca **${slot.label}**${restriccionesNote}: **${recipe.name}** (${recipe.kcal} kcal) con ${ingredientesTxt}. Está armado también en la solapa de Inicio si querés verlo con detalle. 🍽️`;
+      return this.pickVariant('que_comer', [
+        (h, l, r, ing, note) => `Son las ${h}, así que te toca **${l}**${note}: **${r.name}** (${r.kcal} kcal) con ${ing}. Está armado también en la solapa de Inicio si querés verlo con detalle. 🍽️`,
+        (h, l, r, ing, note) => `Mirá la hora, son las ${h}: momento de **${l}**${note}. Te tiro esta: **${r.name}** (${r.kcal} kcal) con ${ing}. Lo tenés también en Inicio. 😋`,
+        (h, l, r, ing, note) => `A las ${h} te toca directamente **${l}**${note}. Va **${r.name}** (${r.kcal} kcal), con ${ing}. Chequealo en Inicio si querés más detalle. 🍽️`
+      ], horaTxt, slot.label, recipe, ingredientesTxt, restriccionesNote);
     }
 
+    // --- Saludos ---
     if (msg.includes('hola') || msg.includes('buen') || msg.includes('que onda') || msg.includes('como andas') || msg.includes('todo bien')) {
-      return `¡Qué hacés,${name}! Todo tranqui por acá. ¿Qué andás cocinando o qué duda tenés hoy? Mirá que no muerdo... a menos que traigas facturas de dulce de leche. 🥞`;
+      return this.pickVariant('saludo', [
+        (n) => `¡Qué hacés${n}! Todo tranqui por acá. ¿Qué andás cocinando o qué duda tenés hoy? Mirá que no muerdo... a menos que traigas facturas de dulce de leche. 🥞`,
+        (n) => `¡Hola${n}! ¿Cómo va todo? Contame qué se te antoja o qué necesitás y vemos qué inventamos. 🍳`,
+        (n) => `¡Buenas${n}! Acá andamos, listos para pensar en comida rica y sana. ¿En qué te ayudo?`,
+        (n) => `¡Ey${n}! Justo estaba pensando en recetas. ¿Charlamos de comida o tenés otra duda?`,
+        (n) => `¡Qué tal${n}! Todo en orden por NutrIO. Decime qué necesitás y vamos viendo. 😊`
+      ], name);
     }
 
+    // --- Dieta / calorías ---
     if (msg.includes('dieta') || msg.includes('calorias') || msg.includes('kcal')) {
       if (profile && profile.targetKcal) {
-        return `A ver, según los cálculos científicos (y mágicos) que metimos en tu Perfil, te corresponden **${profile.targetKcal} kcal** al día. No te persigas tanto con los números y metele garra. 💪`;
+        return this.pickVariant('dieta', [
+          (p) => `A ver, según los cálculos científicos (y mágicos) que metimos en tu Perfil, te corresponden **${p.targetKcal} kcal** al día. No te persigas tanto con los números y metele garra. 💪`,
+          (p) => `Tu meta diaria calculada es de **${p.targetKcal} kcal**. Usalo como guía, no como ley — lo importante es que comas variado y rico. 🙌`,
+          (p) => `Según tu perfil, deberías rondar las **${p.targetKcal} kcal** por día. Tomalo como referencia y ajustá según cómo te sientas. 😊`
+        ], profile);
       }
-      return "Para no andar tirando fruta, te sugiero mirar las calorías asignadas directamente en la solapa de tu Perfil.";
+      return this.pickVariant('dieta_sin_perfil', [
+        `Para no andar tirando fruta, te sugiero mirar las calorías asignadas directamente en la solapa de tu Perfil.`
+      ]);
     }
 
+    // --- Recetas / cocinar / comer ---
     if (msg.includes('receta') || msg.includes('cocinar') || msg.includes('comer')) {
       if (profile && profile.restrictions && profile.restrictions.length) {
-        return `Ya agendé tus mañas de alimentación: "${profile.restrictions.join(', ')}". Si vas a las pestañas de **Inicio** o **Semana**, vas a ver las recetas ricas que armé cuidando tu perfil. 🥗`;
+        return this.pickVariant('receta_con_restricciones', [
+          (p) => `Ya agendé tus mañas de alimentación: "${p.restrictions.join(', ')}". Si vas a las pestañas de **Inicio** o **Semana**, vas a ver las recetas ricas que armé cuidando tu perfil. 🥗`,
+          (p) => `Tengo anotado que evitás: ${p.restrictions.join(', ')}. Fijate en **Inicio** o **Semana**, ahí te armé opciones que respetan eso. 🍽️`
+        ], profile);
       }
-      return `¡Uff, alta hora para comer! Pegale una mirada a la solapa de **Inicio** o **Semana**. Te armé un menú personalizado espectacular para tu objetivo.`;
+      return this.pickVariant('receta_sin_restricciones', [
+        `¡Uff, alta hora para comer! Pegale una mirada a la solapa de **Inicio** o **Semana**. Te armé un menú personalizado espectacular para tu objetivo.`,
+        `Dale, andá a **Inicio** o **Semana** que ahí tenés el menú pensado para vos según tu objetivo. ¡A comer rico! 🍴`
+      ]);
     }
 
+    // --- No me gusta / alergias / evitar ---
     if (msg.includes('no me gusta') || msg.includes('alerg') || msg.includes('evitar')) {
-      return "Che, si hay cosas que te dan alergia o te caen como una patada, podés resetear la app abajo de todo en tu Perfil y armamos el Onboarding de cero en dos patadas.";
+      return this.pickVariant('alergia', [
+        `Che, si hay cosas que te dan alergia o te caen como una patada, podés resetear la app abajo de todo en tu Perfil y armamos el Onboarding de cero en dos patadas.`,
+        `Si notás que algo te cae mal o te da alergia, resetealo desde tu Perfil (al final de todo) y rehacemos el Onboarding tranquilo.`
+      ]);
     }
 
+    // --- Agradecimientos ---
     if (msg.includes('gracias') || msg.includes('bueno') || msg.includes('joya') || msg.includes('genial') || msg.includes('de diez')) {
-      return `¡De nada, genio/a! Si sentís olor a quemado en la cocina, chiflá que lo resolvemos. 😎`;
+      return this.pickVariant('gracias', [
+        `¡De nada, genio/a! Si sentís olor a quemado en la cocina, chiflá que lo resolvemos. 😎`,
+        `¡De una! Cualquier cosita, ya sabés, acá ando. 🙌`,
+        `¡Buenísimo! Me alegro que te sirva. Seguimos en contacto por acá. 😄`
+      ]);
     }
 
-    return `Mirá, me mataste con esa pregunta, pero te lo resumo al estilo NutriO: seguí metiéndole pilas, no te tientes con el delivery de hamburguesas y consultame lo que quieras. 😉`;
+    // --- Default ---
+    return this.pickVariant('default', [
+      `Mirá, me mataste con esa pregunta, pero te lo resumo al estilo NutriO: seguí metiéndole pilas, no te tientes con el delivery de hamburguesas y consultame lo que quieras. 😉`,
+      `Uy, esa me la tenés que explicar mejor jaja. Mientras tanto, dale para adelante y consultame lo que necesites. 😉`,
+      `No estoy 100% seguro de esa, pero mientras tanto: metele con todo, evitá el delivery a las 3am, y preguntame cualquier cosa de comida. 🍽️`
+    ]);
   }
 };
 
