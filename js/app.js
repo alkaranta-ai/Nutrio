@@ -830,6 +830,44 @@ window.ChatApp = {
       ], name);
     }
 
+    // --- "¿Qué puedo tomar?" / preguntas sobre bebidas (fuera del caso especial del mate) ---
+    const preguntaQueTomar =
+      (msg.includes('que tomo') ||
+       msg.includes('que puedo tomar') ||
+       msg.includes('que bebo') ||
+       msg.includes('que puedo beber') ||
+       msg.includes('que hay para tomar') ||
+       msg.includes('que hay para beber') ||
+       msg.includes('para tomar') ||
+       msg.includes('tengo sed') ||
+       msg.includes('bebida') ||
+       msg.includes('bebidas') ||
+       /\bvino\b/.test(msg) ||
+       /\bcerveza\b/.test(msg) ||
+       /\btrago\b/.test(msg) ||
+       /\bbeber\b/.test(msg) ||
+       /\btomar algo\b/.test(msg)) &&
+      !msg.includes('no me gusta');
+
+    if (preguntaQueTomar) {
+      const slot = this._getMealSlot();
+      const drink = this._getDrinkForSlot(slot.key, profile);
+      const now = new Date();
+      const horaTxt = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+      if (!drink) {
+        return this.pickVariant('que_tomar_sin_bebida', [
+          (h, l) => `Son las ${h}, momento de **${l}**. Todavía no tengo bebidas cargadas, pero fijate en Inicio o en la Semana para ver qué te armé.`
+        ], horaTxt, slot.label);
+      }
+
+      return this.pickVariant('que_tomar', [
+        (h, l, d) => `Son las ${h}, así que para **${l}** te tiro ${d.sinAlcohol}${d.conAlcohol ? `. Y como hoy es día permitido, también te podés dar el gusto con ${d.conAlcohol} 🍷` : '.'} 🥤`,
+        (h, l, d) => `Para acompañar tu **${l}** (son las ${h}), va bien ${d.sinAlcohol}${d.conAlcohol ? `, o si querés algo con onda, ${d.conAlcohol} porque hoy es día permitido 🍷` : ''}. 🥤`,
+        (h, l, d) => `A las ${h}, en **${l}**, te sugiero ${d.sinAlcohol}${d.conAlcohol ? `. Ya que es domingo (día permitido), también entra ${d.conAlcohol} 🍷` : '.'} 🥤`
+      ], horaTxt, slot.label, drink);
+    }
+
     // --- "¿Qué puedo comer ahora?" tiene prioridad sobre el resto ---
     // (incluye variantes en lunfardo, ya normalizadas arriba a "comer")
     const preguntaQueComer =
