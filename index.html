@@ -177,7 +177,7 @@
 
     <div class="onb-hero">
       <h1>Hola, soy Nutrio</h1>
-      <p>Contame sobre vos para armar tus comidas, tu plan semanal y tu lista de compras a tu medida. Un solo formulario, no te vamos a hacer perder tiempo con pasos.</p>
+      <p>Contame bien sobre vos para armar tus comidas, tu plan semanal, tu lista de compras y tu chat, todo a tu medida. Es un formulario largo, pero cuanto más me cuentes, mejor te voy a poder ayudar.</p>
     </div>
 
     <div class="onb-section" style="margin-top:24px; border-top:none; padding-top:0;">
@@ -289,6 +289,75 @@
       <label for="fDislikes">¿Ingredientes que no te gusten o quieras evitar?</label>
       <input type="text" id="fDislikes" placeholder="Ej: champiñones, cilantro, hígado">
       <p class="hint-text">Separalos con coma. Dejalo vacío si no hay ninguno.</p>
+    </div>
+
+    <div class="onb-section">
+      <div class="onb-section-title">Hábitos y rutina</div>
+      <p class="onb-section-desc">Nos ayuda a armar un plan que realmente puedas sostener.</p>
+
+      <label>¿Cuántas comidas preferís hacer al día?</label>
+      <div class="chip-group" id="mealsPerDayChips">
+        <div class="chip" data-val="3">3 comidas grandes</div>
+        <div class="chip" data-val="4">4 comidas</div>
+        <div class="chip" data-val="5_6">5-6 comidas pequeñas</div>
+      </div>
+
+      <label>¿Cuánto tiempo tenés normalmente para cocinar?</label>
+      <div class="chip-group" id="cookTimeChips">
+        <div class="chip" data-val="poco">Poco (recetas rápidas)</div>
+        <div class="chip" data-val="moderado">Tiempo moderado</div>
+        <div class="chip" data-val="mucho">Me gusta cocinar, tengo tiempo</div>
+      </div>
+
+      <label>¿Cuál es tu presupuesto para la comida?</label>
+      <div class="chip-group" id="budgetChips">
+        <div class="chip" data-val="economico">Económico</div>
+        <div class="chip" data-val="medio">Medio</div>
+        <div class="chip" data-val="sin_restriccion">Sin restricciones</div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="fWaterGlasses">Vasos de agua al día (aprox.)</label>
+          <input type="number" id="fWaterGlasses" placeholder="Ej: 6">
+        </div>
+        <div>
+          <label for="fSleepHours">Horas de sueño (aprox.)</label>
+          <input type="number" id="fSleepHours" placeholder="Ej: 7">
+        </div>
+      </div>
+      <p class="hint-text">Ambos son opcionales, pero nos ayudan a darte mejores recomendaciones.</p>
+    </div>
+
+    <div class="onb-section">
+      <div class="onb-section-title">Gustos</div>
+      <label>¿Qué tipo de cocina te gusta más?</label>
+      <div class="chip-group" id="cuisineChips">
+        <div class="chip" data-val="italiana">Italiana</div>
+        <div class="chip" data-val="mexicana">Mexicana</div>
+        <div class="chip" data-val="asiatica">Asiática</div>
+        <div class="chip" data-val="mediterranea">Mediterránea</div>
+        <div class="chip" data-val="criolla">Argentina / Criolla</div>
+        <div class="chip" data-val="sin_preferencia">Sin preferencia</div>
+      </div>
+
+      <label for="fFavoriteFoods">¿Hay comidas que te encanten y quieras que aparezcan seguido?</label>
+      <input type="text" id="fFavoriteFoods" placeholder="Ej: pollo, pastas, ensaladas">
+      <p class="hint-text">Opcional, separalas con coma.</p>
+    </div>
+
+    <div class="onb-section">
+      <div class="onb-section-title">Cómo querés que te hable Nutrio</div>
+      <p class="onb-section-desc">Elegí el estilo del chat. Lo podés cambiar después reiniciando tu perfil.</p>
+      <div class="chip-group" id="chatStyleChips">
+        <div class="chip" data-val="amigable">Amigable y cercano</div>
+        <div class="chip" data-val="motivador">Motivador y con energía</div>
+        <div class="chip" data-val="tecnico">Técnico y directo</div>
+        <div class="chip" data-val="humor">Con humor y onda</div>
+      </div>
+
+      <label for="fChatCustom">¿Algo más sobre cómo te gustaría que te hable? (opcional)</label>
+      <input type="text" id="fChatCustom" placeholder="Ej: decime 'campeón', sé breve, no uses emojis...">
     </div>
 
     <div class="field-error" id="onbError">Faltan campos obligatorios: nombre, edad, sexo, peso, altura, actividad y objetivo.</div>
