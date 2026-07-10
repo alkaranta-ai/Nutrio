@@ -1,14 +1,5 @@
 // ARMADO DE PERFIL — pantalla única, sin pasos.
-//
-// Antes el formulario estaba dividido en varios "onb-step" y se trababa en el
-// paso de restricciones porque faltaba una función. Ahora todo el perfil se
-// completa y se valida en una sola pantalla con Onboarding.finish().
-//
-// RECIPES_DB vive en js/data.js (se carga antes que este archivo).
-
 const Onboarding = {
-  // Selecciones de chips en memoria (selección única para actividad/objetivo,
-  // selección múltiple para salud/restricciones).
   selected: {
     activity: null,
     goal: null,
@@ -16,7 +7,6 @@ const Onboarding = {
     restrictions: []
   },
 
-  // Un chip por grupo (actividad, objetivo): al tocarlo se desactivan los demás.
   _bindSingleSelect(groupId, stateKey) {
     const group = document.getElementById(groupId);
     if (!group) return;
@@ -29,9 +19,6 @@ const Onboarding = {
     });
   },
 
-  // Varios chips por grupo (salud, restricciones): se pueden marcar varios a la vez.
-  // Si el chip se llama "ninguna", al tocarlo se desmarcan los demás del grupo
-  // (y viceversa: si tocás otro, se desmarca "ninguna").
   _bindMultiSelect(groupId, stateKey) {
     const group = document.getElementById(groupId);
     if (!group) return;
@@ -104,9 +91,9 @@ const Onboarding = {
       activity: this.selected.activity,
       goals: [this.selected.goal],
       healthConditions: this.selected.health.filter(v => v !== 'ninguna'),
-      allergies: allergiesRaw ? allergiesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+      allergies: allergiesRaw ? allergiesRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) : [],
       restrictions: this.selected.restrictions,
-      dislikes: dislikesRaw ? dislikesRaw.split(',').map(s => s.trim()).filter(Boolean) : []
+      dislikes: dislikesRaw ? dislikesRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) : []
     };
 
     profile.targetKcal = this._calculateTargetKcal(profile);
@@ -116,7 +103,6 @@ const Onboarding = {
     UI.init();
   },
 
-  // Fórmula de Mifflin-St Jeor + factor de actividad + ajuste según objetivo.
   _calculateTargetKcal(profile) {
     let tmb = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age;
     tmb = profile.sex === 'masculino' ? tmb + 5 : tmb - 161;
@@ -136,7 +122,6 @@ const Onboarding = {
     if (goal === 'bajar_peso') targetKcal -= 400;
     if (goal === 'subir_peso') targetKcal += 400;
     if (goal === 'ganar_musculo') targetKcal += 300;
-    // 'mantener' y 'comer_saludable' no ajustan las kcal base.
 
     return targetKcal;
   },
@@ -144,7 +129,7 @@ const Onboarding = {
   autoGenerateCart() {
     let itemsSet = new Set();
     RECIPES_DB.forEach(r => {
-      if (r.category === 'antojo') return; // los antojos no van al carrito automático
+      if (r.category === 'antojo') return;
       r.ingredients.forEach(ing => itemsSet.add(ing));
     });
     StorageApp.saveCart(Array.from(itemsSet));
@@ -168,7 +153,7 @@ const UI = {
     this.renderWeeklyPlan();
     this.renderCart();
     this.renderProfile();
-    this.goto('chat'); // Abre el chat primero
+    this.goto('chat');
   },
 
   goto(viewName) {
@@ -186,6 +171,37 @@ const UI = {
     document.getElementById('chatInputBar').style.display = viewName === 'chat' ? 'block' : 'none';
   },
 
+  // --- FILTRADO INTELIGENTE DE RECETAS ---
+  _getFilteredRecipes(category, profile) {
+    return RECIPES_DB.filter(recipe => {
+      if (recipe.category !== category) return false;
+
+      // 1. Filtrar por Restricciones Alimentarias (Vegano, Vegetariano, etc.)
+      if (profile.restrictions && profile.restrictions.length > 0) {
+        const matchesAll = profile.restrictions.every(rest => recipe.tags.includes(rest));
+        if (!matchesAll) return false;
+      }
+
+      // 2. Filtrar por Alergias y Disgustos (Evita contaminación de ingredientes)
+      const matchesAllergies = profile.allergies.some(allergy => 
+        recipe.ingredients.some(ing => ing.toLowerCase().includes(allergy))
+      );
+      if (matchesAllergies) return false;
+
+      const matchesDislikes = profile.dislikes.some(dislike => 
+        recipe.ingredients.some(ing => ing.toLowerCase().includes(dislike))
+      );
+      if (matchesDislikes) return false;
+
+      return true;
+    });
+  },
+
+  _getRandomElement(array) {
+    if (!array || array.length === 0) return null;
+    return array[Math.floor(Math.random() * array.length)];
+  },
+
   renderHome() {
     const profile = StorageApp.getProfile();
     if (!profile) return;
@@ -195,32 +211,45 @@ const UI = {
     const container = document.getElementById('dayMealsContainer');
     if (!container) return;
 
-    // Selección segura de índices basada en calorías (evita error de índice fuera de rango)
-    const isHigh = profile.targetKcal > 1700;
-    const breakfast = isHigh ? RECIPES_DB[1] : RECIPES_DB[0];
-    const lunch = isHigh ? RECIPES_DB[3] : RECIPES_DB[2];
-    const snack = isHigh ? RECIPES_DB[5] : RECIPES_DB[4];
-    const dinner = isHigh ? RECIPES_DB[7] : RECIPES_DB[6];
+    // Obtenemos recetas aptas filtradas para el usuario
+    const breakfasts = this._getFilteredRecipes('desayuno', profile);
+    const lunches = this._getFilteredRecipes('almuerzo', profile);
+    const snacks = this._getFilteredRecipes('meriendas', profile);
+    const dinners = this._getFilteredRecipes('cena', profile);
+
+    // Selección aleatoria real para romper la monotonía
+    const breakfast = this._getRandomElement(breakfasts) || RECIPES_DB[0];
+    const lunch = this._getRandomElement(lunches) || RECIPES_DB[8];
+    const snack = this._getRandomElement(snacks) || RECIPES_DB[16];
+    const dinner = this._getRandomElement(dinners) || RECIPES_DB[22];
 
     container.innerHTML = `
       <div class="card">
-        <div class="meal-slot"><div class="meal-title">Desayuno</div><h3>${breakfast.name}</h3><p style="font-size:13px; color:var(--text-muted);">${breakfast.kcal} kcal • ${breakfast.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Almuerzo</div><h3>${lunch.name}</h3><p style="font-size:13px; color:var(--text-muted);">${lunch.kcal} kcal • ${lunch.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Merienda</div><h3>${snack.name}</h3><p style="font-size:13px; color:var(--text-muted);">${snack.kcal} kcal • ${snack.ingredients.join(', ')}</p></div>
-        <div class="meal-slot"><div class="meal-title">Cena</div><h3>${dinner.name}</h3><p style="font-size:13px; color:var(--text-muted);">${dinner.kcal} kcal • ${dinner.ingredients.join(', ')}</p></div>
+        <div class="meal-slot" style="margin-bottom: 12px;"><div class="meal-title">🍳 Desayuno</div><h3>${breakfast.name}</h3><p style="font-size:13px; color:var(--text-muted);">${breakfast.kcal} kcal • ${breakfast.ingredients.join(', ')}</p></div>
+        <div class="meal-slot" style="margin-bottom: 12px;"><div class="meal-title">🍗 Almuerzo</div><h3>${lunch.name}</h3><p style="font-size:13px; color:var(--text-muted);">${lunch.kcal} kcal • ${lunch.ingredients.join(', ')}</p></div>
+        <div class="meal-slot" style="margin-bottom: 12px;"><div class="meal-title">🥪 Merienda</div><h3>${snack.name}</h3><p style="font-size:13px; color:var(--text-muted);">${snack.kcal} kcal • ${snack.ingredients.join(', ')}</p></div>
+        <div class="meal-slot"><div class="meal-title">🍽️ Cena</div><h3>${dinner.name}</h3><p style="font-size:13px; color:var(--text-muted);">${dinner.kcal} kcal • ${dinner.ingredients.join(', ')}</p></div>
       </div>
     `;
   },
 
   renderWeeklyPlan() {
+    const profile = StorageApp.getProfile();
+    if (!profile) return;
+
     const container = document.getElementById('weeklyPlanContainer');
     if (!container) return;
 
     const days = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    
+    const lunches = this._getFilteredRecipes('almuerzo', profile);
+    const dinners = this._getFilteredRecipes('cena', profile);
 
-    container.innerHTML = days.map((day, idx) => {
-      const mainPlate = RECIPES_DB[2 + (idx % 2)];
-      const dinnerPlate = RECIPES_DB[6 + (idx % 2)];
+    container.innerHTML = days.map((day) => {
+      // Elige platos aleatorios diferentes para cada día de la semana
+      const mainPlate = this._getRandomElement(lunches) || RECIPES_DB[8];
+      const dinnerPlate = this._getRandomElement(dinners) || RECIPES_DB[22];
+      
       return `
         <div class="card" style="margin-bottom:12px;">
           <h3 style="color:var(--primary); margin-bottom:6px;">${day}</h3>
