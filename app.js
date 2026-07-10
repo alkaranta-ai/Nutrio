@@ -1,5 +1,4 @@
 // ARMADO DE PERFIL — pantalla única, sin pasos.
-//
 // Antes el formulario estaba dividido en varios "onb-step" y se trababa en el
 // paso de restricciones porque faltaba una función. Ahora todo el perfil se
 // completa y se valida en una sola pantalla con Onboarding.finish().
@@ -7,16 +6,16 @@
 // RECIPES_DB vive en js/data.js (se carga antes que este archivo).
 
 const Onboarding = {
-  // Selecciones de chips en memoria (selección única para actividad/objetivo,
-  // selección múltiple para salud/restricciones).
+  // Selecciones de chips en memoria (agregados los grupos que faltaban para que no se congele)
   selected: {
     activity: null,
     goal: null,
     health: [],
-    restrictions: []
+    restrictions: [],
+    chatStyle: 'humor' // Por defecto seteamos humor con onda
   },
 
-  // Un chip por grupo (actividad, objetivo): al tocarlo se desactivan los demás.
+  // Un chip por grupo (actividad, objetivo, estilo de chat): al tocarlo se desactivan los demás.
   _bindSingleSelect(groupId, stateKey) {
     const group = document.getElementById(groupId);
     if (!group) return;
@@ -30,8 +29,6 @@ const Onboarding = {
   },
 
   // Varios chips por grupo (salud, restricciones): se pueden marcar varios a la vez.
-  // Si el chip se llama "ninguna", al tocarlo se desmarcan los demás del grupo
-  // (y viceversa: si tocás otro, se desmarca "ninguna").
   _bindMultiSelect(groupId, stateKey) {
     const group = document.getElementById(groupId);
     if (!group) return;
@@ -67,6 +64,7 @@ const Onboarding = {
     this._bindSingleSelect('goalChips', 'goal');
     this._bindMultiSelect('healthChips', 'health');
     this._bindMultiSelect('restrictionChips', 'restrictions');
+    this._bindSingleSelect('chatStyleChips', 'chatStyle'); // Vincula dinámicamente si existe el elemento en el HTML
   },
 
   finish() {
@@ -94,6 +92,10 @@ const Onboarding = {
     const allergiesRaw = document.getElementById('fAllergies').value.trim();
     const dislikesRaw = document.getElementById('fDislikes').value.trim();
 
+    // Capturamos de forma segura si tenés el selector en el HTML
+    const chatStyleInput = document.getElementById('fChatStyle');
+    if (chatStyleInput) this.selected.chatStyle = chatStyleInput.value;
+
     const profile = {
       name,
       age: parseInt(age, 10),
@@ -106,7 +108,8 @@ const Onboarding = {
       healthConditions: this.selected.health.filter(v => v !== 'ninguna'),
       allergies: allergiesRaw ? allergiesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
       restrictions: this.selected.restrictions,
-      dislikes: dislikesRaw ? dislikesRaw.split(',').map(s => s.trim()).filter(Boolean) : []
+      dislikes: dislikesRaw ? dislikesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+      chatStyle: this.selected.chatStyle || 'humor'
     };
 
     profile.targetKcal = this._calculateTargetKcal(profile);
@@ -116,7 +119,6 @@ const Onboarding = {
     UI.init();
   },
 
-  // Fórmula de Mifflin-St Jeor + factor de actividad + ajuste según objetivo.
   _calculateTargetKcal(profile) {
     let tmb = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age;
     tmb = profile.sex === 'masculino' ? tmb + 5 : tmb - 161;
@@ -136,7 +138,6 @@ const Onboarding = {
     if (goal === 'bajar_peso') targetKcal -= 400;
     if (goal === 'subir_peso') targetKcal += 400;
     if (goal === 'ganar_musculo') targetKcal += 300;
-    // 'mantener' y 'comer_saludable' no ajustan las kcal base.
 
     return targetKcal;
   },
@@ -144,7 +145,7 @@ const Onboarding = {
   autoGenerateCart() {
     let itemsSet = new Set();
     RECIPES_DB.forEach(r => {
-      if (r.category === 'antojo') return; // los antojos no van al carrito automático
+      if (r.category === 'antojo') return;
       r.ingredients.forEach(ing => itemsSet.add(ing));
     });
     StorageApp.saveCart(Array.from(itemsSet));
@@ -168,7 +169,7 @@ const UI = {
     this.renderWeeklyPlan();
     this.renderCart();
     this.renderProfile();
-    this.goto('chat'); // Abre el chat primero
+    this.goto('chat');
   },
 
   goto(viewName) {
@@ -195,7 +196,6 @@ const UI = {
     const container = document.getElementById('dayMealsContainer');
     if (!container) return;
 
-    // Selección segura de índices basada en calorías (evita error de índice fuera de rango)
     const isHigh = profile.targetKcal > 1700;
     const breakfast = isHigh ? RECIPES_DB[1] : RECIPES_DB[0];
     const lunch = isHigh ? RECIPES_DB[3] : RECIPES_DB[2];
@@ -231,19 +231,90 @@ const UI = {
     }).join('');
   },
 
+  // FIX SÚPER: Independiente del array principal del carrito. Los checks no rompen nada.
   renderCart() {
     const cart = StorageApp.getCart();
     const container = document.getElementById('cartCard');
     if (!container) return;
 
-    container.innerHTML = cart.length === 0
-      ? `<p class="muted" style="text-align:center;">No hay ingredientes calculados.</p>`
-      : cart.map((item) => `
-          <div class="cart-item">
-            <input type="checkbox" style="transform: scale(1.1); accent-color: var(--primary);">
-            <span style="flex:1;">${item}</span>
-          </div>
-        `).join('');
+    const hoyKey = new Date().toLocaleDateString('es-AR');
+    let tildadosHoy = JSON.parse(localStorage.getItem(`nutrio_checked_${hoyKey}`)) || [];
+
+    if (cart.length === 0) {
+      container.innerHTML = `<p class="muted" style="text-align:center;">No hay ingredientes calculados.</p>`;
+      return;
+    }
+
+    let html = '<div>';
+    cart.forEach((item) => {
+      const isChecked = tildadosHoy.includes(item);
+      html += `
+        <div class="cart-item" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+          <input type="checkbox" data-item="${item}" ${isChecked ? 'checked' : ''} 
+                 style="transform: scale(1.1); accent-color: var(--primary); cursor:pointer;" 
+                 onclick="UI.handleCheck(this, '${item}')">
+          <span style="flex:1; ${isChecked ? 'text-decoration:line-through; opacity:0.5;' : ''}">${item}</span>
+        </div>
+      `;
+    });
+
+    html += `
+      <button onclick="UI.archivePurchases()" style="width:100%; margin-top:15px; background:var(--primary); color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">
+        🛒 Guardar Compra del Día (${hoyKey})
+      </button>
+    </div>`;
+
+    // Renderizamos el Historial abajo en el mismo contenedor
+    let historial = JSON.parse(localStorage.getItem('nutrio_history')) || [];
+    html += `<div style="margin-top:25px; border-top:1px dashed #ccc; padding-top:15px;">
+              <h4 style="margin-bottom:10px; color:var(--text);">🗃️ Carrito e Historial de Compras</h4>`;
+    
+    if (historial.length === 0) {
+      html += `<p style="font-size:12px; color:gray;">Aún no guardaste compras. Lo que tildes arriba quedará registrado acá por día.</p>`;
+    } else {
+      historial.forEach(h => {
+        html += `<div style="background:rgba(0,0,0,0.02); padding:8px; border-radius:6px; margin-bottom:6px; font-size:13px;">
+                  <b>📅 Día ${h.date}:</b> ${h.items.join(', ')}
+                 </div>`;
+      });
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  },
+
+  handleCheck(cb, item) {
+    const hoyKey = new Date().toLocaleDateString('es-AR');
+    let tildadosHoy = JSON.parse(localStorage.getItem(`nutrio_checked_${hoyKey}`)) || [];
+    
+    if (cb.checked) {
+      if (!tildadosHoy.includes(item)) tildadosHoy.push(item);
+      cb.nextElementSibling.style.textDecoration = 'line-through';
+      cb.nextElementSibling.style.opacity = '0.5';
+    } else {
+      tildadosHoy = tildadosHoy.filter(i => i !== item);
+      cb.nextElementSibling.style.textDecoration = 'none';
+      cb.nextElementSibling.style.opacity = '1';
+    }
+    localStorage.setItem(`nutrio_checked_${hoyKey}`, JSON.stringify(tildadosHoy));
+  },
+
+  archivePurchases() {
+    const hoyKey = new Date().toLocaleDateString('es-AR');
+    let tildadosHoy = JSON.parse(localStorage.getItem(`nutrio_checked_${hoyKey}`)) || [];
+    
+    if (tildadosHoy.length === 0) {
+      alert("¡Che! Primero tildá en la lista los artículos que ya compraste.");
+      return;
+    }
+
+    let historial = JSON.parse(localStorage.getItem('nutrio_history')) || [];
+    historial.unshift({ date: hoyKey, items: [...tildadosHoy] });
+    localStorage.setItem('nutrio_history', JSON.stringify(historial));
+    
+    // Destildamos la lista de hoy limpiando la cache del check temporal
+    localStorage.removeItem(`nutrio_checked_${hoyKey}`);
+    alert("¡Espectacular! Guardado en tu historial. Los artículos se destildaron para que la lista te quede limpia.");
+    this.renderCart();
   },
 
   renderProfile() {
@@ -292,7 +363,8 @@ const UI = {
       <b>Condiciones de salud:</b> ${healthText}<br>
       <b>Alergias:</b> ${allergiesText}<br>
       <b>Restricciones:</b> ${restrictionsText}<br>
-      <b>Evita:</b> ${dislikesText}
+      <b>Evita:</b> ${dislikesText}<br>
+      <b>Estilo de Chat:</b> Amigable con Humor 🎭
     `;
   },
 
@@ -317,6 +389,44 @@ const UI = {
   resetAll() {
     StorageApp.clearAll();
     location.reload();
+  }
+};
+
+// ==========================================
+// MÓDULO DE CHAT - RECALIBRADO AMIGABLE CON HUMOR
+// ==========================================
+const ChatApp = {
+  getBotResponse(userMessage, profile) {
+    const msg = userMessage.toLowerCase();
+    const name = profile && profile.name ? ` ${profile.name}` : 'che';
+
+    if (msg.includes('hola') || msg.includes('buen')) {
+      return `¡Qué hacés,${name}! Todo tranqui por acá. ¿Qué andás cocinando o qué duda tenés hoy? Mirá que no muerdo... a menos que traigas facturas de dulce de leche. 🥞`;
+    }
+
+    if (msg.includes('dieta') || msg.includes('calorias') || msg.includes('kcal')) {
+      if (profile && profile.targetKcal) {
+        return `A ver, según los cálculos científicos (y mágicos) que metimos en tu Perfil, te corresponden **${profile.targetKcal} kcal** al día. No te persigas tanto con los números y metele garra. 💪`;
+      }
+      return "Para no andar tirando fruta, te sugiero mirar las calorías asignadas directamente en la solapa de tu Perfil.";
+    }
+
+    if (msg.includes('receta') || msg.includes('cocinar') || msg.includes('comer')) {
+      if (profile && profile.restrictions && profile.restrictions.length) {
+        return `Ya agendé tus mañas de alimentación: "${profile.restrictions.join(', ')}". Si vas a las pestañas de **Inicio** o **Semana**, vas a ver las recetas ricas que armé cuidando tu perfil. 🥗`;
+      }
+      return `¡Uff, alta hora para comer! Pegale una mirada a la solapa de **Inicio** o **Semana**. Te armé un menú personalizado espectacular para tu objetivo.`;
+    }
+
+    if (msg.includes('no me gusta') || msg.includes('alerg') || msg.includes('evitar')) {
+      return "Che, si hay cosas que te dan alergia o te caen como una patada, podés resetear la app abajo de todo en tu Perfil y armamos el Onboarding de cero en dos patadas.";
+    }
+
+    if (msg.includes('gracias') || msg.includes('bueno') || msg.includes('joya')) {
+      return `¡De nada, genio/a! Si sentís olor a quemado en la cocina, chiflá que lo resolvemos. 😎`;
+    }
+
+    return `Mirá, me mataste con esa pregunta, pero te lo resumo al estilo NutriO: seguí metiéndole pilas, no te tientes con el delivery de hamburguesas y consultame lo que quieras. 😉`;
   }
 };
 
