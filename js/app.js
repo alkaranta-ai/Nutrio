@@ -8,7 +8,12 @@ const Onboarding = {
     activity: null,
     goal: null,
     health: [],
-    restrictions: []
+    restrictions: [],
+    mealsPerDay: null,
+    cookTime: null,
+    budget: null,
+    cuisine: null,
+    chatStyle: null
   },
 
   // Un chip por grupo (actividad, objetivo): al tocarlo se desactivan los demás.
@@ -60,6 +65,11 @@ const Onboarding = {
     this._bindSingleSelect('goalChips', 'goal');
     this._bindMultiSelect('healthChips', 'health');
     this._bindMultiSelect('restrictionChips', 'restrictions');
+    this._bindSingleSelect('mealsPerDayChips', 'mealsPerDay');
+    this._bindSingleSelect('cookTimeChips', 'cookTime');
+    this._bindSingleSelect('budgetChips', 'budget');
+    this._bindSingleSelect('cuisineChips', 'cuisine');
+    this._bindSingleSelect('chatStyleChips', 'chatStyle');
   },
 
   finish() {
@@ -90,6 +100,10 @@ const Onboarding = {
 
     const allergiesRaw = document.getElementById('fAllergies').value.trim();
     const dislikesRaw = document.getElementById('fDislikes').value.trim();
+    const favoriteFoodsRaw = document.getElementById('fFavoriteFoods').value.trim();
+    const waterGlasses = document.getElementById('fWaterGlasses').value;
+    const sleepHours = document.getElementById('fSleepHours').value;
+    const chatCustom = document.getElementById('fChatCustom').value.trim();
 
     const profile = {
       name,
@@ -103,7 +117,16 @@ const Onboarding = {
       healthConditions: this.selected.health.filter(v => v !== 'ninguna'),
       allergies: allergiesRaw ? allergiesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
       restrictions: this.selected.restrictions,
-      dislikes: dislikesRaw ? dislikesRaw.split(',').map(s => s.trim()).filter(Boolean) : []
+      dislikes: dislikesRaw ? dislikesRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+      mealsPerDay: this.selected.mealsPerDay,
+      cookTime: this.selected.cookTime,
+      budget: this.selected.budget,
+      cuisine: this.selected.cuisine,
+      favoriteFoods: favoriteFoodsRaw ? favoriteFoodsRaw.split(',').map(s => s.trim()).filter(Boolean) : [],
+      waterGlasses: waterGlasses ? parseInt(waterGlasses, 10) : null,
+      sleepHours: sleepHours ? parseFloat(sleepHours) : null,
+      chatStyle: this.selected.chatStyle,
+      chatCustom: chatCustom || null
     };
 
     profile.targetKcal = this._calculateTargetKcal(profile);
@@ -393,7 +416,7 @@ const UI = {
 };
 
 // ==========================================================================
-// MÓDULO DE CHAT - RESPALDO ANTIDUPLICADOS CON WINDOW/VAR
+// MÓDULO DE CHAT (única declaración global, sin duplicados)
 // ==========================================================================
 window.ChatApp = {
   getBotResponse(userMessage, profile) {
@@ -429,8 +452,5 @@ window.ChatApp = {
     return `Mirá, me mataste con esa pregunta, pero te lo resumo al estilo NutriO: seguí metiéndole pilas, no te tientes con el delivery de hamburguesas y consultame lo que quieras. 😉`;
   }
 };
-
-// Vinculamos para que si UI.js u otra función busca ChatApp sin window, no falle
-var ChatApp = window.ChatApp;
 
 window.addEventListener('DOMContentLoaded', () => { UI.init(); });
