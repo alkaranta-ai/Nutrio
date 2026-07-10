@@ -4,6 +4,10 @@
 // "tengo hambre", "algo dulce", etc.) que sugiere recetas reales de RECIPES_DB
 // filtradas por alergias y restricciones del perfil.
 //
+// Además reconoce saludos genéricos, despedidas ("hasta mañana", "chau", etc.)
+// y estados de ánimo ("estoy enojado", "ando triste", "cansado", etc.), con
+// una respuesta acorde a cada personalidad.
+//
 // No hay backend de IA en esta versión (eso vive en la arquitectura NutrIA
 // aparte), así que la comprensión es por palabras clave normalizadas
 // (sin acentos), no por interpretación libre del lenguaje.
@@ -85,12 +89,41 @@ function _categoryForCraving(msgNorm) {
   return _categoryByHour();
 }
 
+// Despedidas: se revisan ANTES que el saludo genérico, porque "buenas noches"
+// usado como despedida no debe caer en la rama de saludo.
+const FAREWELL_KEYWORDS = [
+  'hasta manana', 'hasta luego', 'hasta pronto', 'nos vemos', 'nos hablamos',
+  'chau', 'chao', 'adios', 'me voy', 'me tengo que ir', 'bye', 'nos leemos'
+];
+
+function _detectsFarewell(msgNorm) {
+  return FAREWELL_KEYWORDS.some(k => msgNorm.includes(k));
+}
+
+// Estados de ánimo: cada clave tiene raíces normalizadas para reconocer
+// variantes con género/plural ("enojada", "enojado", "cansados", etc.).
+const MOOD_KEYWORDS = {
+  enojo: ['enojad', 'enoje', 'bronca', 'furios', 'irritad', 'indignad'],
+  tristeza: ['triste', 'bajon', 'depre', 'mal hoy', 'me siento mal', 'angustia'],
+  cansancio: ['cansad', 'agotad', 'sin energia', 'exhaust', 'reventad'],
+  estres: ['estresad', 'ansios', 'nervios', 'abrumad', 'a mil'],
+  alegria: ['feliz', 'content', 'genial', 'de diez', 'super bien', 'excelente dia']
+};
+
+function _detectMood(msgNorm) {
+  for (const mood of Object.keys(MOOD_KEYWORDS)) {
+    if (MOOD_KEYWORDS[mood].some(k => msgNorm.includes(k))) return mood;
+  }
+  return null;
+}
+
 // ---------- Personalidades ----------
 
 const PERSONAS = {
   amigable: {
     greeting: (name) => `¡Hola${name}! 😊 Soy tu asistente de Nutrio, ¡qué bueno tenerte por acá! Contame cómo venís hoy con la comida o si tenés alguna duda.`,
     saludo: (name) => `¡Hola${name}! ¿Cómo estás? Contame en qué te puedo dar una mano hoy con tu alimentación.`,
+    despedida: (name) => `¡Nos vemos${name}! Que la pases lindo, y no te olvides de tomar agua 💧`,
     dieta: (kcal) => kcal
       ? `Tu meta del día es de ${kcal} kcal. La podés ver tranquilo en tu Perfil, ¡vamos paso a paso!`
       : `Podés seguir el plan de calorías que armamos juntos en tu Perfil.`,
@@ -103,12 +136,20 @@ const PERSONAS = {
       : `Tomar agua seguido te va a ayudar mucho, ¡metele!`,
     antojo: (suggestions) => `¡Buena onda! Para acompañar te tiro algunas ideas: ${suggestions}. Tocá la receta en Inicio o Semana si querés ver el paso a paso.`,
     antojoEmpty: `Mmm, no encontré algo que calce 100% con tu perfil ahora mismo, pero date una vuelta por la pestaña Semana, seguro hay algo rico esperándote.`,
+    moods: {
+      enojo: `Uy, se nota que venís con bronca. No hace falta contarme todo, pero si un té calentito o algo rico te baja un cambio, decime y te tiro ideas.`,
+      tristeza: `Lamento que estés pasando un mal momento. Estoy para ayudarte con la comida, aunque sea algo chiquito hoy también suma. Si sentís que es más que un mal día, también ayuda hablarlo con alguien de confianza. Contame si querés que te sugiera algo puntual.`,
+      cansancio: `Uf, los días así cansan. Capaz algo simple y nutritivo te ayuda a recuperar energía. ¿Querés que te tire una idea rápida?`,
+      estres: `Se nota que el día viene pesado. Respirá hondo un toque, y si querés desconectar pensando en la comida, contame y buscamos algo fácil.`,
+      alegria: `¡Qué bueno escuchar eso! Con esa energía seguro se te ocurre algo rico para festejar el día 🎉`
+    },
     default: `Todo bien, contame más así te ayudo mejor con recetas o dudas puntuales.`
   },
 
   motivador: {
     greeting: (name) => `¡Vamos${name}! 💪 Soy tu asistente de Nutrio y estoy para ayudarte a cumplir tus objetivos. ¡Contame cómo la estás rompiendo hoy con la comida!`,
     saludo: (name) => `¡Buenísimo que estés acá${name}! Cada consulta suma. ¿En qué te ayudo hoy?`,
+    despedida: (name) => `¡Así se hace${name}! Nos vemos pronto, seguí firme con tu objetivo 💪`,
     dieta: (kcal) => kcal
       ? `¡Tu meta es de ${kcal} kcal por día! Cumplila con constancia y los resultados van a llegar, la vas a romper.`
       : `Seguí el plan de calorías que armamos, ¡constancia es la clave del éxito!`,
@@ -121,12 +162,20 @@ const PERSONAS = {
       : `¡Tomá agua todo el día, eso también es parte de ganar!`,
     antojo: (suggestions) => `¡Ahí vamos! Para acompañar, metele con: ${suggestions}. ¡Elegí y seguí rindiendo al máximo!`,
     antojoEmpty: `No tengo una sugerencia exacta para tu perfil ahora, pero no aflojes: mirá la pestaña Semana y elegí algo que te sume.`,
+    moods: {
+      enojo: `Esa bronca también es energía. Canalizala: tomate cinco minutos, y si querés, buscamos algo rico que te ayude a bajar un cambio.`,
+      tristeza: `Los días grises también son parte del camino, no aflojes. Si necesitás algo más que esto, hablarlo con alguien de confianza también suma mucho. Mientras tanto, contame si querés una idea de comida para levantar el ánimo.`,
+      cansancio: `El cansancio es señal de que vas a fondo. Una comida que te recargue puede ayudarte a seguir. ¿Te tiro una sugerencia rápida?`,
+      estres: `Día a mil, lo sé. Respirá, ordená prioridades, y si el estrés te llevó a comer mal, arrancamos de nuevo ahora. ¿Buscamos algo simple?`,
+      alegria: `¡Esa energía es oro! Aprovechala y sumale una comida que te haga sentir todavía mejor 🔥`
+    },
     default: `¡Dale que vamos bien! Contame más para seguir ayudándote a cumplir tu objetivo.`
   },
 
   tecnico: {
     greeting: (name) => `Hola${name}. Soy el asistente de Nutrio. Indicame tu consulta sobre alimentación, plan calórico o recetas y te doy una respuesta puntual.`,
     saludo: (name) => `Hola${name}. ¿En qué puedo asistirte hoy?`,
+    despedida: (name) => `Hasta luego${name}. Quedo disponible para tu próxima consulta.`,
     dieta: (kcal) => kcal
       ? `Tu requerimiento calórico diario calculado es de ${kcal} kcal, en base a la ecuación de Mifflin-St Jeor ajustada por tu nivel de actividad y objetivo. Podés consultarlo en Perfil.`
       : `Tu plan calórico está disponible en la pestaña Perfil.`,
@@ -139,12 +188,20 @@ const PERSONAS = {
       : `Se recomienda una hidratación adecuada y constante a lo largo del día.`,
     antojo: (suggestions) => `Opciones compatibles con tu perfil para este momento: ${suggestions}. Podés ver el detalle completo tocando la receta en Inicio o Semana.`,
     antojoEmpty: `No hay una coincidencia exacta con tu perfil en este momento. Revisá la pestaña Semana para otras alternativas disponibles.`,
+    moods: {
+      enojo: `Registro que estás pasando por un momento de irritación. No es infrecuente que esto influya en las decisiones alimentarias. Si querés, puedo sugerirte una opción simple para este momento.`,
+      tristeza: `Lamento que estés atravesando un momento difícil. Puedo ayudarte con una sugerencia de comida puntual, aunque si la sensación persiste, conversarlo con alguien de confianza o un profesional también puede ser de ayuda.`,
+      cansancio: `El cansancio suele estar asociado a bajos niveles de energía disponible. Una comida balanceada puede ser de utilidad. ¿Querés una sugerencia concreta?`,
+      estres: `Los niveles altos de estrés pueden afectar tus hábitos alimentarios. Puedo sugerirte algo simple y rápido de preparar si lo necesitás.`,
+      alegria: `Registrado. Un buen estado de ánimo también es un buen momento para probar algo nuevo del recetario. ¿Te interesa una sugerencia?`
+    },
     default: `Indicame más detalles de tu consulta para poder responderte con precisión.`
   },
 
   humor: {
     greeting: (name) => `¡Eh${name}! 🥑 Acá tu asistente de Nutrio reportándose, listo para hablar de comida en serio (y de vez en cuando en broma). ¿Qué se te antoja saber hoy?`,
     saludo: (name) => `¡Qué onda${name}! Llegaste al lugar correcto para hablar de kcal sin sufrir. ¿En qué te ayudo?`,
+    despedida: (name) => `¡Nos vemos${name}! Andá tranquilo, que yo me quedo cuidando la heladera 🥑👋`,
     dieta: (kcal) => kcal
       ? `Tu meta diaria es ${kcal} kcal. Ni una caloría de más, ni una de menos... bueno, alguna sí, no seamos tan estrictos. Mirá el detalle en Perfil.`
       : `El plan de calorías está en tu Perfil, esperándote como esa alacena que decís que vas a ordenar.`,
@@ -157,6 +214,13 @@ const PERSONAS = {
       : `Tomá agua, que la deshidratación no perdona ni a los más aguantadores.`,
     antojo: (suggestions) => `Para que ese café no tome solo: ${suggestions}. Elegí rápido antes de que se enfríe (el café, no vos).`,
     antojoEmpty: `Che, con tu perfil no me cerró ninguna opción justo ahora, ni que fuera receta de la abuela con ingrediente secreto. Fijate en Semana, ahí seguro hay algo.`,
+    moods: {
+      enojo: `Uh, se nota el humor de piso de obra hoy. Ni la heladera se salva, ¿no? Si querés, te tiro algo rico para bajar el volumen del enojo.`,
+      tristeza: `Che, lamento que andes bajón. No te prometo arreglarte el día con una receta, pero puede ayudar un poquito. Y si el bajón viene fuerte de verdad, también está bueno hablarlo con alguien de confianza. ¿Te busco algo rico igual?`,
+      cansancio: `Se te nota el "no doy más" hasta en el mensaje. Una comida que te recargue las pilas puede venir bien, ¿te tiro una idea?`,
+      estres: `Día modo licuadora, ¿eh? Respirá, que ni el mejor asado se apura. ¿Buscamos algo fácil para no sumar estrés en la cocina?`,
+      alegria: `¡Uh, qué buena onda! Con esa alegría hasta la ensalada sabe mejor. ¿Querés que te tire algo rico para festejar?`
+    },
     default: `Contame un poco más, que con media pregunta ni yo ni la heladera sabemos bien qué hacer.`
   }
 };
@@ -198,6 +262,19 @@ const ChatApp = {
       const picks = _pickRandom(pool, Math.min(3, pool.length));
       if (!picks.length) return persona.antojoEmpty;
       return persona.antojo(_formatSuggestions(picks));
+    }
+
+    // 2) Despedidas: se chequean antes que el saludo genérico para que
+    //    "buenas noches" o "hasta mañana" no caigan en la rama de saludo.
+    if (_detectsFarewell(msgNorm)) {
+      return persona.despedida(name);
+    }
+
+    // 3) Estados de ánimo: respuesta empática acorde a la personalidad,
+    //    sin diagnosticar nada, solo acompañando y ofreciendo ayuda concreta.
+    const mood = _detectMood(msgNorm);
+    if (mood && persona.moods && persona.moods[mood]) {
+      return persona.moods[mood];
     }
 
     if (msgNorm.includes('hola') || msgNorm.includes('buen')) {
