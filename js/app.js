@@ -23,7 +23,6 @@ const ChatApp = {
     const text = msg.toLowerCase();
     const style = profile.chatStyle || 'amigable';
     
-    // Si el usuario quiere humor / amigable
     if (style === 'humor' || style === 'amigable') {
       if (text.includes('hola') || text.includes('buenas')) {
         return `¡Qué hacés, che! Todo tranqui por acá. ¿Qué sale hoy? ¿Cocinamos algo rico o venís a controlarme las kcal? 🍳`;
@@ -40,7 +39,6 @@ const ChatApp = {
       return `Mirá, me mataste con esa pregunta, pero te lo resumo al estilo NutriO: seguí metiéndole ganas a tu meta de ${profile.targetKcal} kcal y no te obsesiones tanto. ¿Querés que busquemos otra receta o preferís charlar de otra cosa?`;
     }
 
-    // Respuesta por defecto (Técnico / Directo)
     return `Entendido. Con base en tu perfil enfocado en "${profile.goals[0]}", te recomiendo ajustar las porciones según los macros calculados (${profile.targetKcal} kcal). ¿Deseas sustitutos específicos para algún ingrediente?`;
   }
 };
@@ -178,11 +176,13 @@ const Onboarding = {
 
 const UI = {
   init() {
+    // FIX: Siempre inicializamos la escucha de clics en los chips, esté o no guardado el perfil.
+    Onboarding.bindAllChips();
+
     const profile = StorageApp.getProfile();
     if (!profile) {
       document.getElementById('onboarding').style.display = 'block';
       document.getElementById('app').style.display = 'none';
-      Onboarding.bindAllChips();
       return;
     }
 
@@ -285,7 +285,6 @@ const UI = {
     StorageApp.saveCart(Array.from(items));
   },
 
-  // FIX DEFINTIVO: Los checkbox persisten por día e historial sin vaciar el perfil
   renderCart() {
     const cart = StorageApp.getCart();
     const container = document.getElementById('cartCard');
@@ -311,7 +310,6 @@ const UI = {
       </button>
     </div>`;
 
-    // Sección Historial
     let historial = JSON.parse(localStorage.getItem('nutrio_history')) || [];
     html += `<div style="margin-top:20px; border-top:1px dashed #ccc; padding-top:15px;"><h4>📦 Historial de compras guardadas</h4>`;
     if (historial.length === 0) {
@@ -349,7 +347,6 @@ const UI = {
     historial.unshift({ date: hoyKey, items: tildadosHoy });
     localStorage.setItem('nutrio_history', JSON.stringify(historial));
     
-    // Limpiamos los checks para mañana sin borrar el plan semanal
     localStorage.removeItem(`nutrio_checked_${hoyKey}`);
     alert("¡Guardado en tu historial! Mañana tu lista amanecerá limpia para nuevas compras.");
     this.renderCart();
