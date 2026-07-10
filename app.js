@@ -419,9 +419,78 @@ const UI = {
 // MÓDULO DE CHAT (única declaración global, sin duplicados)
 // ==========================================================================
 window.ChatApp = {
+
+  // Saca tildes y pasa a minúsculas para que el matching de palabras clave
+  // sea más flexible ("qué puedo comer" == "que puedo comer").
+  _normalize(str) {
+    return str
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+  },
+
+  // Determina en qué franja horaria estamos, en base a la hora real del dispositivo.
+  _getMealSlot() {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 11) return { key: 'desayuno', label: 'Desayuno' };
+    if (hour >= 11 && hour < 15) return { key: 'almuerzo', label: 'Almuerzo' };
+    if (hour >= 15 && hour < 19) return { key: 'merienda', label: 'Merienda' };
+    if (hour >= 19 && hour < 23) return { key: 'cena', label: 'Cena' };
+    return { key: 'antojo', label: 'Piqueteo / algo ligero' }; // madrugada
+  },
+
+  // Usa exactamente la misma lógica que UI.renderHome() para elegir la receta,
+  // así el chat y la solapa de Inicio jamás se contradicen.
+  _getRecipeForSlot(slotKey, profile) {
+    if (typeof RECIPES_DB === 'undefined' || !RECIPES_DB.length) return null;
+    const isHigh = profile && profile.targetKcal > 1700;
+
+    const map = {
+      desayuno: isHigh ? RECIPES_DB[1] : RECIPES_DB[0],
+      almuerzo: isHigh ? RECIPES_DB[3] : RECIPES_DB[2],
+      merienda: isHigh ? RECIPES_DB[5] : RECIPES_DB[4],
+      cena: isHigh ? RECIPES_DB[7] : RECIPES_DB[6]
+    };
+
+    if (map[slotKey]) return map[slotKey];
+
+    // Madrugada: buscamos algo categorizado como "antojo"; si no hay, caemos a merienda.
+    const antojoRecipe = RECIPES_DB.find(r => r.category === 'antojo');
+    return antojoRecipe || map.merienda;
+  },
+
   getBotResponse(userMessage, profile) {
-    const msg = userMessage.toLowerCase();
+    const msg = this._normalize(userMessage);
     const name = profile && profile.name ? ` ${profile.name}` : 'che';
+
+    // --- "¿Qué puedo comer ahora?" tiene prioridad sobre todo lo demás ---
+    const preguntaQueComer =
+      (msg.includes('que puedo comer') ||
+       msg.includes('que como') ||
+       msg.includes('que comer') ||
+       msg.includes('tengo hambre') ||
+       msg.includes('se me antoja') ||
+       msg.includes('que hay para comer')) &&
+      !msg.includes('no me gusta');
+
+    if (preguntaQueComer) {
+      const slot = this._getMealSlot();
+      const recipe = this._getRecipeForSlot(slot.key, profile);
+      const now = new Date();
+      const horaTxt = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+      if (!recipe) {
+        return `Son las ${horaTxt}, momento de **${slot.label}**. Todavía no tengo tus recetas cargadas, pero fijate en Inicio o en la Semana para ver qué te armé.`;
+      }
+
+      const ingredientesTxt = recipe.ingredients ? recipe.ingredients.join(', ') : '';
+      let restriccionesNote = '';
+      if (profile && profile.restrictions && profile.restrictions.length) {
+        restriccionesNote = ` (ya tuve en cuenta que sos ${profile.restrictions.join(', ')})`;
+      }
+
+      return `Son las ${horaTxt}, así que te toca **${slot.label}**${restriccionesNote}: **${recipe.name}** (${recipe.kcal} kcal) con ${ingredientesTxt}. Está armado también en la solapa de Inicio si querés verlo con detalle. 🍽️`;
+    }
 
     if (msg.includes('hola') || msg.includes('buen')) {
       return `¡Qué hacés,${name}! Todo tranqui por acá. ¿Qué andás cocinando o qué duda tenés hoy? Mirá que no muerdo... a menos que traigas facturas de dulce de leche. 🥞`;
