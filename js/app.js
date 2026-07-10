@@ -216,9 +216,7 @@ const UI = {
     scroll.innerHTML = `<div style="text-align:left;"><span style="background:var(--bg); padding:8px 12px; border-radius:12px; display:inline-block;">${greeting}</span></div>`;
   },
 
-  // Comidas de HOY, resueltas por MealEngine contra el perfil (restricciones,
-  // alergias, condiciones de salud y calorías objetivo). Cada tarjeta es
-  // tappable y abre el modal con la receta completa.
+  // Comidas de HOY, resueltas por MealEngine contra el perfil
   renderHome() {
     const profile = StorageApp.getProfile();
     if (!profile) return;
@@ -285,7 +283,9 @@ const UI = {
 
       <div class="modal-section-title">Preparación</div>
       <ol class="instructions-list">
-        ${recipe.instructions.map(step => `<li>${step}</li>`).join('')}
+        ${recipe.instructions && recipe.instructions.length 
+          ? recipe.instructions.map(step => `<li>${step}</li>`).join('') 
+          : `<li>Picar los ingredientes y cocinar a fuego moderado hasta su punto óptimo.</li>`}
       </ol>
     `;
 
@@ -302,8 +302,7 @@ const UI = {
     if (event.target && event.target.id === 'recipeModal') this.closeRecipeModal();
   },
 
-  // Próximos 7 días, resueltos por MealEngine (no se repite una receta hasta
-  // agotar el pool filtrado del perfil).
+  // MEJORA: Próximos 7 días ahora con tarjetas interactivas vinculadas al modal nativo.
   renderWeeklyPlan() {
     const container = document.getElementById('weeklyPlanContainer');
     if (!container) return;
@@ -317,19 +316,31 @@ const UI = {
     container.innerHTML = plan.map(({ date, meals }) => {
       const dayLabel = dayNames[date.getDay()];
       return `
-        <div class="card" style="margin-bottom:12px;">
-          <h3 style="color:var(--primary); margin-bottom:6px;">${dayLabel}</h3>
-          <p style="font-size:14px; color:var(--text);"><b>Desayuno:</b> ${meals.desayuno.name} (${meals.desayuno.kcal} kcal)</p>
-          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Almuerzo:</b> ${meals.almuerzo.name} (${meals.almuerzo.kcal} kcal)</p>
-          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Merienda:</b> ${meals.meriendas.name} (${meals.meriendas.kcal} kcal)</p>
-          <p style="font-size:14px; color:var(--text); margin-top:2px;"><b>Cena:</b> ${meals.cena.name} (${meals.cena.kcal} kcal)</p>
+        <div class="card" style="margin-bottom:16px; padding:16px; border-radius:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid rgba(0,0,0,0.05); padding-bottom:6px;">
+            <h3 style="color:var(--primary); margin:0;">${dayLabel}</h3>
+            <span style="font-size:12px; font-weight:bold; color:var(--primary); background:var(--primary-dim); padding:4px 10px; border-radius:20px;">Menú diario interactivo</span>
+          </div>
+          
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="cursor:pointer; padding:4px;" onclick="UI.openRecipeModal('${meals.desayuno.id}')" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
+              <p style="font-size:14px; color:var(--text); margin:0;">☕ <b>Desayuno:</b> ${meals.desayuno.name} <span style="color:var(--text-muted); font-size:12px;">(${meals.desayuno.kcal} kcal) →</span></p>
+            </div>
+            <div style="cursor:pointer; padding:4px;" onclick="UI.openRecipeModal('${meals.almuerzo.id}')" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
+              <p style="font-size:14px; color:var(--text); margin:0;">🥗 <b>Almuerzo:</b> ${meals.almuerzo.name} <span style="color:var(--text-muted); font-size:12px;">(${meals.almuerzo.kcal} kcal) →</span></p>
+            </div>
+            <div style="cursor:pointer; padding:4px;" onclick="UI.openRecipeModal('${meals.meriendas.id}')" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
+              <p style="font-size:14px; color:var(--text); margin:0;">🥞 <b>Merienda:</b> ${meals.meriendas.name} <span style="color:var(--text-muted); font-size:12px;">(${meals.meriendas.kcal} kcal) →</span></p>
+            </div>
+            <div style="cursor:pointer; padding:4px;" onclick="UI.openRecipeModal('${meals.cena.id}')" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1">
+              <p style="font-size:14px; color:var(--text); margin:0;">🍽️ <b>Cena:</b> ${meals.cena.name} <span style="color:var(--text-muted); font-size:12px;">(${meals.cena.kcal} kcal) →</span></p>
+            </div>
+          </div>
         </div>
       `;
     }).join('');
   },
 
-  // El carrito ahora sale de las comidas REALES de la semana (ya filtradas
-  // por perfil), no de toda la base de datos entera.
   regenerateCartForWeek() {
     const profile = StorageApp.getProfile();
     if (!profile) return;
@@ -343,19 +354,72 @@ const UI = {
     StorageApp.saveCart(Array.from(itemsSet));
   },
 
+  // MEJORA: Carrito dinámico, organizado por góndolas del súper, con tachados interactivos y borrado.
   renderCart() {
     const cart = StorageApp.getCart();
     const container = document.getElementById('cartCard');
     if (!container) return;
 
-    container.innerHTML = cart.length === 0
-      ? `<p class="muted" style="text-align:center;">No hay ingredientes calculados.</p>`
-      : cart.map((item) => `
-          <div class="cart-item">
-            <input type="checkbox" style="transform: scale(1.1); accent-color: var(--primary);">
-            <span style="flex:1;">${item}</span>
-          </div>
-        `).join('');
+    if (cart.length === 0) {
+      container.innerHTML = `<p class="muted" style="text-align:center; padding: 20px;">🛒 Tu lista está vacía.<br>¡Completá tu perfil para planificar la semana!</p>`;
+      return;
+    }
+
+    // Clasificación de ingredientes
+    const categorias = {
+      "🥦 Verdulería / Frutería": ['zanahoria', 'arvejas', 'cebolla', 'tomate', 'lechuga', 'espinaca', 'palta', 'limón', 'manzana', 'banana', 'fruta', 'ajo', 'morrón', 'papa', 'zapallo'],
+      "🍗 Carnes y Proteínas": ['pollo', 'pechuga', 'carne', 'lomo', 'huevo', 'huevos', 'pescado', 'atún', 'salmón', 'bife', 'cerdo'],
+      "🌾 Almacén y Lácteos": ['arroz', 'integral', 'ricota', 'miel', 'yogur', 'cereal', 'avena', 'leche', 'queso', 'aceite', 'oliva', 'pan', 'fideos', 'harina', 'legumbres']
+    };
+
+    const fuentesAgrupadas = { "🥦 Verdulería / Frutería": [], "🍗 Carnes y Proteínas": [], "🌾 Almacén y Lácteos": [], "📦 Gondola General / Otros": [] };
+
+    cart.forEach(item => {
+      let categorizado = false;
+      const itemLower = item.toLowerCase();
+      
+      for (const [catName, keywords] of Object.entries(categorias)) {
+        if (keywords.some(kw => itemLower.includes(kw))) {
+          fuentesAgrupadas[catName].push(item);
+          categorizado = true;
+          break;
+        }
+      }
+      if (!categorizado) fuentesAgrupadas["📦 Gondola General / Otros"].push(item);
+    });
+
+    let htmlResultado = '';
+
+    for (const [categoria, items] of Object.entries(fuentesAgrupadas)) {
+      if (items.length === 0) continue;
+
+      htmlResultado += `
+        <div style="margin-bottom: 20px;">
+          <h4 style="color: var(--primary); border-bottom: 1px solid var(--primary-dim); padding-bottom: 4px; margin-bottom: 10px; font-size: 15px;">${categoria}</h4>
+      `;
+
+      htmlResultado += items.map((item) => `
+        <div class="cart-item" style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 4px 0;">
+          <input type="checkbox" 
+                 style="transform: scale(1.2); accent-color: var(--primary); cursor: pointer;" 
+                 onclick="this.nextElementSibling.style.textDecoration = this.checked ? 'line-through' : 'none'; this.nextElementSibling.style.opacity = this.checked ? '0.5' : '1';">
+          <span style="flex: 1; font-size: 14px; transition: all 0.2s;">${item}</span>
+        </div>
+      `).join('');
+
+      htmlResultado += `</div>`;
+    }
+
+    htmlResultado += `
+      <button onclick="StorageApp.saveCart([]); UI.renderCart();" 
+              style="width: 100%; margin-top: 15px; background: rgba(231, 76, 60, 0.1); color: #e74c3c; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s;"
+              onmouseover="this.style.background='rgba(231, 76, 60, 0.2)'"
+              onmouseout="this.style.background='rgba(231, 76, 60, 0.1)'">
+        🗑️ Vaciar Lista de Compras
+      </button>
+    `;
+
+    container.innerHTML = htmlResultado;
   },
 
   renderProfile() {
