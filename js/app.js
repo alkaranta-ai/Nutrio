@@ -693,11 +693,31 @@ const UI = {
 
 // ==========================================================================
 // MÓDULO DE CHAT (única declaración global, sin duplicados)
+//
+// NOTA DE DISEÑO: el chat YA NO usa MealEngine.getMealForDate() ni
+// MealEngine.getDrinkSuggestion() para responder — esas funciones son
+// determinísticas por fecha (por eso Inicio y Semana siempre muestran lo
+// mismo el mismo día). En cambio, el chat arma su propio pool filtrado
+// (reutilizando MealEngine.filterRecipesForProfile / refineByKcal, que sí
+// respetan alergias/restricciones/salud) y elige al azar dentro de ese
+// pool cada vez, evitando repetir la última opción mostrada EN EL CHAT.
+// Esto le da variedad real e independiente de lo que ya viste en Inicio
+// o en el Plan Semanal, tanto para comida como para bebidas.
 // ==========================================================================
 window.ChatApp = {
 
   // Guarda el último índice mostrado por categoría, para no repetir dos veces seguidas.
   _lastVariantByCategory: {},
+
+  // Última receta y última bebida mostradas EN EL CHAT, por categoría real
+  // de datos (desayuno/almuerzo/meriendas/cena), para no repetir la misma
+  // dos veces seguidas cuando se pregunta de nuevo.
+  _lastChatRecipe: {},
+  _lastChatDrink: {},
+
+  // Recuerda si lo último que se le ofreció al usuario fue comida o bebida,
+  // para saber a qué se refiere un "dame otra opción" genérico.
+  _lastTopic: null,
 
   // Saca tildes y pasa a minúsculas para que el matching de palabras clave
   // sea más flexible ("qué puedo comer" == "que puedo comer").
@@ -733,19 +753,66 @@ window.ChatApp = {
     return { key: 'antojo', label: 'Piqueteo / algo ligero' }; // madrugada
   },
 
-  // Usa exactamente el mismo MealEngine que UI.renderHome()/renderWeekDay(),
-  // así el chat y las solapas de Inicio/Semana jamás se contradicen entre sí.
-  _getRecipeForSlot(slotKey, profile) {
-    if (typeof MealEngine === 'undefined') return null;
+  // --------------------------------------------------------------------
+  // VARIEDAD DE COMIDA: arma el pool filtrado (respeta alergias, dislikes,
+  // restricciones y condiciones de salud vía MealEngine.filterRecipesForProfile)
+  // y elige una receta al azar, evitando repetir la última mostrada en el chat.
+  // --------------------------------------------------------------------
+  _getRandomRecipeForSlot(slotKey, profile) {
+    if (typeof MealEngine === 'undefined' || typeof RECIPES_DB === 'undefined') return null;
     const category = SLOT_TO_CATEGORY[slotKey] || 'meriendas';
-    return MealEngine.getMealForDate(category, profile, new Date());
+
+    const isSunday = MealEngine.isCheatDay(new Date());
+    let pool = MealEngine.filterRecipesForProfile(category, profile, isSunday);
+    pool = MealEngine.refineByKcal(pool, profile, category);
+    if (!pool.length) pool = getRecipesByCategory(category);
+    if (!pool.length) return null;
+
+    const lastId = this._lastChatRecipe[category];
+    let choices = pool;
+    if (pool.length > 1 && lastId) {
+      const withoutLast = pool.filter(r => r.id !== lastId);
+      if (withoutLast.length) choices = withoutLast;
+    }
+
+    const pick = choices[Math.floor(Math.random() * choices.length)];
+    this._lastChatRecipe[category] = pick.id;
+    return pick;
   },
 
-  // Misma lógica pero para la bebida sugerida de esa franja horaria.
-  _getDrinkForSlot(slotKey, profile) {
-    if (typeof MealEngine === 'undefined') return null;
+  // --------------------------------------------------------------------
+  // VARIEDAD DE BEBIDA: elige al azar dentro de BEBIDAS_DB[category], en vez
+  // de usar la variante fija-por-día de MealEngine.getDrinkSuggestion().
+  // La opción con alcohol solo aparece los domingos (día permitido), igual
+  // que en el resto de la app. Evita repetir la última bebida sin alcohol
+  // mostrada en el chat para esa categoría.
+  // --------------------------------------------------------------------
+  _getRandomDrinkForSlot(slotKey, profile) {
+    if (typeof BEBIDAS_DB === 'undefined' || typeof MealEngine === 'undefined') return null;
     const category = SLOT_TO_CATEGORY[slotKey] || 'meriendas';
-    return MealEngine.getDrinkSuggestion(category, profile, new Date());
+    const options = BEBIDAS_DB[category] || BEBIDAS_DB.almuerzo;
+    if (!options) return null;
+
+    const isSunday = MealEngine.isCheatDay(new Date());
+
+    let sinOpciones = options.sinAlcohol || [];
+    const lastSin = this._lastChatDrink[category];
+    let sinChoices = sinOpciones;
+    if (sinOpciones.length > 1 && lastSin) {
+      const withoutLast = sinOpciones.filter(d => d !== lastSin);
+      if (withoutLast.length) sinChoices = withoutLast;
+    }
+    const sinAlcohol = sinChoices.length
+      ? sinChoices[Math.floor(Math.random() * sinChoices.length)]
+      : null;
+    if (sinAlcohol) this._lastChatDrink[category] = sinAlcohol;
+
+    let conAlcohol = null;
+    if (isSunday && options.conAlcohol && options.conAlcohol.length) {
+      conAlcohol = options.conAlcohol[Math.floor(Math.random() * options.conAlcohol.length)];
+    }
+
+    return { sinAlcohol, conAlcohol, alcoholPermitido: isSunday };
   },
 
   // --------------------------------------------------------------------
@@ -801,6 +868,7 @@ window.ChatApp = {
     if (hablaDeMate && !msg.includes('no me gusta')) {
       const now = new Date();
       const horaTxt = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+      this._lastTopic = 'bebida';
       return this.pickVariant('mate', [
         (h) => `Son las ${h}, así que el mate pide algo dulce o tostado: bizcochitos, tostadas con manteca y mermelada, factura si estás con onda, o algo salado tipo tostadas con queso si preferís no llenarte de azúcar. Si querés algo más completo, mirá la solapa de **Inicio**, ahí tenés armado el resto del día. 🧉`,
         (h) => `A las ${h} el mate pega bien con algo simple: tostadas, un pancito con queso, o una fruta si querés ir más liviano. En la solapa de **Inicio** tenés el resto del día armado. 🧉`,
@@ -830,6 +898,65 @@ window.ChatApp = {
       ], name);
     }
 
+    // --- Pedido explícito de otra opción de BEBIDA ---
+    const pideOtraBebida =
+      msg.includes('otra bebida') || msg.includes('otro trago') ||
+      msg.includes('otra opcion para tomar') || msg.includes('otra opcion de tomar') ||
+      msg.includes('otra cosa para tomar') || msg.includes('algo distinto para tomar');
+
+    if (pideOtraBebida) {
+      const slot = this._getMealSlot();
+      const drink = this._getRandomDrinkForSlot(slot.key, profile);
+      this._lastTopic = 'bebida';
+      if (!drink || !drink.sinAlcohol) {
+        return this.pickVariant('otra_bebida_sin_datos', [
+          `Todavía no tengo bebidas cargadas para esta franja, pero fijate en Inicio o en la Semana para ver qué te armé.`
+        ]);
+      }
+      return this.pickVariant('otra_bebida', [
+        (d) => `Dale, otra opción: ${d.sinAlcohol}${d.conAlcohol ? `. Y como hoy es día permitido, también entra ${d.conAlcohol} 🍷` : '.'} 🥤`,
+        (d) => `Ahí va otra: ${d.sinAlcohol}${d.conAlcohol ? `, o si preferís, ${d.conAlcohol} porque hoy es día permitido 🍷` : ''}. ¿Esta te copa más? 😄`
+      ], drink);
+    }
+
+    // --- Pedido explícito de otra opción de COMIDA ---
+    const pideOtraComida =
+      msg.includes('otra receta') || msg.includes('otra comida') ||
+      msg.includes('otra opcion de comer') || msg.includes('otra opcion para comer') ||
+      msg.includes('no me convence');
+
+    // --- Pedido genérico de "otra opción" (usa el último tema tratado) ---
+    const pideOtraGenerica =
+      msg.includes('otra opcion') || msg.includes('dame otra') ||
+      msg.includes('algo distinto') || msg.includes('otra cosa');
+
+    if (pideOtraComida || (pideOtraGenerica && this._lastTopic !== 'bebida')) {
+      const slot = this._getMealSlot();
+      const recipe = this._getRandomRecipeForSlot(slot.key, profile);
+      this._lastTopic = 'comida';
+      if (!recipe) {
+        return this.pickVariant('otra_comida_sin_datos', [
+          `Todavía no tengo recetas cargadas para esta franja, pero fijate en Inicio o en la Semana para ver qué te armé.`
+        ]);
+      }
+      const ing = (recipe.ingredients || []).join(', ');
+      return this.pickVariant('otra_opcion', [
+        (r, i) => `Dale, otra vuelta: **${r.name}** (${r.kcal} kcal) con ${i}. Si tampoco te cierra, pedime otra y seguimos probando. 🔄`,
+        (r, i) => `Ahí va otra: **${r.name}** (${r.kcal} kcal), con ${i}. ¿Esta te copa más? 😄`
+      ], recipe, ing);
+    }
+
+    if (pideOtraGenerica && this._lastTopic === 'bebida') {
+      const slot = this._getMealSlot();
+      const drink = this._getRandomDrinkForSlot(slot.key, profile);
+      if (drink && drink.sinAlcohol) {
+        return this.pickVariant('otra_bebida', [
+          (d) => `Dale, otra opción: ${d.sinAlcohol}${d.conAlcohol ? `. Y como hoy es día permitido, también entra ${d.conAlcohol} 🍷` : '.'} 🥤`,
+          (d) => `Ahí va otra: ${d.sinAlcohol}${d.conAlcohol ? `, o si preferís, ${d.conAlcohol} porque hoy es día permitido 🍷` : ''}. ¿Esta te copa más? 😄`
+        ], drink);
+      }
+    }
+
     // --- "¿Qué puedo tomar?" / preguntas sobre bebidas (fuera del caso especial del mate) ---
     const preguntaQueTomar =
       (msg.includes('que tomo') ||
@@ -851,20 +978,21 @@ window.ChatApp = {
 
     if (preguntaQueTomar) {
       const slot = this._getMealSlot();
-      const drink = this._getDrinkForSlot(slot.key, profile);
+      const drink = this._getRandomDrinkForSlot(slot.key, profile);
       const now = new Date();
       const horaTxt = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+      this._lastTopic = 'bebida';
 
-      if (!drink) {
+      if (!drink || !drink.sinAlcohol) {
         return this.pickVariant('que_tomar_sin_bebida', [
           (h, l) => `Son las ${h}, momento de **${l}**. Todavía no tengo bebidas cargadas, pero fijate en Inicio o en la Semana para ver qué te armé.`
         ], horaTxt, slot.label);
       }
 
       return this.pickVariant('que_tomar', [
-        (h, l, d) => `Son las ${h}, así que para **${l}** te tiro ${d.sinAlcohol}${d.conAlcohol ? `. Y como hoy es día permitido, también te podés dar el gusto con ${d.conAlcohol} 🍷` : '.'} 🥤`,
-        (h, l, d) => `Para acompañar tu **${l}** (son las ${h}), va bien ${d.sinAlcohol}${d.conAlcohol ? `, o si querés algo con onda, ${d.conAlcohol} porque hoy es día permitido 🍷` : ''}. 🥤`,
-        (h, l, d) => `A las ${h}, en **${l}**, te sugiero ${d.sinAlcohol}${d.conAlcohol ? `. Ya que es domingo (día permitido), también entra ${d.conAlcohol} 🍷` : '.'} 🥤`
+        (h, l, d) => `Son las ${h}, así que para **${l}** te tiro ${d.sinAlcohol}${d.conAlcohol ? `. Y como hoy es día permitido, también te podés dar el gusto con ${d.conAlcohol} 🍷` : '.'} Si querés otra idea, pedime "otra bebida" y te tiro otra. 🥤`,
+        (h, l, d) => `Para acompañar tu **${l}** (son las ${h}), va bien ${d.sinAlcohol}${d.conAlcohol ? `, o si querés algo con onda, ${d.conAlcohol} porque hoy es día permitido 🍷` : ''}. ¿Querés otra opción? Solo pedímela. 🥤`,
+        (h, l, d) => `A las ${h}, en **${l}**, te sugiero ${d.sinAlcohol}${d.conAlcohol ? `. Ya que es domingo (día permitido), también entra ${d.conAlcohol} 🍷` : '.'} Si no te cierra, pedime otra bebida y probamos con otra. 🥤`
       ], horaTxt, slot.label, drink);
     }
 
@@ -886,10 +1014,11 @@ window.ChatApp = {
 
     if (preguntaQueComer) {
       const slot = this._getMealSlot();
-      const recipe = this._getRecipeForSlot(slot.key, profile);
-      const drink = this._getDrinkForSlot(slot.key, profile);
+      const recipe = this._getRandomRecipeForSlot(slot.key, profile);
+      const drink = this._getRandomDrinkForSlot(slot.key, profile);
       const now = new Date();
       const horaTxt = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+      this._lastTopic = 'comida';
 
       if (!recipe) {
         return this.pickVariant('que_comer_sin_receta', [
@@ -905,7 +1034,7 @@ window.ChatApp = {
 
       // Armamos la frase de bebida acá para no repetir la lógica en las 3 variantes.
       let drinkTxt = '';
-      if (drink) {
+      if (drink && drink.sinAlcohol) {
         drinkTxt = ` Para acompañar, va bien con ${drink.sinAlcohol}`;
         drinkTxt += drink.conAlcohol
           ? `, o si querés date el gusto con ${drink.conAlcohol} (hoy es día permitido 🍷).`
@@ -913,9 +1042,9 @@ window.ChatApp = {
       }
 
       return this.pickVariant('que_comer', [
-        (h, l, r, ing, note, d) => `Son las ${h}, así que te toca **${l}**${note}: **${r.name}** (${r.kcal} kcal) con ${ing}.${d} Está armado también en la solapa de Inicio si querés verlo con detalle. 🍽️`,
-        (h, l, r, ing, note, d) => `Mirá la hora, son las ${h}: momento de **${l}**${note}. Te tiro esta: **${r.name}** (${r.kcal} kcal) con ${ing}.${d} Lo tenés también en Inicio. 😋`,
-        (h, l, r, ing, note, d) => `A las ${h} te toca directamente **${l}**${note}. Va **${r.name}** (${r.kcal} kcal), con ${ing}.${d} Chequealo en Inicio si querés más detalle. 🍽️`
+        (h, l, r, ing, note, d) => `Son las ${h}, así que te toca **${l}**${note}: **${r.name}** (${r.kcal} kcal) con ${ing}.${d} Si no te cierra, pedime "otra receta" y probamos con otra. Está armado también en la solapa de Inicio si querés verlo con detalle. 🍽️`,
+        (h, l, r, ing, note, d) => `Mirá la hora, son las ${h}: momento de **${l}**${note}. Te tiro esta: **${r.name}** (${r.kcal} kcal) con ${ing}.${d} Si querés otra idea, avisame. Lo tenés también en Inicio. 😋`,
+        (h, l, r, ing, note, d) => `A las ${h} te toca directamente **${l}**${note}. Va **${r.name}** (${r.kcal} kcal), con ${ing}.${d} Chequealo en Inicio si querés más detalle, o pedime otra opción si esta no te tienta. 🍽️`
       ], horaTxt, slot.label, recipe, ingredientesTxt, restriccionesNote, drinkTxt);
     }
 
@@ -946,15 +1075,16 @@ window.ChatApp = {
 
     // --- Recetas / cocinar / comer ---
     if (msg.includes('receta') || msg.includes('cocinar') || msg.includes('comer')) {
+      this._lastTopic = 'comida';
       if (profile && profile.restrictions && profile.restrictions.length) {
         return this.pickVariant('receta_con_restricciones', [
-          (p) => `Ya agendé tus mañas de alimentación: "${p.restrictions.join(', ')}". Si vas a las pestañas de **Inicio** o **Semana**, vas a ver las recetas ricas que armé cuidando tu perfil. 🥗`,
-          (p) => `Tengo anotado que evitás: ${p.restrictions.join(', ')}. Fijate en **Inicio** o **Semana**, ahí te armé opciones que respetan eso. 🍽️`
+          (p) => `Ya agendé tus mañas de alimentación: "${p.restrictions.join(', ')}". Si vas a las pestañas de **Inicio** o **Semana**, vas a ver las recetas ricas que armé cuidando tu perfil. Y si querés que te tire alguna acá mismo, preguntame qué puedo comer. 🥗`,
+          (p) => `Tengo anotado que evitás: ${p.restrictions.join(', ')}. Fijate en **Inicio** o **Semana**, ahí te armé opciones que respetan eso. O pedime directamente una opción para esta hora. 🍽️`
         ], profile);
       }
       return this.pickVariant('receta_sin_restricciones', [
-        `¡Uff, alta hora para comer! Pegale una mirada a la solapa de **Inicio** o **Semana**. Te armé un menú personalizado espectacular para tu objetivo.`,
-        `Dale, andá a **Inicio** o **Semana** que ahí tenés el menú pensado para vos según tu objetivo. ¡A comer rico! 🍴`
+        `¡Uff, alta hora para comer! Pegale una mirada a la solapa de **Inicio** o **Semana**. Te armé un menú personalizado espectacular para tu objetivo. O preguntame "qué puedo comer" y te tiro una opción directamente acá.`,
+        `Dale, andá a **Inicio** o **Semana** que ahí tenés el menú pensado para vos según tu objetivo. ¡A comer rico! 🍴 También podés preguntarme acá mismo si querés una idea rápida.`
       ]);
     }
 
