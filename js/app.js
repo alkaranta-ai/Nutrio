@@ -898,6 +898,28 @@ window.ChatApp = {
       ], name);
     }
 
+    // --- Domingo / día permitido ---
+    const hablaDeDomingo =
+      msg.includes('domingo') ||
+      msg.includes('dia permitido') ||
+      msg.includes('cheat day') ||
+      msg.includes('dia libre');
+
+    if (hablaDeDomingo) {
+      const esHoyDomingo = typeof MealEngine !== 'undefined' && MealEngine.isCheatDay(new Date());
+      this._lastTopic = null;
+      if (esHoyDomingo) {
+        return this.pickVariant('domingo_hoy', [
+          `¡Justo hoy es domingo, tu día permitido! 🍷 Podés darte un gusto extra: las bebidas con alcohol están habilitadas y las comidas son un poco más relajadas. Fijate en **Inicio** o **Semana** para ver las opciones de hoy.`,
+          `Hoy es domingo, así que es día permitido por acá: podés sumar algo con alcohol si querés. Mirá **Inicio** o **Semana** para ver qué te armé para hoy. 🍷`
+        ]);
+      }
+      return this.pickVariant('domingo_no_hoy', [
+        `El domingo es el día permitido acá: ahí sí entran opciones con alcohol y algo más relajado en las comidas. Hoy no es domingo, así que seguimos con el plan de siempre... ¡pero ya va a llegar! 😉`,
+        `Los domingos son especiales: día permitido, con alguna opción con alcohol habilitada en las comidas. Hoy todavía no es domingo, pero falta poco. Mientras tanto, pedime "qué puedo comer" y seguimos con tu plan normal. 🙌`
+      ]);
+    }
+
     // --- Pedido explícito de otra opción de BEBIDA ---
     const pideOtraBebida =
       msg.includes('otra bebida') || msg.includes('otro trago') ||
