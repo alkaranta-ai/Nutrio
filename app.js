@@ -375,10 +375,33 @@ const MealLog = {
 const Speech = {
   enabled: JSON.parse(localStorage.getItem('nutrio_speech_enabled') || 'false'),
 
-  // Un poco más rápido y un poco más agudo que el default (1/1): así suena
-  // más vivo y con más onda, en vez del tono chato típico de la voz robot.
-  _rate: 1.05,
-  _pitch: 1.08,
+  // ------------------------------------------------------------------
+  // IDENTIDAD DE VOZ DE NUTRIO: rate y pitch fijos que definen su
+  // personalidad (un poco más rápido y agudo que el default 1/1, así
+  // suena vivo, joven y con onda en vez de la voz robot plana). Estos
+  // valores son la "firma" de NutrIO: se aplican siempre, sin importar
+  // qué voz del dispositivo termine hablando.
+  // ------------------------------------------------------------------
+  _rate: 1.08,
+  _pitch: 1.15,
+
+  // Lista de voces conocidas que suelen sonar mejor (más cálidas/claras)
+  // en cada plataforma, en orden de preferencia. Se prueban ANTES que el
+  // puntaje genérico de _pickVoice, así NutrIO tiende a sonar siempre
+  // con la misma "cara" reconocible en vez de una voz distinta por azar
+  // en cada dispositivo. Son nombres reales que exponen los navegadores:
+  // Android/Chrome expone voces "Google", iOS/macOS expone voces con
+  // nombre propio (Mónica, Paulina, Helena), Windows expone "Microsoft X".
+  _PREFERRED_VOICE_NAMES: [
+    'google español de estados unidos',
+    'google español',
+    'mónica', 'monica',       // iOS/macOS, español de España, cálida
+    'paulina',                 // iOS/macOS, español latino
+    'helena',                  // iOS/macOS/Windows, español neutro
+    'microsoft sabina',        // Windows
+    'microsoft helena',        // Windows
+    'microsoft dalia'          // Windows, español latino
+  ],
 
   _supported() {
     return typeof window !== 'undefined' && 'speechSynthesis' in window;
@@ -420,6 +443,19 @@ const Speech = {
     const spanish = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('es'));
     if (!spanish.length) return null;
 
+    // PASO 1: intentamos matchear por nombre contra la lista de voces
+    // conocidas/preferidas (la "identidad" de NutrIO en cada plataforma),
+    // en el orden de esa lista. Apenas encontramos la primera coincidencia
+    // disponible en este dispositivo, la usamos directo sin pasar por el
+    // puntaje genérico de abajo.
+    for (const preferredName of this._PREFERRED_VOICE_NAMES) {
+      const match = spanish.find(v => v.name.toLowerCase().includes(preferredName));
+      if (match) return match;
+    }
+
+    // PASO 2 (respaldo): si ninguna de las preferidas está disponible en
+    // este dispositivo, usamos el puntaje genérico de siempre para elegir
+    // la mejor opción posible entre lo que sí hay instalado.
     const score = (v) => {
       let s = 0;
       if (v.lang === 'es-AR') s += 5;
