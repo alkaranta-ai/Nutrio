@@ -159,14 +159,38 @@ const Onboarding = {
     return targetKcal;
   },
 
+  // IMPORTANTE: el carrito de supermercado se arma SOLO con ingredientes de
+  // recetas que ya pasaron el filtro de perfil (MealEngine.filterRecipesForProfile),
+  // así respeta restricciones (vegetariano/vegano/sin gluten/etc.), alergias y
+  // condiciones de salud. Antes esto recorría TODO RECIPES_DB sin filtrar,
+  // por eso aparecían ingredientes como carne/jamón/salmón con perfil vegetariano.
   autoGenerateCart() {
     let itemsSet = new Set();
-    if (typeof RECIPES_DB !== 'undefined') {
+    const profile = StorageApp.getProfile();
+
+    if (typeof RECIPES_DB !== 'undefined' && profile && typeof MealEngine !== 'undefined' && MealEngine.filterRecipesForProfile) {
+      const categories = ['desayuno', 'almuerzo', 'meriendas', 'cena'];
+      categories.forEach(cat => {
+        // Unimos el pool de día normal y de día permitido para que el carrito
+        // cubra toda la semana, pero SIEMPRE respetando restricciones/alergias/salud
+        // (el "día permitido" solo afloja el postre/alcohol, no las restricciones).
+        const poolNormal = MealEngine.filterRecipesForProfile(cat, profile, false) || [];
+        const poolCheat = MealEngine.filterRecipesForProfile(cat, profile, true) || [];
+        [...poolNormal, ...poolCheat].forEach(r => {
+          (r.ingredients || []).forEach(ing => itemsSet.add(ing));
+        });
+      });
+    }
+
+    // Respaldo: si por algún motivo no hay perfil o MealEngine no filtró nada,
+    // no dejamos el carrito vacío (aunque en ese caso no está filtrado por perfil).
+    if (itemsSet.size === 0 && typeof RECIPES_DB !== 'undefined') {
       RECIPES_DB.forEach(r => {
         if (r.category === 'antojo') return;
         r.ingredients.forEach(ing => itemsSet.add(ing));
       });
     }
+
     StorageApp.saveCart(Array.from(itemsSet));
   }
 };
