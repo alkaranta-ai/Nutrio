@@ -1,7 +1,7 @@
 // BASE DE DATOS DE RECETAS — ÚNICA FUENTE DE VERDAD (no duplicar en otros archivos)
 //
 // Cada receta tiene:
-//   tags       -> restricciones que CUMPLE (vegetariano, vegano, sin_gluten, sin_lactosa, sin_carbo)
+//   tags       -> restricciones que CUMPLE (vegetariano, vegano, sin_gluten, sin_lactosa, sin_carbo, keto, mediterraneo)
 //   allergens  -> alérgenos que CONTIENE (huevo, lactosa, gluten, frutos_secos, soja, mariscos)
 //   avoidFor   -> condiciones de salud para las que NO es ideal (hipertension, diabetes, colesterol_alto)
 //
@@ -176,6 +176,40 @@ const RECIPES_DB = [
     ingredients: ["150g Yogur de coco o vegetal", "1 cda Semillas de chía", "1 cda Semillas de girasol", "80g Frutos rojos"],
     instructions: ["Colocar el yogur vegetal como base en un bowl.", "Agregar las semillas de chía y girasol.", "Coronar con los frutos rojos frescos."] },
 
+  // ---------- DESAYUNOS KETO (nuevas) ----------
+  { id: "dk1", name: "Huevos Revueltos con Panceta y Palta", category: "desayuno", kcal: 480, country: "General", tags: ["keto", "sin_carbo", "sin_gluten", "sin_lactosa"], allergens: ["huevo"], avoidFor: ["colesterol_alto"],
+    ingredients: ["3 Huevos", "40g Panceta", "Media palta"],
+    instructions: ["Dorar la panceta en una sartén hasta que quede crocante.", "Agregar los huevos batidos y revolver a fuego bajo hasta cuajar.", "Servir con la palta en láminas al costado."] },
+
+  { id: "dk2", name: "Bowl Keto de Yogur Griego y Semillas", category: "desayuno", kcal: 400, country: "General", tags: ["keto", "vegetariano", "sin_gluten"], allergens: ["lactosa", "frutos_secos"], avoidFor: [],
+    ingredients: ["200g Yogur griego entero", "2 cdas Semillas de chía", "15g Nueces picadas", "Canela"],
+    instructions: ["Colocar el yogur griego en un bowl.", "Agregar las semillas de chía y las nueces picadas.", "Espolvorear canela y servir frío."] },
+
+  { id: "dk3", name: "Omelette Keto de Espinaca y Queso de Cabra", category: "desayuno", kcal: 460, country: "General", tags: ["keto", "sin_carbo", "sin_gluten", "vegetariano"], allergens: ["huevo", "lactosa"], avoidFor: [],
+    ingredients: ["3 Huevos", "1 puñado Espinaca fresca", "40g Queso de cabra", "1 cdita Aceite de oliva"],
+    instructions: ["Saltear la espinaca en el aceite de oliva hasta que se ablande.", "Batir los huevos y verterlos sobre la espinaca.", "Agregar el queso de cabra en trozos, cocinar tapado a fuego bajo y doblar al medio."] },
+
+  { id: "dk4", name: "Chia Pudding Keto de Coco", category: "desayuno", kcal: 420, country: "General", tags: ["keto", "vegano", "sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["3 cdas Semillas de chía", "200ml Leche de coco entera", "10g Coco rallado sin azúcar"],
+    instructions: ["Mezclar la chía con la leche de coco en un frasco y revolver bien.", "Dejar reposar en la heladera mínimo 4 horas.", "Espolvorear el coco rallado antes de servir."] },
+
+  // ---------- DESAYUNOS MEDITERRÁNEOS (nuevas) ----------
+  { id: "dm1", name: "Yogur Griego con Miel, Nueces y Aceite de Oliva", category: "desayuno", kcal: 380, country: "Mediterráneo", tags: ["mediterraneo", "vegetariano", "sin_gluten"], allergens: ["lactosa", "frutos_secos"], avoidFor: ["diabetes"],
+    ingredients: ["200g Yogur griego", "1 cdita Miel", "15g Nueces", "Un hilo de Aceite de oliva"],
+    instructions: ["Colocar el yogur griego en un bowl.", "Agregar la miel y las nueces picadas.", "Terminar con un hilo fino de aceite de oliva por encima."] },
+
+  { id: "dm2", name: "Tostada Mediterránea de Tomate, Aceitunas y Feta", category: "desayuno", kcal: 400, country: "Mediterráneo", tags: ["mediterraneo", "vegetariano"], allergens: ["gluten", "lactosa"], avoidFor: [],
+    ingredients: ["1 rodaja de pan integral", "1 Tomate en cubos", "30g Queso feta", "6 Aceitunas negras", "Aceite de oliva"],
+    instructions: ["Tostar el pan integral.", "Mezclar el tomate con las aceitunas y un chorrito de aceite de oliva.", "Volcar sobre la tostada y desmenuzar el queso feta por encima."] },
+
+  { id: "dm3", name: "Huevos con Tomate y Aceite de Oliva (Shakshuka Liviana)", category: "desayuno", kcal: 420, country: "Mediterráneo", tags: ["mediterraneo", "sin_gluten", "sin_lactosa"], allergens: ["huevo"], avoidFor: [],
+    ingredients: ["2 Huevos", "2 Tomates", "Cebolla y ajo", "Aceite de oliva y comino"],
+    instructions: ["Rehogar la cebolla y el ajo en aceite de oliva.", "Agregar el tomate en cubos y el comino, cocinar 10 minutos hasta formar una salsa.", "Hacer huecos y cascar los huevos encima, tapar y cocinar 5 minutos más hasta que cuajen."] },
+
+  { id: "dm4", name: "Bowl Mediterráneo de Frutas, Almendras y Aceite de Oliva", category: "desayuno", kcal: 320, country: "Mediterráneo", tags: ["mediterraneo", "vegano", "sin_gluten", "sin_lactosa"], allergens: ["frutos_secos"], avoidFor: [],
+    ingredients: ["1 taza de frutas de estación", "15g Almendras", "Un hilo de Aceite de oliva", "Jugo de limón"],
+    instructions: ["Cortar las frutas en cubos parejos.", "Rociar con jugo de limón y un hilo de aceite de oliva.", "Espolvorear las almendras picadas antes de servir."] },
+
   // ---------- ALMUERZOS (40) ----------
   { id: "a1", name: "Pechuga Grillé con Arroz Integral", category: "almuerzo", kcal: 550, country: "General", tags: ["sin_lactosa", "sin_gluten"], allergens: [], avoidFor: [],
     ingredients: ["150g Pechuga de pollo", "70g Arroz integral", "Mix de vegetales verdes"],
@@ -189,7 +223,7 @@ const RECIPES_DB = [
     ingredients: ["200g de pechuga de pollo", "80g de arroz", "Media taza de arvejas y zanahoria", "1 cucharadita de aceite de oliva"],
     instructions: ["Cocinar el arroz de forma tradicional.", "Cortar el pollo en cubos y dorarlo en una sartén con el aceite.", "Agregar las verduras al pollo, cocinar 5 minutos más y mezclar con el arroz."] },
 
-  { id: "a4", name: "Ensalada de Quinoa con Garbanzos", category: "almuerzo", kcal: 480, country: "Mediterráneo", tags: ["vegetariano", "vegano", "sin_lactosa", "sin_gluten"], allergens: [], avoidFor: [],
+  { id: "a4", name: "Ensalada de Quinoa con Garbanzos", category: "almuerzo", kcal: 480, country: "Mediterráneo", tags: ["vegetariano", "vegano", "sin_lactosa", "sin_gluten", "mediterraneo"], allergens: [], avoidFor: [],
     ingredients: ["80g Quinoa", "100g Garbanzos cocidos", "Tomate cherry", "Pepino", "Limón y aceite de oliva"],
     instructions: ["Cocinar la quinoa en agua con sal hasta que absorba el líquido.", "Mezclar en un bowl con los garbanzos, tomate y pepino picados.", "Aliñar con jugo de limón, aceite de oliva y sal."] },
 
@@ -297,7 +331,7 @@ const RECIPES_DB = [
     ingredients: ["90g Fideos integrales", "1 Lata de atún al natural", "Tomate cherry y aceite de oliva"],
     instructions: ["Cocinar los fideos en agua con sal hasta que estén al dente.", "Escurrir el atún y mezclarlo con los tomates cherry cortados al medio.", "Mezclar todo con los fideos calientes y un hilo de aceite de oliva."] },
 
-  { id: "a31", name: "Ensalada Mediterránea con Falafel", category: "almuerzo", kcal: 480, country: "Mediterráneo", tags: ["vegano", "sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+  { id: "a31", name: "Ensalada Mediterránea con Falafel", category: "almuerzo", kcal: 480, country: "Mediterráneo", tags: ["vegano", "sin_gluten", "sin_lactosa", "mediterraneo"], allergens: [], avoidFor: [],
     ingredients: ["4 Falafels", "Lechuga, tomate y pepino", "Limón y aceite de oliva"],
     instructions: ["Cocinar los falafels al horno o en sartén con poco aceite.", "Cortar los vegetales y mezclarlos en un bowl.", "Agregar los falafels y aliñar con limón y aceite de oliva."] },
 
@@ -336,6 +370,48 @@ const RECIPES_DB = [
   { id: "a40", name: "Bowl de Arroz Integral, Pollo y Vegetales al Vapor", category: "almuerzo", kcal: 520, country: "General", tags: ["sin_lactosa", "sin_gluten"], allergens: [], avoidFor: [],
     ingredients: ["150g Pechuga de pollo", "70g Arroz integral", "Brócoli y zanahoria al vapor"],
     instructions: ["Cocinar el arroz integral según las indicaciones del paquete.", "Grillar la pechuga sazonada 5-6 minutos por lado y cortarla en tiras.", "Cocinar los vegetales al vapor y armar el bowl con el arroz, el pollo y los vegetales."] },
+
+  // ---------- ALMUERZOS KETO (nuevas) ----------
+  { id: "ak1", name: "Salmón Grillado con Espárragos y Manteca", category: "almuerzo", kcal: 620, country: "General", tags: ["keto", "sin_carbo", "sin_gluten"], allergens: ["lactosa"], avoidFor: [],
+    ingredients: ["180g Filete de salmón", "10 Espárragos", "20g Manteca", "Limón"],
+    instructions: ["Sellar el salmón en sartén caliente 3-4 minutos por lado.", "Saltear los espárragos en la manteca hasta que estén tiernos.", "Servir el salmón sobre los espárragos con un chorrito de limón."] },
+
+  { id: "ak2", name: "Bife de Chorizo con Puré de Coliflor", category: "almuerzo", kcal: 650, country: "Argentina", tags: ["keto", "sin_carbo", "sin_gluten"], allergens: ["lactosa"], avoidFor: ["colesterol_alto"],
+    ingredients: ["200g Bife de chorizo", "Media Coliflor", "20g Manteca", "Sal y pimienta"],
+    instructions: ["Cocinar el bife en sartén o parrilla al punto deseado.", "Hervir la coliflor hasta que esté tierna y procesar con la manteca hasta lograr un puré.", "Servir el bife sobre el puré de coliflor."] },
+
+  { id: "ak3", name: "Ensalada Keto de Pollo, Palta y Bacon", category: "almuerzo", kcal: 580, country: "General", tags: ["keto", "sin_carbo", "sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["180g Pechuga de pollo", "1 Palta entera", "40g Panceta", "Hojas verdes mixtas"],
+    instructions: ["Grillar la pechuga y cortarla en tiras.", "Dorar la panceta hasta que quede crocante.", "Armar la ensalada con las hojas verdes, la palta en láminas, el pollo y la panceta."] },
+
+  { id: "ak4", name: "Wok Keto de Carne y Vegetales Verdes", category: "almuerzo", kcal: 560, country: "General", tags: ["keto", "sin_carbo", "sin_gluten", "sin_lactosa"], allergens: ["soja"], avoidFor: ["hipertension"],
+    ingredients: ["180g Carne de res en tiras", "Brócoli y zucchini", "1 cdita Aceite de sésamo", "Salsa de soja sin azúcar"],
+    instructions: ["Saltear la carne en el wok a fuego fuerte hasta dorar.", "Agregar el brócoli y el zucchini, cocinar 4-5 minutos.", "Sumar la salsa de soja y el aceite de sésamo, mezclar 1 minuto más."] },
+
+  { id: "ak5", name: "Muslos de Pollo al Horno con Vegetales Verdes", category: "almuerzo", kcal: 540, country: "General", tags: ["keto", "sin_carbo", "sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["2 Muslos de pollo con piel", "Brócoli y zucchini", "Aceite de oliva y romero"],
+    instructions: ["Colocar el pollo y los vegetales en una fuente para horno.", "Condimentar con romero, sal y un buen chorro de aceite de oliva.", "Hornear a 200°C durante 35-40 minutos hasta dorar la piel."] },
+
+  // ---------- ALMUERZOS MEDITERRÁNEOS (nuevas) ----------
+  { id: "am1", name: "Pescado al Horno con Aceitunas y Tomate Estilo Mediterráneo", category: "almuerzo", kcal: 480, country: "Mediterráneo", tags: ["mediterraneo", "sin_lactosa", "sin_gluten"], allergens: [], avoidFor: [],
+    ingredients: ["180g Filete de pescado blanco", "Tomate cherry y aceitunas negras", "Ajo, orégano y aceite de oliva"],
+    instructions: ["Colocar el pescado en una fuente para horno con los tomates y las aceitunas alrededor.", "Condimentar con ajo picado, orégano y un buen chorro de aceite de oliva.", "Hornear a 200°C durante 15-18 minutos hasta que el pescado esté cocido."] },
+
+  { id: "am2", name: "Ensalada Griega Completa con Garbanzos", category: "almuerzo", kcal: 500, country: "Mediterráneo", tags: ["mediterraneo", "vegetariano", "sin_gluten"], allergens: ["lactosa"], avoidFor: [],
+    ingredients: ["Tomate, pepino y cebolla morada", "100g Garbanzos cocidos", "60g Queso feta", "Aceitunas y aceite de oliva"],
+    instructions: ["Cortar el tomate, el pepino y la cebolla en trozos grandes.", "Mezclar en un bowl con los garbanzos y las aceitunas.", "Agregar el queso feta en cubos y aliñar con abundante aceite de oliva."] },
+
+  { id: "am3", name: "Pollo al Limón y Orégano con Vegetales Mediterráneos", category: "almuerzo", kcal: 540, country: "Mediterráneo", tags: ["mediterraneo", "sin_lactosa", "sin_gluten"], allergens: [], avoidFor: [],
+    ingredients: ["180g Pechuga de pollo", "Zucchini, berenjena y morrón", "Limón, orégano y aceite de oliva"],
+    instructions: ["Marinar el pollo con jugo de limón, orégano y aceite de oliva 10 minutos.", "Grillar el pollo y los vegetales cortados en láminas.", "Servir todo junto con un hilo extra de aceite de oliva."] },
+
+  { id: "am4", name: "Fideos Integrales con Vegetales, Aceitunas y Aceite de Oliva", category: "almuerzo", kcal: 520, country: "Mediterráneo", tags: ["mediterraneo", "vegetariano", "vegano"], allergens: ["gluten"], avoidFor: [],
+    ingredients: ["90g Fideos integrales", "Zucchini, tomate cherry y aceitunas", "Ajo y aceite de oliva"],
+    instructions: ["Cocinar los fideos en agua con sal hasta que estén al dente.", "Saltear el zucchini y el ajo en aceite de oliva, agregar los tomates cherry y las aceitunas.", "Mezclar todo con los fideos calientes y un buen chorro extra de aceite de oliva."] },
+
+  { id: "am5", name: "Cazuela Mediterránea de Garbanzos y Pescado", category: "almuerzo", kcal: 500, country: "Mediterráneo", tags: ["mediterraneo", "sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["150g Filete de pescado blanco", "100g Garbanzos cocidos", "Tomate, ajo y pimentón", "Aceite de oliva"],
+    instructions: ["Rehogar el ajo en aceite de oliva y agregar el tomate y el pimentón.", "Sumar los garbanzos y un poco de agua, cocinar 10 minutos.", "Agregar el pescado en trozos y cocinar 8 minutos más hasta que esté cocido."] },
 
   // ---------- MERIENDAS (40) ----------
   { id: "m1", name: "Yogur Griego con Nueces y Banana", category: "meriendas", kcal: 300, country: "General", tags: ["vegetariano"], allergens: ["lactosa", "frutos_secos"], avoidFor: [],
@@ -486,7 +562,7 @@ const RECIPES_DB = [
     ingredients: ["30g Avena", "4 Dátiles sin carozo", "200ml Leche vegetal"],
     instructions: ["Remojar los dátiles en agua tibia 10 minutos y escurrir.", "Colocar todos los ingredientes en la licuadora.", "Licuar hasta lograr una textura homogénea y servir."] },
 
-  { id: "m38", name: "Tostaditas con Paté de Berenjena", category: "meriendas", kcal: 260, country: "Mediterráneo", tags: ["vegano"], allergens: ["gluten"], avoidFor: [],
+  { id: "m38", name: "Tostaditas con Paté de Berenjena", category: "meriendas", kcal: 260, country: "Mediterráneo", tags: ["vegano", "mediterraneo"], allergens: ["gluten"], avoidFor: [],
     ingredients: ["1 Berenjena", "2 Tostadas integrales", "Ajo y aceite de oliva"],
     instructions: ["Hornear la berenjena entera hasta que esté bien tierna, unos 30 minutos.", "Pisar la pulpa con ajo y aceite de oliva hasta formar un paté.", "Untar sobre las tostadas y servir."] },
 
@@ -497,6 +573,36 @@ const RECIPES_DB = [
   { id: "m40", name: "Cacao Caliente con Leche Descremada", category: "meriendas", kcal: 220, country: "General", tags: ["vegetariano", "sin_gluten"], allergens: ["lactosa"], avoidFor: [],
     ingredients: ["200ml Leche descremada", "1 cda Cacao amargo", "1 cdita Miel"],
     instructions: ["Calentar la leche en una olla pequeña.", "Agregar el cacao amargo y la miel, revolviendo hasta disolver.", "Servir caliente en una taza."] },
+
+  // ---------- MERIENDAS KETO (nuevas) ----------
+  { id: "mk1", name: "Bombas de Grasa de Coco y Cacao", category: "meriendas", kcal: 280, country: "General", tags: ["keto", "vegetariano", "sin_gluten"], allergens: ["lactosa"], avoidFor: [],
+    ingredients: ["30g Manteca a temperatura ambiente", "20g Coco rallado sin azúcar", "1 cda Cacao amargo"],
+    instructions: ["Mezclar la manteca con el coco rallado y el cacao amargo hasta integrar.", "Formar bolitas pequeñas con las manos.", "Enfriar en la heladera 20 minutos antes de servir."] },
+
+  { id: "mk2", name: "Huevos Rellenos con Palta", category: "meriendas", kcal: 260, country: "General", tags: ["keto", "sin_carbo", "sin_gluten", "sin_lactosa"], allergens: ["huevo"], avoidFor: [],
+    ingredients: ["2 Huevos duros", "Media palta", "Jugo de limón"],
+    instructions: ["Hervir los huevos 9-10 minutos, enfriar y cortar al medio.", "Retirar las yemas y pisarlas junto con la palta y el jugo de limón.", "Rellenar las claras con la mezcla y servir frío."] },
+
+  { id: "mk3", name: "Palitos de Apio con Queso Crema y Nueces", category: "meriendas", kcal: 300, country: "General", tags: ["keto", "vegetariano", "sin_gluten"], allergens: ["lactosa", "frutos_secos"], avoidFor: [],
+    ingredients: ["3 ramas de Apio", "3 cdas Queso crema entero", "15g Nueces picadas"],
+    instructions: ["Cortar el apio en bastones.", "Rellenar cada bastón con el queso crema.", "Espolvorear las nueces picadas por encima."] },
+
+  { id: "mk4", name: "Mix Keto de Frutos Secos y Coco", category: "meriendas", kcal: 320, country: "General", tags: ["keto", "vegano", "sin_gluten", "sin_lactosa"], allergens: ["frutos_secos"], avoidFor: [],
+    ingredients: ["20g Almendras", "10g Nueces", "10g Coco en láminas sin azúcar"],
+    instructions: ["Mezclar todos los frutos secos y el coco en un bowl pequeño.", "Servir como snack práctico para llevar."] },
+
+  // ---------- MERIENDAS MEDITERRÁNEAS (nuevas) ----------
+  { id: "mm1", name: "Hummus con Bastones de Vegetales", category: "meriendas", kcal: 260, country: "Mediterráneo", tags: ["mediterraneo", "vegano", "sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["4 cdas Hummus", "Zanahoria, apio y pepino en bastones", "Un hilo de Aceite de oliva"],
+    instructions: ["Colocar el hummus en un bowl y rociarlo con el aceite de oliva.", "Cortar los vegetales en bastones parejos.", "Servir los bastones junto al hummus para untar."] },
+
+  { id: "mm2", name: "Aceitunas, Queso Feta y Tomates Cherry", category: "meriendas", kcal: 260, country: "Mediterráneo", tags: ["mediterraneo", "vegetariano", "sin_gluten"], allergens: ["lactosa"], avoidFor: [],
+    ingredients: ["10 Aceitunas mixtas", "50g Queso feta en cubos", "8 Tomates cherry"],
+    instructions: ["Colocar las aceitunas, el queso feta y los tomates cherry en un plato.", "Rociar con un hilo de aceite de oliva y orégano.", "Servir como snack fresco tipo mezze."] },
+
+  { id: "mm3", name: "Tostada Mediterránea de Ricota y Miel con Nueces", category: "meriendas", kcal: 320, country: "Mediterráneo", tags: ["mediterraneo", "vegetariano"], allergens: ["lactosa", "gluten", "frutos_secos"], avoidFor: ["diabetes"],
+    ingredients: ["1 rodaja de pan integral", "50g Ricota", "1 cdita Miel", "10g Nueces"],
+    instructions: ["Tostar el pan integral.", "Untar con la ricota.", "Agregar un hilo de miel y las nueces picadas por encima."] },
 
   // ---------- CENAS (40) ----------
   { id: "c1", name: "Filete de Pescado con Ensalada Completa", category: "cena", kcal: 400, country: "General", tags: ["sin_lactosa", "sin_gluten"], allergens: [], avoidFor: [],
@@ -627,7 +733,7 @@ const RECIPES_DB = [
     ingredients: ["1 Pechuga de pollo grande", "Espinaca salteada", "40g Queso"],
     instructions: ["Abrir la pechuga en forma de libro y rellenar con la espinaca y el queso.", "Cerrar con palillos y sellar en sartén caliente por ambos lados.", "Terminar la cocción al horno a 190°C durante 15-18 minutos."] },
 
-  { id: "c33", name: "Ensalada Griega con Queso Feta", category: "cena", kcal: 380, country: "Mediterráneo", tags: ["vegetariano", "sin_gluten"], allergens: ["lactosa"], avoidFor: [],
+  { id: "c33", name: "Ensalada Griega con Queso Feta", category: "cena", kcal: 380, country: "Mediterráneo", tags: ["vegetariano", "sin_gluten", "mediterraneo"], allergens: ["lactosa"], avoidFor: [],
     ingredients: ["Tomate, pepino y cebolla morada", "60g Queso feta", "Aceitunas negras"],
     instructions: ["Cortar el tomate, el pepino y la cebolla en trozos grandes.", "Mezclar en un bowl con las aceitunas.", "Agregar el queso feta en cubos y aliñar con aceite de oliva."] },
 
@@ -658,6 +764,40 @@ const RECIPES_DB = [
   { id: "c40", name: "Bowl de Tofu, Arroz y Vegetales Salteados", category: "cena", kcal: 440, country: "Asiático", tags: ["vegano", "sin_gluten", "sin_lactosa"], allergens: ["soja"], avoidFor: [],
     ingredients: ["150g Tofu firme", "70g Arroz", "Brócoli y zanahoria"],
     instructions: ["Cocinar el arroz aparte según las indicaciones del paquete.", "Dorar el tofu en cubos en una sartén con un poco de aceite.", "Saltear los vegetales, mezclar todo en un bowl junto al arroz y servir."] },
+
+  // ---------- CENAS KETO (nuevas) ----------
+  { id: "ck1", name: "Salmón a la Manteca con Espinaca Salteada", category: "cena", kcal: 500, country: "General", tags: ["keto", "sin_carbo", "sin_gluten"], allergens: ["lactosa"], avoidFor: [],
+    ingredients: ["180g Filete de salmón", "20g Manteca", "1 puñado Espinaca fresca"],
+    instructions: ["Sellar el salmón en sartén con la manteca, 3-4 minutos por lado.", "Retirar el salmón y saltear la espinaca en la misma sartén hasta que se ablande.", "Servir el salmón sobre la espinaca salteada."] },
+
+  { id: "ck2", name: "Milanesas de Berenjena Keto (sin pan rallado)", category: "cena", kcal: 400, country: "General", tags: ["keto", "vegetariano", "sin_gluten"], allergens: ["huevo", "lactosa"], avoidFor: [],
+    ingredients: ["1 Berenjena grande en láminas", "1 Huevo", "40g Queso parmesano rallado (como cobertura)"],
+    instructions: ["Cortar la berenjena en láminas finas y salarlas 10 minutos para quitar el amargor.", "Pasar cada lámina por huevo batido y luego por el parmesano rallado.", "Hornear a 200°C durante 20 minutos, dando vuelta a mitad de cocción."] },
+
+  { id: "ck3", name: "Pechuga Rellena de Queso y Panceta", category: "cena", kcal: 520, country: "General", tags: ["keto", "sin_carbo", "sin_gluten"], allergens: ["lactosa"], avoidFor: ["colesterol_alto"],
+    ingredients: ["1 Pechuga de pollo grande", "40g Queso", "30g Panceta"],
+    instructions: ["Abrir la pechuga en forma de libro y rellenar con el queso y la panceta.", "Cerrar con palillos y sellar en sartén caliente por ambos lados.", "Terminar la cocción al horno a 190°C durante 15-18 minutos."] },
+
+  { id: "ck4", name: "Coliflor Gratinada con Queso y Panceta", category: "cena", kcal: 460, country: "General", tags: ["keto", "sin_carbo", "sin_gluten", "vegetariano"], allergens: ["lactosa"], avoidFor: ["colesterol_alto"],
+    ingredients: ["Media Coliflor en ramitos", "60g Queso rallado", "30g Panceta"],
+    instructions: ["Cocinar la coliflor al vapor hasta que esté tierna.", "Colocarla en una fuente, cubrir con el queso rallado y la panceta en trozos.", "Gratinar en horno a 200°C durante 12-15 minutos hasta dorar."] },
+
+  // ---------- CENAS MEDITERRÁNEAS (nuevas) ----------
+  { id: "cm1", name: "Pescado al Papillote con Hierbas Mediterráneas", category: "cena", kcal: 380, country: "Mediterráneo", tags: ["mediterraneo", "sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["180g Filete de pescado blanco", "Tomate, aceitunas y limón", "Aceite de oliva y orégano"],
+    instructions: ["Colocar el pescado sobre papel manteca con el tomate, las aceitunas y rodajas de limón.", "Rociar con aceite de oliva y orégano, y cerrar el papillote.", "Hornear a 200°C durante 15-18 minutos hasta que el pescado esté cocido."] },
+
+  { id: "cm2", name: "Berenjenas a la Mediterránea con Tomate y Queso Feta", category: "cena", kcal: 400, country: "Mediterráneo", tags: ["mediterraneo", "vegetariano", "sin_gluten"], allergens: ["lactosa"], avoidFor: [],
+    ingredients: ["2 Berenjenas medianas", "Tomate triturado", "50g Queso feta", "Orégano y aceite de oliva"],
+    instructions: ["Cortar las berenjenas en rodajas y grillarlas con un poco de aceite de oliva.", "Cubrir con el tomate triturado condimentado con orégano.", "Coronar con el queso feta desmenuzado y gratinar en horno 10 minutos."] },
+
+  { id: "cm3", name: "Ensalada Tibia de Garbanzos, Espinaca y Aceitunas", category: "cena", kcal: 420, country: "Mediterráneo", tags: ["mediterraneo", "vegano", "sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["150g Garbanzos cocidos", "Espinaca fresca", "Aceitunas negras", "Aceite de oliva y limón"],
+    instructions: ["Saltear los garbanzos en aceite de oliva 3-4 minutos.", "Agregar la espinaca y cocinar hasta que se ablande.", "Sumar las aceitunas, aliñar con limón y aceite de oliva extra, y servir tibio."] },
+
+  { id: "cm4", name: "Pollo al Horno con Limón, Aceitunas y Romero", category: "cena", kcal: 460, country: "Mediterráneo", tags: ["mediterraneo", "sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["200g Muslo de pollo sin piel", "Aceitunas verdes", "Limón en rodajas", "Romero y aceite de oliva"],
+    instructions: ["Colocar el pollo en una fuente para horno con las aceitunas y el limón en rodajas.", "Condimentar con romero y un buen chorro de aceite de oliva.", "Hornear a 200°C durante 30-35 minutos hasta dorar."] },
 ];
 
 // Helper: devuelve todas las recetas de una categoría ("desayuno", "almuerzo", "meriendas", "cena")
@@ -735,7 +875,7 @@ const BEBIDAS_DB = {
 // DOMINGO = DÍA PERMITIDO: las condiciones de salud (avoidFor) se relajan
 // solo ese día, y la sugerencia de bebida habilita también la opción con
 // alcohol. Restricciones dietarias y alergias se respetan siempre, todos
-// los días, sin excepción (son de seguridad, no de preferencia).
+// los días, sin excepción (son de seguridad, no de "gusto").
 // ======================================================================
 
 const MealEngine = {
