@@ -1007,9 +1007,38 @@ window.ChatApp = {
   // SUGERENCIA POR FOTO DE INGREDIENTES (100% local)
   // --------------------------------------------------------------------
 
-  // Junta los ingredientes únicos de toda RECIPES_DB, ordenados por
-  // frecuencia de aparición, y devuelve los más usados (mejor cobertura
-  // para armar la grilla de chips sin que sea interminable).
+  // Palabras que identifican condimentos, especias, líquidos base o aditivos:
+  // se descartan de los chips porque no son algo que alguien "vea y toque"
+  // en una foto de ingredientes, y ensucian la lista (aparecen en casi
+  // todas las recetas, así que sin este filtro le ganan el lugar a cosas
+  // como carne o zanahoria).
+  _CONDIMENT_KEYWORDS: [
+    'sal', 'pimienta', 'aceite', 'oliva', 'vinagre', 'azucar', 'edulcorante',
+    'oregano', 'comino', 'laurel', 'perejil', 'cilantro', 'pimenton', 'canela',
+    'nuez moscada', 'curry', 'mostaza', 'mayonesa', 'ketchup', 'salsa de soja',
+    'caldo', 'esencia', 'extracto', 'polvo de hornear', 'levadura', 'bicarbonato',
+    'agua', 'hielo', 'condimento', 'especias', 'colorante', 'jugo de limon',
+    'vainilla', 'romero', 'tomillo', 'albahaca seca'
+  ],
+
+  // Categorías usadas para garantizar variedad real en los chips (en vez de
+  // que la lista quede dominada por lo que más se repite en las recetas).
+  _INGREDIENT_CATEGORIES: {
+    proteinas: ['carne', 'pollo', 'pechuga', 'pescado', 'atun', 'salmon', 'cerdo', 'huevo', 'lomo', 'pavo', 'merluza', 'garbanzo', 'lenteja', 'poroto', 'tofu', 'jamon', 'panceta', 'chorizo', 'camaron', 'langostino', 'bife', 'milanesa'],
+    vegetales: ['zanahoria', 'tomate', 'lechuga', 'papa', 'batata', 'calabaza', 'zapallo', 'brocoli', 'espinaca', 'pepino', 'morron', 'pimiento', 'choclo', 'remolacha', 'apio', 'coliflor', 'berenjena', 'cebolla', 'ajo', 'rucula', 'repollo', 'acelga', 'chaucha', 'hongo', 'champinon'],
+    frutas: ['manzana', 'banana', 'naranja', 'frutilla', 'pera', 'uva', 'limon', 'palta', 'mango', 'anana', 'durazno', 'kiwi', 'ciruela', 'sandia', 'melon', 'mandarina'],
+    carbohidratos: ['arroz', 'fideo', 'pasta', 'pan', 'avena', 'quinoa', 'harina', 'tortilla', 'polenta', 'fecula', 'galleta'],
+    lacteos: ['queso', 'leche', 'yogur', 'crema', 'manteca', 'ricota']
+  },
+
+  _stripAccents(str) {
+    return (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  },
+
+  // Junta los ingredientes únicos de toda RECIPES_DB, descarta condimentos
+  // y especias, y arma la lista de chips balanceando categorías (proteínas,
+  // vegetales, frutas, carbohidratos, lácteos) para que haya variedad real
+  // en vez de que unos pocos ingredientes muy repetidos ocupen todo el lugar.
   _getKnownIngredients() {
     if (this.__knownIngredientsCache) return this.__knownIngredientsCache;
     if (typeof RECIPES_DB === 'undefined') return [];
@@ -1023,9 +1052,36 @@ window.ChatApp = {
       });
     });
 
-    const sorted = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
-    this.__knownIngredientsCache = sorted.slice(0, 48);
-    return this.__knownIngredientsCache;
+    const candidates = Object.keys(counts).filter(ing => {
+      const norm = this._stripAccents(ing);
+      return !this._CONDIMENT_KEYWORDS.some(kw => norm.includes(kw));
+    });
+
+    const classify = (ing) => {
+      const norm = this._stripAccents(ing);
+      for (const [cat, keywords] of Object.entries(this._INGREDIENT_CATEGORIES)) {
+        if (keywords.some(kw => norm.includes(kw))) return cat;
+      }
+      return 'otros';
+    };
+
+    const buckets = { proteinas: [], vegetales: [], carbohidratos: [], lacteos: [], frutas: [], otros: [] };
+    candidates.forEach(ing => buckets[classify(ing)].push(ing));
+
+    Object.keys(buckets).forEach(cat => {
+      buckets[cat].sort((a, b) => counts[b] - counts[a]);
+    });
+
+    // Límites por categoría: priorizamos proteínas y vegetales (lo más
+    // "reconocible" en una foto), sin dejar afuera frutas/carbohidratos/lácteos.
+    const limits = { proteinas: 14, vegetales: 14, carbohidratos: 8, lacteos: 6, frutas: 8, otros: 6 };
+    let known = [];
+    Object.keys(limits).forEach(cat => {
+      known = known.concat(buckets[cat].slice(0, limits[cat]));
+    });
+
+    this.__knownIngredientsCache = known;
+    return known;
   },
 
   // Junta el pool de recetas ya filtrado por perfil (alergias, restricciones,
