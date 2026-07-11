@@ -758,11 +758,11 @@ window.ChatApp = {
   // restricciones y condiciones de salud vía MealEngine.filterRecipesForProfile)
   // y elige una receta al azar, evitando repetir la última mostrada en el chat.
   // --------------------------------------------------------------------
-  _getRandomRecipeForSlot(slotKey, profile) {
+  _getRandomRecipeForSlot(slotKey, profile, forceCheatDay) {
     if (typeof MealEngine === 'undefined' || typeof RECIPES_DB === 'undefined') return null;
     const category = SLOT_TO_CATEGORY[slotKey] || 'meriendas';
 
-    const isSunday = MealEngine.isCheatDay(new Date());
+    const isSunday = forceCheatDay !== undefined ? forceCheatDay : MealEngine.isCheatDay(new Date());
     let pool = MealEngine.filterRecipesForProfile(category, profile, isSunday);
     pool = MealEngine.refineByKcal(pool, profile, category);
     if (!pool.length) pool = getRecipesByCategory(category);
@@ -787,13 +787,13 @@ window.ChatApp = {
   // que en el resto de la app. Evita repetir la última bebida sin alcohol
   // mostrada en el chat para esa categoría.
   // --------------------------------------------------------------------
-  _getRandomDrinkForSlot(slotKey, profile) {
+  _getRandomDrinkForSlot(slotKey, profile, forceCheatDay) {
     if (typeof BEBIDAS_DB === 'undefined' || typeof MealEngine === 'undefined') return null;
     const category = SLOT_TO_CATEGORY[slotKey] || 'meriendas';
     const options = BEBIDAS_DB[category] || BEBIDAS_DB.almuerzo;
     if (!options) return null;
 
-    const isSunday = MealEngine.isCheatDay(new Date());
+    const isSunday = forceCheatDay !== undefined ? forceCheatDay : MealEngine.isCheatDay(new Date());
 
     let sinOpciones = options.sinAlcohol || [];
     const lastSin = this._lastChatDrink[category];
@@ -902,8 +902,7 @@ window.ChatApp = {
     const hablaDeDomingo =
       msg.includes('domingo') ||
       msg.includes('dia permitido') ||
-      msg.includes('cheat day') ||
-      msg.includes('dia libre');
+      msg.includes('cheat day');
 
     if (hablaDeDomingo) {
       const esHoyDomingo = typeof MealEngine !== 'undefined' && MealEngine.isCheatDay(new Date());
@@ -918,6 +917,42 @@ window.ChatApp = {
         `El domingo es el día permitido acá: ahí sí entran opciones con alcohol y algo más relajado en las comidas. Hoy no es domingo, así que seguimos con el plan de siempre... ¡pero ya va a llegar! 😉`,
         `Los domingos son especiales: día permitido, con alguna opción con alcohol habilitada en las comidas. Hoy todavía no es domingo, pero falta poco. Mientras tanto, pedime "qué puedo comer" y seguimos con tu plan normal. 🙌`
       ]);
+    }
+
+    // --- Comando "día libre": fuerza el modo día permitido acá mismo en el chat,
+    // sin depender de que hoy sea domingo de verdad. Muestra una receta + bebida
+    // (con la opción de alcohol habilitada) para la franja horaria actual.
+    const pideDiaLibre =
+      msg.includes('dia libre') ||
+      msg.includes('modo dia libre') ||
+      msg.includes('activa dia libre') ||
+      msg.includes('quiero mi dia libre');
+
+    if (pideDiaLibre) {
+      const slot = this._getMealSlot();
+      const recipe = this._getRandomRecipeForSlot(slot.key, profile, true);
+      const drink = this._getRandomDrinkForSlot(slot.key, profile, true);
+      this._lastTopic = 'comida';
+
+      if (!recipe) {
+        return this.pickVariant('dia_libre_sin_receta', [
+          `Che, día libre activado 🍷, pero todavía no tengo recetas cargadas para esta franja. Fijate en Inicio o Semana.`
+        ]);
+      }
+
+      const ing = recipe.ingredients ? recipe.ingredients.join(', ') : '';
+      let drinkTxt = '';
+      if (drink && drink.sinAlcohol) {
+        drinkTxt = ` Para acompañar, va bien con ${drink.sinAlcohol}`;
+        drinkTxt += drink.conAlcohol
+          ? `, o si querés date el gusto con ${drink.conAlcohol} 🍷 (te lo habilito porque pediste día libre).`
+          : '.';
+      }
+
+      return this.pickVariant('dia_libre', [
+        (r, i, d) => `¡Dale, activamos tu día libre! 🍷 Para esta franja te tiro: **${r.name}** (${r.kcal} kcal) con ${i}.${d} Si querés otra idea, pedime "otra opción" y seguimos. 🔄`,
+        (r, i, d) => `Día libre activado 🎉. Va **${r.name}** (${r.kcal} kcal), con ${i}.${d} ¿Te copa o probamos otra?`
+      ], recipe, ing, drinkTxt);
     }
 
     // --- Pedido explícito de otra opción de BEBIDA ---
