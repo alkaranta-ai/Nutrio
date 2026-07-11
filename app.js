@@ -368,6 +368,308 @@ const MealLog = {
 };
 
 // ==========================================================================
+// STREAK - Racha de días seguidos usando la app (estilo Duolingo).
+// Se guarda en localStorage la fecha del último "check-in" y el contador.
+// Si el usuario entra hoy y ya había entrado ayer, suma un día. Si entra
+// el mismo día de nuevo, no cambia nada. Si dejó pasar 2+ días, la racha
+// se corta y arranca de nuevo en 1.
+// ==========================================================================
+const Streak = {
+  _KEY: 'nutrio_streak',
+
+  _todayStr() {
+    return new Date().toLocaleDateString('es-AR');
+  },
+
+  // es-AR: DD/MM/YYYY
+  _parseDate(str) {
+    const [d, m, y] = str.split('/').map(Number);
+    return new Date(y, m - 1, d);
+  },
+
+  _load() {
+    return JSON.parse(localStorage.getItem(this._KEY)) || { count: 0, longest: 0, lastDate: null };
+  },
+
+  _save(data) {
+    localStorage.setItem(this._KEY, JSON.stringify(data));
+  },
+
+  // Se llama una vez por sesión, al iniciar la app con perfil ya creado.
+  // Devuelve { count, longest, isNewDay, brokeStreak } para que la UI pueda
+  // reaccionar (por ejemplo, mostrar un mensaje solo si es un día nuevo).
+  checkIn() {
+    const data = this._load();
+    const today = this._todayStr();
+
+    if (data.lastDate === today) {
+      return { count: data.count, longest: data.longest, isNewDay: false, brokeStreak: false };
+    }
+
+    let brokeStreak = false;
+    if (!data.lastDate) {
+      data.count = 1;
+    } else {
+      const last = this._parseDate(data.lastDate);
+      const diffDays = Math.round((this._parseDate(today) - last) / 86400000);
+      if (diffDays === 1) {
+        data.count += 1;
+      } else {
+        brokeStreak = data.count > 1;
+        data.count = 1;
+      }
+    }
+
+    data.longest = Math.max(data.longest || 0, data.count);
+    data.lastDate = today;
+    this._save(data);
+
+    return { count: data.count, longest: data.longest, isNewDay: true, brokeStreak };
+  },
+
+  getCount() {
+    return this._load().count || 0;
+  },
+
+  getLongest() {
+    return this._load().longest || 0;
+  }
+};
+
+// ==========================================================================
+// ACHIEVEMENTS - Logros/insignias desbloqueables. Se basan en datos que ya
+// existen en la app (racha, recetas probadas, días registrando comidas), así
+// que no hace falta ningún servidor: todo vive en localStorage.
+// ==========================================================================
+const Achievements = {
+  _KEY_UNLOCKED: 'nutrio_achievements',
+  _KEY_RECIPES: 'nutrio_recipes_tried',
+  _KEY_LOGDAYS: 'nutrio_log_streak', // { count, lastDate } - días seguidos con al menos 1 comida registrada
+  _KEY_PURCHASES: 'nutrio_purchases_saved_count',
+
+  DEFS: [
+    { id: 'primer_registro', name: 'Primer paso', icon: '🥇', desc: 'Registraste tu primera comida.', check: (s) => s.recipesTriedOrLogged >= 1 },
+    { id: 'racha_7', name: 'Una semana firme', icon: '🔥', desc: '7 días seguidos usando NutrIO.', check: (s) => s.streak >= 7 },
+    { id: 'racha_30', name: 'Mes de hierro', icon: '💪', desc: '30 días seguidos usando NutrIO.', check: (s) => s.streak >= 30 },
+    { id: 'recetas_10', name: 'Explorador culinario', icon: '🍳', desc: 'Probaste 10 recetas distintas.', check: (s) => s.recipesTried >= 10 },
+    { id: 'recetas_20', name: 'Chef en formación', icon: '👨‍🍳', desc: 'Probaste 20 recetas distintas.', check: (s) => s.recipesTried >= 20 },
+    { id: 'recetas_50', name: 'Maestro de la cocina', icon: '⭐', desc: 'Probaste 50 recetas distintas.', check: (s) => s.recipesTried >= 50 },
+    { id: 'registro_7', name: 'Constancia total', icon: '📅', desc: '7 días seguidos registrando tus comidas.', check: (s) => s.logStreak >= 7 },
+    { id: 'compra_guardada', name: 'Carrito prolijo', icon: '🛒', desc: 'Guardaste tu primera compra del carrito.', check: (s) => s.purchasesSaved >= 1 }
+  ],
+
+  _load(key) {
+    return JSON.parse(localStorage.getItem(key));
+  },
+
+  _getUnlocked() {
+    return this._load(this._KEY_UNLOCKED) || [];
+  },
+
+  _getRecipesTried() {
+    return this._load(this._KEY_RECIPES) || [];
+  },
+
+  // Llamar cuando el usuario marca "Ya lo comí" en una receta, o registra
+  // algo por texto libre en el chat. Le pasamos un identificador estable
+  // (recipe.id si existe, o el nombre/texto como respaldo).
+  trackRecipeTried(recipeIdentifier) {
+    if (!recipeIdentifier) return;
+    const tried = this._getRecipesTried();
+    if (!tried.includes(recipeIdentifier)) {
+      tried.push(recipeIdentifier);
+      localStorage.setItem(this._KEY_RECIPES, JSON.stringify(tried));
+    }
+    this._updateLogStreak();
+  },
+
+  // Registra un día más de "constancia" (comida registrada) cada vez que se
+  // anota algo, con la misma lógica día-a-día que usa Streak.
+  _updateLogStreak() {
+    const data = this._load(this._KEY_LOGDAYS) || { count: 0, lastDate: null };
+    const today = new Date().toLocaleDateString('es-AR');
+    if (data.lastDate === today) return; // ya contamos hoy
+
+    if (!data.lastDate) {
+      data.count = 1;
+    } else {
+      const [d1, m1, y1] = data.lastDate.split('/').map(Number);
+      const last = new Date(y1, m1 - 1, d1);
+      const [d2, m2, y2] = today.split('/').map(Number);
+      const now = new Date(y2, m2 - 1, d2);
+      const diffDays = Math.round((now - last) / 86400000);
+      data.count = diffDays === 1 ? data.count + 1 : 1;
+    }
+    data.lastDate = today;
+    localStorage.setItem(this._KEY_LOGDAYS, JSON.stringify(data));
+  },
+
+  trackPurchaseSaved() {
+    const count = (this._load(this._KEY_PURCHASES) || 0) + 1;
+    localStorage.setItem(this._KEY_PURCHASES, JSON.stringify(count));
+  },
+
+  _getStats() {
+    const recipesTried = this._getRecipesTried().length;
+    const logStreak = (this._load(this._KEY_LOGDAYS) || {}).count || 0;
+    const loggedToday = (typeof MealLog !== 'undefined') ? MealLog.getToday().length > 0 : false;
+    return {
+      streak: Streak.getCount(),
+      recipesTried,
+      recipesTriedOrLogged: Math.max(recipesTried, loggedToday ? 1 : 0),
+      logStreak,
+      purchasesSaved: this._load(this._KEY_PURCHASES) || 0
+    };
+  },
+
+  // Revisa todas las definiciones y desbloquea las que correspondan.
+  // Devuelve un array con los logros NUEVOS desbloqueados en esta llamada.
+  checkAndUnlock() {
+    const stats = this._getStats();
+    const unlocked = this._getUnlocked();
+    const unlockedIds = unlocked.map(u => u.id);
+    const newlyUnlocked = [];
+
+    this.DEFS.forEach(def => {
+      if (unlockedIds.includes(def.id)) return;
+      if (def.check(stats)) {
+        unlocked.push({ id: def.id, date: new Date().toLocaleDateString('es-AR') });
+        newlyUnlocked.push(def);
+      }
+    });
+
+    if (newlyUnlocked.length) {
+      localStorage.setItem(this._KEY_UNLOCKED, JSON.stringify(unlocked));
+    }
+    return newlyUnlocked;
+  },
+
+  // Devuelve TODAS las definiciones con un flag "unlocked", para pintar la
+  // grilla completa de logros en el Perfil (los bloqueados se ven en gris/🔒).
+  getAllWithStatus() {
+    const unlockedIds = this._getUnlocked().map(u => u.id);
+    return this.DEFS.map(def => ({ ...def, unlocked: unlockedIds.includes(def.id) }));
+  }
+};
+
+// ==========================================================================
+// NOTIFICATIONS - Recordatorios tipo "¿ya almorzaste?" en cada franja horaria.
+//
+// LIMITACIÓN IMPORTANTE: esto usa la Notification API del navegador desde
+// la propia página. Funciona mientras la pestaña/app está abierta (o, en
+// Android con la app instalada como PWA, con la pantalla apagada por un
+// rato). NO es un push real: para que llegue una notificación con el
+// celular bloqueado y la app totalmente cerrada varios días, hace falta un
+// service worker + un servidor de push (Web Push/VAPID) del lado del
+// backend, que esta app no tiene (es 100% local, sin servidor). Si más
+// adelante suman un backend, esto se puede migrar a Web Push real.
+// ==========================================================================
+const Notifications = {
+  _KEY_ENABLED: 'nutrio_notif_enabled',
+  _CHECK_INTERVAL_MS: 60 * 1000,
+  _intervalId: null,
+
+  // Franja + hora en que se dispara el recordatorio si todavía no se
+  // registró nada para esa comida (reusa las franjas de ChatApp._getMealSlot).
+  _SCHEDULE: [
+    { slot: 'desayuno', label: 'el desayuno', hour: 8, minute: 30 },
+    { slot: 'almuerzo', label: 'el almuerzo', hour: 13, minute: 0 },
+    { slot: 'merienda', label: 'la merienda', hour: 17, minute: 30 },
+    { slot: 'cena', label: 'la cena', hour: 21, minute: 0 }
+  ],
+
+  _supported() {
+    return typeof window !== 'undefined' && 'Notification' in window;
+  },
+
+  isEnabled() {
+    return JSON.parse(localStorage.getItem(this._KEY_ENABLED) || 'false');
+  },
+
+  async requestPermission() {
+    if (!this._supported()) {
+      alert('Tu navegador no soporta notificaciones. Probá desde Chrome en Android o Desktop.');
+      return false;
+    }
+    const perm = await Notification.requestPermission();
+    const enabled = perm === 'granted';
+    localStorage.setItem(this._KEY_ENABLED, JSON.stringify(enabled));
+    if (enabled) this.start();
+    return enabled;
+  },
+
+  // Prende/apaga los recordatorios. Si hay que pedir permiso, lo pide.
+  async toggle() {
+    if (this.isEnabled()) {
+      localStorage.setItem(this._KEY_ENABLED, JSON.stringify(false));
+      this.stop();
+      return false;
+    }
+    return await this.requestPermission();
+  },
+
+  start() {
+    if (!this._supported() || Notification.permission !== 'granted') return;
+    if (this._intervalId) return;
+    this._intervalId = setInterval(() => this._checkSchedule(), this._CHECK_INTERVAL_MS);
+    this._checkSchedule();
+  },
+
+  stop() {
+    if (this._intervalId) clearInterval(this._intervalId);
+    this._intervalId = null;
+  },
+
+  _todayNotifiedKey() {
+    return `nutrio_notified_${new Date().toLocaleDateString('es-AR')}`;
+  },
+
+  _alreadyNotified(slot) {
+    const list = JSON.parse(localStorage.getItem(this._todayNotifiedKey())) || [];
+    return list.includes(slot);
+  },
+
+  _markNotified(slot) {
+    const list = JSON.parse(localStorage.getItem(this._todayNotifiedKey())) || [];
+    if (!list.includes(slot)) list.push(slot);
+    localStorage.setItem(this._todayNotifiedKey(), JSON.stringify(list));
+  },
+
+  _checkSchedule() {
+    if (!this.isEnabled() || Notification.permission !== 'granted') return;
+    const now = new Date();
+    const loggedToday = (typeof MealLog !== 'undefined') ? MealLog.getToday() : [];
+
+    this._SCHEDULE.forEach(({ slot, label, hour, minute }) => {
+      const target = new Date();
+      target.setHours(hour, minute, 0, 0);
+      const graceEnd = new Date(target.getTime() + 90 * 60 * 1000); // ventana de 90 min
+
+      if (now < target || now > graceEnd) return;
+      if (this._alreadyNotified(slot)) return;
+
+      const yaRegistroEsaFranja = loggedToday.some(e => e.slot === slot);
+      if (yaRegistroEsaFranja) {
+        this._markNotified(slot);
+        return;
+      }
+
+      this._fire(`Che, ¿ya está ${label}? 🍽️`, 'No te olvides de anotarlo en NutrIO cuando comas, así seguimos tu racha 🔥');
+      this._markNotified(slot);
+    });
+  },
+
+  _fire(title, body) {
+    try {
+      new Notification(title, { body });
+    } catch (e) {
+      // Algunos navegadores mobile no soportan "new Notification()" directo
+      // y piden pasar por un Service Worker; si eso falla, no rompemos la app.
+    }
+  }
+};
+
+// ==========================================================================
 // SPEECH - Text-to-speech con la Web Speech API del navegador (nativa,
 // sin costo ni servicios externos). Lee en voz alta las respuestas del bot.
 // El estado "enabled" (auto-hablar) y la voz elegida se persisten en localStorage.
@@ -764,6 +1066,53 @@ const UI = {
     this.renderCart();
     this.renderProfile();
     this.goto('chat');
+
+    this._handleDailyEngagement();
+  },
+
+  // Racha + logros + notificaciones: se corre una vez por carga de app,
+  // después de que el chat ya está visible, así los mensajes de racha o
+  // de logros nuevos aparecen como mensajes del bot al toque.
+  _handleDailyEngagement() {
+    const streakResult = Streak.checkIn();
+
+    if (streakResult.isNewDay && streakResult.count > 1) {
+      const msg = streakResult.brokeStreak
+        ? `Che, se cortó tu racha anterior, pero arrancamos una nueva hoy 💪. ¡Vamos de nuevo!`
+        : `🔥 ¡Racha de ${streakResult.count} días seguidos usando NutrIO! Seguí así.`;
+      this._pushBotMessage(msg);
+    }
+
+    const newBadges = Achievements.checkAndUnlock();
+    newBadges.forEach(badge => {
+      this._pushBotMessage(`🎉 ¡Nuevo logro desbloqueado! ${badge.icon} **${badge.name}** — ${badge.desc}`);
+    });
+
+    this.renderProfile();
+
+    if (Notifications.isEnabled()) Notifications.start();
+  },
+
+  // Inserta un mensaje del bot en el chat sin pasar por sendChat (para
+  // mensajes automáticos como racha/logros, no respuestas a algo escrito).
+  _pushBotMessage(text) {
+    const scroll = document.getElementById('chatScroll');
+    if (!scroll) return;
+    const msgId = 'chatmsg_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+    const now = new Date();
+    this._chatTextRefs[msgId] = text;
+    scroll.innerHTML += `
+      <div class="msg-row bot" id="${msgId}">
+        <div class="msg-wrap">
+          <div class="msg-bubble bot">${text}</div>
+          <div class="msg-time">${this._formatTime(now)}</div>
+          <div class="chat-feedback">
+            <button type="button" data-role="speak" title="Escuchar" onclick="UI.speakMessage('${msgId}')">🔊</button>
+          </div>
+        </div>
+      </div>`;
+    scroll.scrollTop = scroll.scrollHeight;
+    if (Speech.enabled) Speech.speak(text);
   },
 
   // Da la sensación de "toque" en tarjetas y pestañas: agrega/quita
@@ -835,6 +1184,22 @@ const UI = {
     micBtn.innerText = '🎤';
     micBtn.onclick = () => VoiceInput.toggle();
     bar.insertBefore(micBtn, voiceBtn.nextSibling);
+
+    // Botón de recordatorios: pide permiso de notificaciones la primera vez
+    // y prende/apaga los avisos de "¿ya comiste?" en cada franja horaria.
+    const notifBtn = document.createElement('button');
+    notifBtn.id = 'notifToggleBtn';
+    notifBtn.type = 'button';
+    notifBtn.title = 'Recordatorios de comidas';
+    notifBtn.style.cssText = 'background:none; border:none; font-size:18px; cursor:pointer; padding:0 6px; line-height:1;';
+    notifBtn.innerText = Notifications.isEnabled() ? '🔔' : '🔕';
+    notifBtn.onclick = async () => {
+      await Notifications.toggle();
+      notifBtn.innerText = Notifications.isEnabled() ? '🔔' : '🔕';
+    };
+    bar.insertBefore(notifBtn, micBtn.nextSibling);
+
+    if (Notifications.isEnabled()) Notifications.start();
   },
 
   // Muestra, como mensaje del bot, las voces en español instaladas en el
@@ -1139,12 +1504,19 @@ const UI = {
     if (!this._modalRecipe) return;
     const { recipe, typeKey } = this._modalRecipe;
     MealLog.add({ name: recipe.name, kcal: recipe.kcal || null, slot: typeKey });
+    Achievements.trackRecipeTried(recipe.id !== undefined ? recipe.id : recipe.name);
 
     const btn = document.getElementById('logMealBtn');
     if (btn) {
       btn.innerText = '✅ Ya lo anotaste hoy';
       btn.style.background = 'var(--primary-dim, #e0e0e0)';
       btn.style.color = 'var(--text)';
+    }
+
+    const newBadges = Achievements.checkAndUnlock();
+    if (newBadges.length) {
+      newBadges.forEach(badge => this._pushBotMessage(`🎉 ¡Nuevo logro desbloqueado! ${badge.icon} **${badge.name}** — ${badge.desc}`));
+      this.renderProfile();
     }
   },
 
@@ -1240,8 +1612,14 @@ const UI = {
     localStorage.setItem('nutrio_history', JSON.stringify(historial));
 
     localStorage.removeItem(`nutrio_checked_${hoyKey}`);
+    Achievements.trackPurchaseSaved();
+    const newBadges = Achievements.checkAndUnlock();
     alert("¡Espectacular! Guardado en tu historial. Los artículos se destildaron para que la lista te quede limpia.");
     this.renderCart();
+    if (newBadges.length) {
+      newBadges.forEach(badge => this._pushBotMessage(`🎉 ¡Nuevo logro desbloqueado! ${badge.icon} **${badge.name}** — ${badge.desc}`));
+      this.renderProfile();
+    }
   },
 
   renderProfile() {
@@ -1302,6 +1680,42 @@ const UI = {
       <b>Evita:</b> ${dislikesText}<br>
       <b>Estilo de Chat:</b> ${chatStyleText}
     `;
+
+    // Racha: si el HTML tiene un contenedor #streakDisplay lo completamos.
+    // Si no existe todavía en index.html, lo creamos dinámicamente arriba
+    // de las preferencias para no depender de tocar el HTML a mano.
+    let streakEl = document.getElementById('streakDisplay');
+    if (!streakEl && prefsEl.parentElement) {
+      streakEl = document.createElement('div');
+      streakEl.id = 'streakDisplay';
+      streakEl.style.cssText = 'margin:12px 0; font-weight:bold; font-size:15px;';
+      prefsEl.parentElement.insertBefore(streakEl, prefsEl);
+    }
+    if (streakEl) {
+      streakEl.innerText = `🔥 Racha actual: ${Streak.getCount()} día(s) · Mejor racha: ${Streak.getLongest()} día(s)`;
+    }
+
+    // Logros: mismo criterio, usa #achievementsGrid si existe en el HTML,
+    // o crea uno debajo de las preferencias.
+    let badgesEl = document.getElementById('achievementsGrid');
+    if (!badgesEl && prefsEl.parentElement) {
+      badgesEl = document.createElement('div');
+      badgesEl.id = 'achievementsGrid';
+      badgesEl.style.cssText = 'display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;';
+      prefsEl.parentElement.appendChild(badgesEl);
+    }
+    if (badgesEl) {
+      const all = Achievements.getAllWithStatus();
+      badgesEl.innerHTML = all.map(b => `
+        <div class="badge-card ${b.unlocked ? 'unlocked' : 'locked'} tap-feedback" title="${b.desc}"
+          style="width:84px; text-align:center; padding:8px 4px; border-radius:10px;
+          background:${b.unlocked ? 'var(--primary-dim, #eef7ee)' : 'rgba(0,0,0,0.04)'};
+          opacity:${b.unlocked ? '1' : '0.5'};">
+          <div style="font-size:24px;">${b.unlocked ? b.icon : '🔒'}</div>
+          <div style="font-size:11px; font-weight:bold; margin-top:2px;">${b.name}</div>
+        </div>
+      `).join('');
+    }
   },
 
   sendChat() {
@@ -2095,6 +2509,7 @@ window.ChatApp = {
       const rawName = comidaLibreMatch[1].trim().replace(/[.!?]+$/, '');
       if (rawName) {
         MealLog.add({ name: rawName, kcal: null, slot: this._getMealSlot().key });
+        Achievements.trackRecipeTried(rawName);
         const total = MealLog.totalKcalToday();
         this._lastTopic = 'comida';
         return this.pickVariant('registro_comida_libre', [
@@ -2102,6 +2517,40 @@ window.ChatApp = {
           (n) => `Listo, sumé **${n}** a tu registro de hoy ✅. Si querés ver todo lo anotado, pedime "resumen de hoy".`
         ], rawName);
       }
+    }
+
+    // --- "¿Cuál es mi racha?" ---
+    const preguntaRacha =
+      msg.includes('mi racha') || msg.includes('cual es mi racha') ||
+      msg.includes('racha tengo') || msg.includes('cuantos dias llevo');
+
+    if (preguntaRacha) {
+      const count = Streak.getCount();
+      const longest = Streak.getLongest();
+      this._lastTopic = null;
+      return this.pickVariant('racha_info', [
+        (c, l) => `🔥 Llevás **${c} día(s)** seguidos usando NutrIO. Tu mejor racha hasta ahora fue de ${l} día(s). ¡A seguir sumando!`
+      ], count, longest);
+    }
+
+    // --- "¿Qué logros tengo?" / "mis insignias" ---
+    const preguntaLogros =
+      msg.includes('mis logros') || msg.includes('mis insignias') ||
+      msg.includes('que logros tengo') || msg.includes('mis medallas');
+
+    if (preguntaLogros) {
+      const all = Achievements.getAllWithStatus();
+      const unlocked = all.filter(a => a.unlocked);
+      this._lastTopic = null;
+      if (!unlocked.length) {
+        return this.pickVariant('logros_vacio', [
+          `Todavía no desbloqueaste ningún logro, pero ya vas a ir sumando: registrá comidas, probá recetas nuevas y mantené la racha. Fijate todos los logros disponibles (y los que te faltan) en tu **Perfil**. 🏆`
+        ]);
+      }
+      const lista = unlocked.map(a => `${a.icon} ${a.name}`).join(', ');
+      return this.pickVariant('logros_lista', [
+        (l) => `Tus logros hasta ahora: ${l}. Mirá el detalle completo (y los que te faltan) en tu **Perfil**. 🏆`
+      ], lista);
     }
 
     // --- Domingo / día permitido ---
@@ -2313,13 +2762,15 @@ window.ChatApp = {
 
     // --- Saludos ---
     if (msg.includes('hola') || msg.includes('buen') || msg.includes('que onda') || msg.includes('como andas') || msg.includes('todo bien')) {
+      const streakCount = (typeof Streak !== 'undefined') ? Streak.getCount() : 0;
+      const streakTxt = streakCount > 1 ? ` Llevás **${streakCount} días seguidos** por acá, no aflojes 🔥.` : '';
       return this.pickVariant('saludo', [
-        (n) => `¡Qué hacés${n}! Todo tranqui por acá. ¿Qué andás cocinando o qué duda tenés hoy? Mirá que no muerdo... a menos que traigas facturas de dulce de leche. 🥞`,
-        (n) => `¡Hola${n}! ¿Cómo va todo? Contame qué se te antoja o qué necesitás y vemos qué inventamos. 🍳`,
-        (n) => `¡Buenas${n}! Acá andamos, listos para pensar en comida rica y sana. ¿En qué te ayudo?`,
-        (n) => `¡Ey${n}! Justo estaba pensando en recetas. ¿Charlamos de comida o tenés otra duda?`,
-        (n) => `¡Qué tal${n}! Todo en orden por NutrIO. Decime qué necesitás y vamos viendo. 😊`
-      ], name);
+        (n, s) => `¡Qué hacés${n}! Todo tranqui por acá.${s} ¿Qué andás cocinando o qué duda tenés hoy? Mirá que no muerdo... a menos que traigas facturas de dulce de leche. 🥞`,
+        (n, s) => `¡Hola${n}! ¿Cómo va todo?${s} Contame qué se te antoja o qué necesitás y vemos qué inventamos. 🍳`,
+        (n, s) => `¡Buenas${n}!${s} Acá andamos, listos para pensar en comida rica y sana. ¿En qué te ayudo?`,
+        (n, s) => `¡Ey${n}! Justo estaba pensando en recetas.${s} ¿Charlamos de comida o tenés otra duda?`,
+        (n, s) => `¡Qué tal${n}! Todo en orden por NutrIO.${s} Decime qué necesitás y vamos viendo. 😊`
+      ], name, streakTxt);
     }
 
     // --- Dieta / calorías ---
