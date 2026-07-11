@@ -498,7 +498,14 @@ const VoiceInput = {
   _recognition: null,
   _listening: false,
   _finalTranscript: '',
-  _autoSent: false, // evita mandar dos veces si onresult y onend se solapan
+  // Guarda el último texto PARCIAL (interim) además del final. Hace falta
+  // porque en iOS Safari el evento isFinal casi nunca se dispara: la única
+  // señal de que terminaste de hablar es "onend" (corta por silencio), sin
+  // haber confirmado nunca un resultado final. Sin este respaldo, en iOS
+  // el texto queda escrito en el input pero nunca se manda solo.
+  _interimTranscript: '',
+  _autoSent: false,   // evita mandar dos veces si onresult y onend se solapan
+  _cancelled: false,  // true solo cuando el usuario cancela tocando el mic de nuevo
 
   _supported() {
     return typeof window !== 'undefined' &&
@@ -529,16 +536,18 @@ const VoiceInput = {
           interim += transcript;
         }
       }
+      this._interimTranscript = interim;
 
       // Mientras hay resultado parcial, solo actualizamos el input para que
       // el usuario vea lo que va diciendo (sin mandar nada todavía).
       this._updateInput(this._finalTranscript + interim);
 
-      // Apenas llega el resultado FINAL de una frase, se manda solo.
+      // Camino normal (Android/Chrome): apenas llega el resultado FINAL de
+      // una frase, se manda solo sin esperar a que cierre el reconocimiento.
       if (gotFinal && this._finalTranscript.trim() && !this._autoSent) {
         this._autoSent = true;
-        rec.stop(); // corta la escucha; el envío no espera a onend
-        this._sendTranscribed();
+        rec.stop();
+        this._sendTranscribed(this._finalTranscript);
       }
     };
 
@@ -559,12 +568,29 @@ const VoiceInput = {
     rec.onend = () => {
       this._listening = false;
       this._updateButtonState();
-      // Si terminó sin haber mandado nada (por ejemplo, no dijiste nada y
-      // cortó por silencio), dejamos el foco listo para escribir a mano.
+
+      // FALLBACK PARA iOS SAFARI: ahí el resultado "final" prácticamente
+      // nunca llega (isFinal se queda en false todo el tiempo); lo único
+      // que sí dispara siempre es "onend" cuando detecta que dejaste de
+      // hablar. Si llegamos acá sin haber mandado nada todavía y no fue
+      // una cancelación explícita (tocar el mic de nuevo a propósito),
+      // mandamos lo que se llegó a transcribir: el final si lo hay, o
+      // si no, el último texto parcial capturado.
+      if (!this._autoSent && !this._cancelled) {
+        const text = (this._finalTranscript || this._interimTranscript || '').trim();
+        if (text) {
+          this._autoSent = true;
+          this._sendTranscribed(text);
+          this._cancelled = false;
+          return;
+        }
+      }
+
       if (!this._autoSent) {
         const input = document.getElementById('chatInput');
         if (input) input.focus();
       }
+      this._cancelled = false;
     };
 
     this._recognition = rec;
@@ -581,11 +607,16 @@ const VoiceInput = {
 
   // Envía lo transcripto usando el flujo normal de chat (UI.sendChat), así
   // el mensaje del usuario pasa por exactamente el mismo camino que si lo
-  // hubiera escrito y tocado "enviar" a mano.
-  _sendTranscribed() {
+  // hubiera escrito y tocado "enviar" a mano. Recibe el texto explícito
+  // (final o, en su defecto, el último parcial) en vez de asumir siempre
+  // this._finalTranscript, porque en iOS puede venir vacío.
+  _sendTranscribed(text) {
+    const finalText = (text !== undefined ? text : this._finalTranscript).trim();
+    if (!finalText) return;
+
     const input = document.getElementById('chatInput');
     if (input) {
-      input.value = this._finalTranscript.trim();
+      input.value = finalText;
       input.dispatchEvent(new Event('input'));
     }
     // Pequeño delay para que se vea el texto transcripto un instante antes
@@ -593,6 +624,7 @@ const VoiceInput = {
     setTimeout(() => {
       UI.sendChat();
       this._finalTranscript = '';
+      this._interimTranscript = '';
     }, 250);
   },
 
@@ -630,7 +662,9 @@ const VoiceInput = {
     if (this._listening) {
       // Tocar el mic mientras está escuchando CANCELA (no envía nada a medias).
       this._finalTranscript = '';
-      this._autoSent = true; // evita que onend/onresult disparen un envío
+      this._interimTranscript = '';
+      this._autoSent = true;   // evita que onresult dispare un envío tardío
+      this._cancelled = true;  // le avisa a onend que esto fue una cancelación, no un fin natural
       rec.stop();
       this._listening = false;
       this._updateButtonState();
@@ -640,7 +674,9 @@ const VoiceInput = {
     }
 
     this._finalTranscript = '';
+    this._interimTranscript = '';
     this._autoSent = false;
+    this._cancelled = false;
     const input = document.getElementById('chatInput');
     if (input) { input.value = ''; input.dispatchEvent(new Event('input')); }
 
