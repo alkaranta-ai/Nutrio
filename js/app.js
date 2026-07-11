@@ -72,31 +72,133 @@ const Onboarding = {
     this._bindSingleSelect('chatStyleChips', 'chatStyle');
   },
 
-  finish() {
+  // ========================================================================
+  // WIZARD DE PASOS
+  // ========================================================================
+  currentStep: 1,
+  totalSteps: 8,
+
+  stepTitles: {
+    1: 'Datos personales',
+    2: 'País y actividad',
+    3: 'Tu objetivo',
+    4: 'Salud',
+    5: 'Preferencias',
+    6: 'Hábitos y rutina',
+    7: 'Gustos',
+    8: 'Estilo de chat'
+  },
+
+  initWizard() {
+    this.currentStep = 1;
+    this._renderStep();
+  },
+
+  // Valida solo los campos del paso actual. Devuelve true/false y muestra
+  // el mensaje de error específico de ese paso si algo falta.
+  _validateStep(step) {
     const errorBox = document.getElementById('onbError');
+    let message = null;
+
+    if (step === 1) {
+      const name = document.getElementById('fName').value.trim();
+      const age = document.getElementById('fAge').value;
+      const weight = document.getElementById('fWeight').value;
+      const height = document.getElementById('fHeight').value;
+      const invalidNumbers = Number(age) <= 0 || Number(weight) <= 0 || Number(height) <= 0;
+      if (!name || !age || !weight || !height || invalidNumbers) {
+        message = 'Completá tu nombre, edad, peso y altura para continuar.';
+      }
+    } else if (step === 2) {
+      if (!this.selected.activity) {
+        message = 'Elegí tu nivel de actividad física para continuar.';
+      }
+    } else if (step === 3) {
+      if (!this.selected.goal) {
+        message = 'Elegí tu objetivo principal para continuar.';
+      }
+    }
+    // Los pasos 4 a 8 son todos opcionales: salud, alergias, restricciones,
+    // hábitos, gustos y estilo de chat no bloquean el avance.
+
+    if (message) {
+      if (errorBox) {
+        errorBox.innerText = message;
+        errorBox.classList.add('show');
+      } else {
+        alert(message);
+      }
+      return false;
+    }
+    if (errorBox) errorBox.classList.remove('show');
+    return true;
+  },
+
+  next() {
+    if (!this._validateStep(this.currentStep)) return;
+
+    if (this.currentStep >= this.totalSteps) {
+      this.finish();
+      return;
+    }
+    this.currentStep += 1;
+    this._renderStep();
+  },
+
+  back() {
+    if (this.currentStep <= 1) return;
+    this.currentStep -= 1;
+    const errorBox = document.getElementById('onbError');
+    if (errorBox) errorBox.classList.remove('show');
+    this._renderStep();
+  },
+
+  _renderStep() {
+    document.querySelectorAll('.onb-step').forEach(el => {
+      el.classList.toggle('active', parseInt(el.dataset.step, 10) === this.currentStep);
+    });
+
+    const fill = document.getElementById('onbProgressFill');
+    if (fill) fill.style.width = `${(this.currentStep / this.totalSteps) * 100}%`;
+
+    const label = document.getElementById('onbProgressLabel');
+    if (label) label.innerText = `Paso ${this.currentStep} de ${this.totalSteps}`;
+
+    const title = document.getElementById('onbProgressTitle');
+    if (title) title.innerText = this.stepTitles[this.currentStep] || '';
+
+    const backBtn = document.getElementById('onbBackBtn');
+    if (backBtn) backBtn.style.display = this.currentStep === 1 ? 'none' : 'block';
+
+    const nextBtn = document.getElementById('onbNextBtn');
+    if (nextBtn) nextBtn.innerText = this.currentStep === this.totalSteps ? 'Crear mi perfil' : 'Continuar';
+
+    const scroll = document.querySelector('.onb-scroll');
+    if (scroll) scroll.scrollTo({ top: 0, behavior: 'smooth' });
+  },
+
+  finish() {
+    // Los pasos 1, 2 y 3 (los únicos con campos obligatorios) ya se validaron
+    // al avanzar. Igual revalidamos acá por si finish() se llama directo.
+    if (!this._validateStep(1) || !this._validateStep(2) || !this._validateStep(3)) {
+      // Si algo obligatorio quedó sin completar, volvemos al primer paso con problemas.
+      for (let s = 1; s <= 3; s++) {
+        if (!this._validateStep(s)) {
+          this.currentStep = s;
+          this._renderStep();
+          this._validateStep(s);
+          return;
+        }
+      }
+      return;
+    }
+
     const name = document.getElementById('fName').value.trim();
     const age = document.getElementById('fAge').value;
     const weight = document.getElementById('fWeight').value;
     const height = document.getElementById('fHeight').value;
     const sex = document.getElementById('fSex').value;
     const country = document.getElementById('fCountry').value;
-
-    const missingRequired =
-      !name || !age || !weight || !height ||
-      !this.selected.activity || !this.selected.goal;
-    const invalidNumbers =
-      Number(age) <= 0 || Number(weight) <= 0 || Number(height) <= 0;
-
-    if (missingRequired || invalidNumbers) {
-      if (errorBox) {
-        errorBox.classList.add('show');
-        errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        alert("Por favor, completa todos los campos obligatorios y selecciona tu actividad y objetivo.");
-      }
-      return;
-    }
-    if (errorBox) errorBox.classList.remove('show');
 
     const allergiesRaw = document.getElementById('fAllergies').value.trim();
     const dislikesRaw = document.getElementById('fDislikes').value.trim();
@@ -236,8 +338,9 @@ const UI = {
 
     const profile = StorageApp.getProfile();
     if (!profile) {
-      document.getElementById('onboarding').style.display = 'block';
+      document.getElementById('onboarding').style.display = 'flex';
       document.getElementById('app').style.display = 'none';
+      Onboarding.initWizard();
       return;
     }
 
