@@ -1145,59 +1145,77 @@ const UI = {
     return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
   },
 
-  // Agrega los botones 🔈/🔊 (auto-hablar), 🎙️ (elegir voz) y 🎤 (hablarle
-  // al chat) dentro de la barra de chat, sin necesidad de tocar el
-  // index.html a mano. Se inserta una sola vez (chequea si ya existe) y
-  // refleja el estado guardado en Speech.enabled.
+  // Agrega los botones 🔈/🔊 (auto-hablar), 🎙️ (elegir voz) y 🔔 (notificaciones)
+  // arriba, al lado del nombre "Nutrio" en el header del chat, y el botón 🎤
+  // (hablarle al chat) dentro de la barra de chat, pegado a la izquierda de la
+  // flecha de enviar. Se inserta una sola vez (chequea si ya existe) y
+  // refleja el estado guardado en Speech.enabled / Notifications.isEnabled().
   _injectSpeechToggle() {
-    const bar = document.getElementById('chatInputBar');
-    if (!bar || document.getElementById('speechToggleBtn')) return;
+    if (document.getElementById('speechToggleBtn')) return;
 
-    const btn = document.createElement('button');
-    btn.id = 'speechToggleBtn';
-    btn.type = 'button';
-    btn.title = 'Que Nutrio te hable en voz alta';
-    btn.style.cssText = 'background:none; border:none; font-size:20px; cursor:pointer; padding:0 6px; line-height:1;';
-    btn.innerText = Speech.enabled ? '🔊' : '🔈';
-    btn.onclick = () => {
-      const isOn = Speech.toggle();
-      btn.innerText = isOn ? '🔊' : '🔈';
-    };
-    bar.insertBefore(btn, bar.firstChild);
+    // --- Controles de voz/notificaciones arriba, al lado del nombre "Nutrio" ---
+    const header = document.querySelector('.chat-header');
+    if (header) {
+      let headerControls = document.getElementById('chatHeaderControls');
+      if (!headerControls) {
+        headerControls = document.createElement('div');
+        headerControls.id = 'chatHeaderControls';
+        headerControls.style.cssText = 'margin-left:auto; display:flex; align-items:center; gap:2px;';
+        header.appendChild(headerControls);
+      }
 
-    const voiceBtn = document.createElement('button');
-    voiceBtn.id = 'speechVoiceBtn';
-    voiceBtn.type = 'button';
-    voiceBtn.title = 'Elegir qué voz usa Nutrio';
-    voiceBtn.style.cssText = 'background:none; border:none; font-size:18px; cursor:pointer; padding:0 6px; line-height:1;';
-    voiceBtn.innerText = '🎙️';
-    voiceBtn.onclick = () => this.openVoicePicker();
-    bar.insertBefore(voiceBtn, btn.nextSibling);
+      const btn = document.createElement('button');
+      btn.id = 'speechToggleBtn';
+      btn.type = 'button';
+      btn.title = 'Que Nutrio te hable en voz alta';
+      btn.style.cssText = 'background:none; border:none; font-size:20px; cursor:pointer; padding:0 6px; line-height:1;';
+      btn.innerText = Speech.enabled ? '🔊' : '🔈';
+      btn.onclick = () => {
+        const isOn = Speech.toggle();
+        btn.innerText = isOn ? '🔊' : '🔈';
+      };
+      headerControls.appendChild(btn);
 
-    // Botón de reconocimiento de voz: al tocarlo empieza a escuchar, y
-    // apenas termina de detectar la frase la manda sola al chat.
-    const micBtn = document.createElement('button');
-    micBtn.id = 'voiceInputBtn';
-    micBtn.type = 'button';
-    micBtn.title = 'Hablarle a NutrIO';
-    micBtn.style.cssText = 'background:none; border:none; font-size:20px; cursor:pointer; padding:0 6px; line-height:1; transition: transform 0.15s;';
-    micBtn.innerText = '🎤';
-    micBtn.onclick = () => VoiceInput.toggle();
-    bar.insertBefore(micBtn, voiceBtn.nextSibling);
+      const voiceBtn = document.createElement('button');
+      voiceBtn.id = 'speechVoiceBtn';
+      voiceBtn.type = 'button';
+      voiceBtn.title = 'Elegir qué voz usa Nutrio';
+      voiceBtn.style.cssText = 'background:none; border:none; font-size:18px; cursor:pointer; padding:0 6px; line-height:1;';
+      voiceBtn.innerText = '🎙️';
+      voiceBtn.onclick = () => this.openVoicePicker();
+      headerControls.appendChild(voiceBtn);
 
-    // Botón de recordatorios: pide permiso de notificaciones la primera vez
-    // y prende/apaga los avisos de "¿ya comiste?" en cada franja horaria.
-    const notifBtn = document.createElement('button');
-    notifBtn.id = 'notifToggleBtn';
-    notifBtn.type = 'button';
-    notifBtn.title = 'Recordatorios de comidas';
-    notifBtn.style.cssText = 'background:none; border:none; font-size:18px; cursor:pointer; padding:0 6px; line-height:1;';
-    notifBtn.innerText = Notifications.isEnabled() ? '🔔' : '🔕';
-    notifBtn.onclick = async () => {
-      await Notifications.toggle();
+      // Botón de recordatorios: pide permiso de notificaciones la primera vez
+      // y prende/apaga los avisos de "¿ya comiste?" en cada franja horaria.
+      const notifBtn = document.createElement('button');
+      notifBtn.id = 'notifToggleBtn';
+      notifBtn.type = 'button';
+      notifBtn.title = 'Recordatorios de comidas';
+      notifBtn.style.cssText = 'background:none; border:none; font-size:18px; cursor:pointer; padding:0 6px; line-height:1;';
       notifBtn.innerText = Notifications.isEnabled() ? '🔔' : '🔕';
-    };
-    bar.insertBefore(notifBtn, micBtn.nextSibling);
+      notifBtn.onclick = async () => {
+        await Notifications.toggle();
+        notifBtn.innerText = Notifications.isEnabled() ? '🔔' : '🔕';
+      };
+      headerControls.appendChild(notifBtn);
+    }
+
+    // --- Botón de micrófono: pegado a la izquierda de la flecha de enviar ---
+    const inner = document.querySelector('.chat-input-inner');
+    if (inner && !document.getElementById('voiceInputBtn')) {
+      const sendBtn = inner.querySelector('.send-btn');
+
+      const micBtn = document.createElement('button');
+      micBtn.id = 'voiceInputBtn';
+      micBtn.type = 'button';
+      micBtn.title = 'Hablarle a NutrIO';
+      micBtn.style.cssText = 'background:none; border:none; font-size:20px; cursor:pointer; padding:0 6px; line-height:1; transition: transform 0.15s; flex-shrink:0;';
+      micBtn.innerText = '🎤';
+      micBtn.onclick = () => VoiceInput.toggle();
+
+      if (sendBtn) inner.insertBefore(micBtn, sendBtn);
+      else inner.appendChild(micBtn);
+    }
 
     if (Notifications.isEnabled()) Notifications.start();
   },
