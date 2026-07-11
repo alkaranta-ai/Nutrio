@@ -370,26 +370,73 @@ const MealLog = {
 // ==========================================================================
 // SPEECH - Text-to-speech con la Web Speech API del navegador (nativa,
 // sin costo ni servicios externos). Lee en voz alta las respuestas del bot.
-// El estado "enabled" (auto-hablar) se persiste en localStorage.
+// El estado "enabled" (auto-hablar) y la voz elegida se persisten en localStorage.
 // ==========================================================================
 const Speech = {
   enabled: JSON.parse(localStorage.getItem('nutrio_speech_enabled') || 'false'),
-  _voice: null,
+
+  // Un poco más rápido y un poco más agudo que el default (1/1): así suena
+  // más vivo y con más onda, en vez del tono chato típico de la voz robot.
+  _rate: 1.05,
+  _pitch: 1.08,
 
   _supported() {
     return typeof window !== 'undefined' && 'speechSynthesis' in window;
   },
 
-  // Busca una voz en español, priorizando es-AR si el dispositivo la tiene.
+  // Lista todas las voces en español disponibles en este dispositivo/navegador,
+  // usada por el selector de voz (UI.openVoicePicker).
+  getSpanishVoices() {
+    if (!this._supported()) return [];
+    return window.speechSynthesis.getVoices()
+      .filter(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+  },
+
+  // Guarda (o borra, si name es null) la voz elegida a mano por el usuario.
+  setVoice(name) {
+    if (name) localStorage.setItem('nutrio_speech_voice_name', name);
+    else localStorage.removeItem('nutrio_speech_voice_name');
+  },
+
+  // 1) Si el usuario ya eligió una voz a mano (con el selector 🎙️), se usa esa.
+  // 2) Si no, se puntúa cada voz en español disponible y se elige la mejor:
+  //    prioriza es-AR, voces con nombres que suelen ser de mejor calidad
+  //    (Google/Natural/Neural/Enhanced/Premium) y voces "de red" (no locales
+  //    del sistema operativo), que en general suenan menos robóticas que las
+  //    voces locales tipo "espeak".
   // Las voces a veces cargan de forma asíncrona (sobre todo en iOS/Chrome),
   // por eso no cacheamos el resultado como definitivo la primera vez.
   _pickVoice() {
     if (!this._supported()) return null;
     const voices = window.speechSynthesis.getVoices();
     if (!voices.length) return null;
-    return voices.find(v => v.lang === 'es-AR') ||
-           voices.find(v => v.lang && v.lang.toLowerCase().startsWith('es')) ||
-           null;
+
+    const savedName = localStorage.getItem('nutrio_speech_voice_name');
+    if (savedName) {
+      const saved = voices.find(v => v.name === savedName);
+      if (saved) return saved;
+    }
+
+    const spanish = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+    if (!spanish.length) return null;
+
+    const score = (v) => {
+      let s = 0;
+      if (v.lang === 'es-AR') s += 5;
+      else if (['es-419', 'es-mx', 'es-us'].includes(v.lang.toLowerCase())) s += 3;
+      else s += 1;
+
+      const name = v.name.toLowerCase();
+      if (name.includes('google')) s += 4;
+      if (name.includes('natural') || name.includes('neural')) s += 4;
+      if (name.includes('enhanced') || name.includes('premium') || name.includes('plus')) s += 3;
+      if (name.includes('multilingual')) s += 1;
+      if (!v.localService) s += 2; // las voces de red suelen sonar mejor que las locales del SO
+
+      return s;
+    };
+
+    return [...spanish].sort((a, b) => score(b) - score(a))[0];
   },
 
   // Saca negritas en markdown (**texto**), tags HTML sueltos y emojis, así
@@ -403,17 +450,17 @@ const Speech = {
       .trim();
   },
 
-  speak(text) {
+  speak(text, overrides) {
     if (!this._supported() || !text) return;
     window.speechSynthesis.cancel(); // corta cualquier lectura anterior en curso
     const clean = this._clean(text);
     if (!clean) return;
     const utter = new SpeechSynthesisUtterance(clean);
-    utter.lang = 'es-AR';
     const voice = this._pickVoice();
     if (voice) utter.voice = voice;
-    utter.rate = 1;
-    utter.pitch = 1;
+    utter.lang = voice ? voice.lang : 'es-AR';
+    utter.rate = (overrides && overrides.rate) || this._rate;
+    utter.pitch = (overrides && overrides.pitch) || this._pitch;
     window.speechSynthesis.speak(utter);
   },
 
@@ -513,17 +560,88 @@ const UI = {
   _injectSpeechToggle() {
     const bar = document.getElementById('chatInputBar');
     if (!bar || document.getElementById('speechToggleBtn')) return;
+
     const btn = document.createElement('button');
     btn.id = 'speechToggleBtn';
     btn.type = 'button';
     btn.title = 'Que Nutrio te hable en voz alta';
-    btn.style.cssText = 'background:none; border:none; font-size:20px; cursor:pointer; padding:0 8px; line-height:1;';
+    btn.style.cssText = 'background:none; border:none; font-size:20px; cursor:pointer; padding:0 6px; line-height:1;';
     btn.innerText = Speech.enabled ? '🔊' : '🔈';
     btn.onclick = () => {
       const isOn = Speech.toggle();
       btn.innerText = isOn ? '🔊' : '🔈';
     };
     bar.insertBefore(btn, bar.firstChild);
+
+    const voiceBtn = document.createElement('button');
+    voiceBtn.id = 'speechVoiceBtn';
+    voiceBtn.type = 'button';
+    voiceBtn.title = 'Elegir qué voz usa Nutrio';
+    voiceBtn.style.cssText = 'background:none; border:none; font-size:18px; cursor:pointer; padding:0 6px; line-height:1;';
+    voiceBtn.innerText = '🎙️';
+    voiceBtn.onclick = () => this.openVoicePicker();
+    bar.insertBefore(voiceBtn, btn.nextSibling);
+  },
+
+  // Muestra, como mensaje del bot, las voces en español instaladas en el
+  // dispositivo/navegador para que el usuario pruebe y elija cuál le suena
+  // mejor (la calidad varía muchísimo entre celulares). La elección queda
+  // guardada y se usa a partir de ahí en todas las lecturas.
+  openVoicePicker() {
+    const scroll = document.getElementById('chatScroll');
+    if (!scroll) return;
+
+    let voices = Speech.getSpanishVoices();
+    // En algunos navegadores la lista de voces carga async; si todavía no
+    // hay nada, forzamos la carga y reintentamos apenas estén listas.
+    if (!voices.length && Speech._supported()) {
+      window.speechSynthesis.onvoiceschanged = () => this.openVoicePicker();
+      window.speechSynthesis.getVoices();
+    }
+
+    const now = new Date();
+    const currentName = localStorage.getItem('nutrio_speech_voice_name');
+
+    let bodyHTML;
+    if (!voices.length) {
+      bodyHTML = `Todavía no encontré voces en español en este dispositivo/navegador. Probá tocar el 🔊 de algún mensaje mío primero (a veces recién ahí el navegador carga la lista de voces) y volvé a tocar 🎙️.`;
+    } else {
+      const chips = voices.map(v => {
+        const isActive = v.name === currentName;
+        const safeName = v.name.replace(/"/g, '&quot;');
+        return `<span class="chip-sm tap-feedback ${isActive ? 'active' : ''}" data-voice="${safeName}" onclick="UI.tryVoice(this)">${v.name}${isActive ? ' ✅' : ''}</span>`;
+      }).join('');
+      bodyHTML = `Estas son las voces en español que encontré en tu dispositivo. Tocá una para escucharla y dejarla puesta:<div class="ingredient-picker-chips">${chips}</div>`;
+    }
+
+    scroll.innerHTML += `
+      <div class="msg-row bot">
+        <div class="msg-wrap">
+          <div class="msg-bubble bot">${bodyHTML}</div>
+          <div class="msg-time">${this._formatTime(now)}</div>
+        </div>
+      </div>`;
+    scroll.scrollTop = scroll.scrollHeight;
+  },
+
+  // Fija la voz tocada como preferida, la prueba con una frase corta, y
+  // actualiza los chips de ese mismo picker para reflejar la nueva selección.
+  tryVoice(chipEl) {
+    const name = chipEl.dataset.voice;
+    if (!name) return;
+
+    Speech.setVoice(name);
+    Speech.speak('Hola, así sueno yo ahora. ¿Te gusto más?');
+
+    const container = chipEl.closest('.ingredient-picker-chips');
+    if (container) {
+      container.querySelectorAll('.chip-sm').forEach(c => {
+        c.classList.remove('active');
+        c.innerText = c.dataset.voice;
+      });
+    }
+    chipEl.classList.add('active');
+    chipEl.innerText = `${name} ✅`;
   },
 
   // Lee en voz alta un mensaje del bot ya guardado en _chatTextRefs (botón 🔊 individual).
