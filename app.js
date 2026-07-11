@@ -326,17 +326,135 @@ const SLOT_TO_CATEGORY = {
   antojo: 'meriendas' // de madrugada, si no hay nada mejor, caemos a merienda
 };
 
+// ==========================================================================
+// MEALLOG - Registro de lo que el usuario fue comiendo durante el día.
+// Se guarda en localStorage con una clave por fecha (es-AR), así el
+// registro arranca de cero solo cada día nuevo sin que haga falta limpiarlo
+// a mano. Alimenta las respuestas del chat a "qué comí hoy" / "cuánto llevo".
+// ==========================================================================
+const MealLog = {
+  _todayKey() {
+    return `nutrio_eaten_${new Date().toLocaleDateString('es-AR')}`;
+  },
+
+  // Devuelve el registro de hoy: [{ name, kcal, slot, time }, ...]
+  getToday() {
+    return JSON.parse(localStorage.getItem(this._todayKey())) || [];
+  },
+
+  // Agrega una comida al registro de hoy. kcal es opcional (por ejemplo,
+  // cuando el usuario escribe algo libre en el chat y no viene de una receta).
+  add({ name, kcal, slot }) {
+    const log = this.getToday();
+    log.push({
+      name: name || 'Comida sin nombre',
+      kcal: typeof kcal === 'number' ? kcal : null,
+      slot: slot || null,
+      time: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+    });
+    localStorage.setItem(this._todayKey(), JSON.stringify(log));
+    return log;
+  },
+
+  // Suma solo las entradas que tienen kcal conocida (las de texto libre sin
+  // receta asociada no cuentan, porque no tenemos forma de saber cuánto valen).
+  totalKcalToday() {
+    return this.getToday().reduce((sum, e) => sum + (e.kcal || 0), 0);
+  },
+
+  clearToday() {
+    localStorage.removeItem(this._todayKey());
+  }
+};
+
+// ==========================================================================
+// SPEECH - Text-to-speech con la Web Speech API del navegador (nativa,
+// sin costo ni servicios externos). Lee en voz alta las respuestas del bot.
+// El estado "enabled" (auto-hablar) se persiste en localStorage.
+// ==========================================================================
+const Speech = {
+  enabled: JSON.parse(localStorage.getItem('nutrio_speech_enabled') || 'false'),
+  _voice: null,
+
+  _supported() {
+    return typeof window !== 'undefined' && 'speechSynthesis' in window;
+  },
+
+  // Busca una voz en español, priorizando es-AR si el dispositivo la tiene.
+  // Las voces a veces cargan de forma asíncrona (sobre todo en iOS/Chrome),
+  // por eso no cacheamos el resultado como definitivo la primera vez.
+  _pickVoice() {
+    if (!this._supported()) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices.length) return null;
+    return voices.find(v => v.lang === 'es-AR') ||
+           voices.find(v => v.lang && v.lang.toLowerCase().startsWith('es')) ||
+           null;
+  },
+
+  // Saca negritas en markdown (**texto**), tags HTML sueltos y emojis, así
+  // la voz no lee "asterisco asterisco" ni símbolos raros.
+  _clean(text) {
+    return (text || '')
+      .replace(/\*\*/g, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  },
+
+  speak(text) {
+    if (!this._supported() || !text) return;
+    window.speechSynthesis.cancel(); // corta cualquier lectura anterior en curso
+    const clean = this._clean(text);
+    if (!clean) return;
+    const utter = new SpeechSynthesisUtterance(clean);
+    utter.lang = 'es-AR';
+    const voice = this._pickVoice();
+    if (voice) utter.voice = voice;
+    utter.rate = 1;
+    utter.pitch = 1;
+    window.speechSynthesis.speak(utter);
+  },
+
+  stop() {
+    if (this._supported()) window.speechSynthesis.cancel();
+  },
+
+  // Prende/apaga el auto-hablar (que Nutrio lea cada respuesta sola, sin
+  // tener que tocar el botón de parlante en cada mensaje).
+  toggle() {
+    this.enabled = !this.enabled;
+    localStorage.setItem('nutrio_speech_enabled', JSON.stringify(this.enabled));
+    if (!this.enabled) this.stop();
+    return this.enabled;
+  }
+};
+
+// Algunos navegadores (Chrome, iOS Safari) cargan la lista de voces de forma
+// asíncrona después de la primera interacción; no hace falta hacer nada acá,
+// pero registramos el evento para que _pickVoice() encuentre voces ni bien
+// estén listas en vez de fallar en el primer intento.
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = () => { /* noop: getVoices() ya las trae frescas cuando se llama */ };
+}
+
 const UI = {
 
   // Guarda referencias de recetas (y su bebida sugerida) para poder abrir
   // el modal sin serializar objetos completos dentro de atributos HTML.
   _recipeRefs: {},
 
+  // Texto plano de cada respuesta del bot, guardado por msgId, para poder
+  // leerlo en voz alta con el botón 🔊 sin tener que volver a parsear el HTML.
+  _chatTextRefs: {},
+
   init() {
     // IMPORTANTE: Primero le damos vida a las escuchas de los chips pase lo que pase
     Onboarding.bindAllChips();
     this._bindTapFeedback();
     this._bindChatInputAutoGrow();
+    this._injectSpeechToggle();
 
     const firstTimeEl = document.getElementById('chatFirstMsgTime');
     if (firstTimeEl) firstTimeEl.innerText = this._formatTime(new Date());
@@ -387,6 +505,31 @@ const UI = {
 
   _formatTime(date) {
     return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  },
+
+  // Agrega el botón 🔈/🔊 de "que Nutrio te hable" dentro de la barra de
+  // chat, sin necesidad de tocar el index.html a mano. Se inserta una sola
+  // vez (chequea si ya existe) y refleja el estado guardado en Speech.enabled.
+  _injectSpeechToggle() {
+    const bar = document.getElementById('chatInputBar');
+    if (!bar || document.getElementById('speechToggleBtn')) return;
+    const btn = document.createElement('button');
+    btn.id = 'speechToggleBtn';
+    btn.type = 'button';
+    btn.title = 'Que Nutrio te hable en voz alta';
+    btn.style.cssText = 'background:none; border:none; font-size:20px; cursor:pointer; padding:0 8px; line-height:1;';
+    btn.innerText = Speech.enabled ? '🔊' : '🔈';
+    btn.onclick = () => {
+      const isOn = Speech.toggle();
+      btn.innerText = isOn ? '🔊' : '🔈';
+    };
+    bar.insertBefore(btn, bar.firstChild);
+  },
+
+  // Lee en voz alta un mensaje del bot ya guardado en _chatTextRefs (botón 🔊 individual).
+  speakMessage(msgId) {
+    const text = this._chatTextRefs[msgId];
+    if (text) Speech.speak(text);
   },
 
   goto(viewName) {
@@ -560,6 +703,11 @@ const UI = {
     const modal = document.getElementById('recipeModal');
     if (!content || !modal) return;
 
+    // Guardamos la receta actual del modal para poder registrarla con
+    // "Ya lo comí" sin tener que meter objetos completos en el onclick.
+    this._modalRecipe = { recipe, typeKey };
+    const yaComidoHoy = MealLog.getToday().some(e => e.name === recipe.name);
+
     const ingredientsHTML = (recipe.ingredients || [])
       .map(ing => `<span class="ingredient-chip">${ing}</span>`).join('');
 
@@ -602,10 +750,30 @@ const UI = {
       ${instructionsHTML}
 
       ${drinkHTML}
+
+      <button type="button" id="logMealBtn" onclick="UI.logCurrentModalMeal()"
+        style="width:100%; margin-top:16px; padding:12px; border:none; border-radius:10px; font-weight:bold; cursor:pointer;
+        background:${yaComidoHoy ? 'var(--primary-dim, #e0e0e0)' : 'var(--primary)'}; color:${yaComidoHoy ? 'var(--text)' : 'white'};">
+        ${yaComidoHoy ? '✅ Ya lo anotaste hoy' : '✅ Ya lo comí — anotarlo'}
+      </button>
     `;
 
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
+  },
+
+  // Registra en MealLog la receta que está abierta en el modal en este momento.
+  logCurrentModalMeal() {
+    if (!this._modalRecipe) return;
+    const { recipe, typeKey } = this._modalRecipe;
+    MealLog.add({ name: recipe.name, kcal: recipe.kcal || null, slot: typeKey });
+
+    const btn = document.getElementById('logMealBtn');
+    if (btn) {
+      btn.innerText = '✅ Ya lo anotaste hoy';
+      btn.style.background = 'var(--primary-dim, #e0e0e0)';
+      btn.style.color = 'var(--text)';
+    }
   },
 
   closeRecipeModal() {
@@ -799,6 +967,7 @@ const UI = {
       const response = ChatApp.getBotResponse(msg, profile);
       const msgId = 'chatmsg_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
       const botTime = new Date();
+      this._chatTextRefs[msgId] = response.text;
 
       if (scroll) {
         scroll.innerHTML += `
@@ -807,6 +976,7 @@ const UI = {
               <div class="msg-bubble bot">${response.text}</div>
               <div class="msg-time">${this._formatTime(botTime)}</div>
               <div class="chat-feedback">
+                <button type="button" data-role="speak" title="Escuchar" onclick="UI.speakMessage('${msgId}')">🔊</button>
                 <button type="button" data-role="like" title="Me gusta" onclick="UI.rateResponse('${msgId}', '${response.category}', ${response.idx}, true)">👍</button>
                 <button type="button" data-role="dislike" title="No me gusta" onclick="UI.rateResponse('${msgId}', '${response.category}', ${response.idx}, false)">👎</button>
               </div>
@@ -814,6 +984,8 @@ const UI = {
           </div>`;
         scroll.scrollTop = scroll.scrollHeight;
       }
+
+      if (Speech.enabled) Speech.speak(response.text);
     }, 400);
   },
 
@@ -970,12 +1142,15 @@ const UI = {
       const msgId = 'chatmsg_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
       const botNow = new Date();
 
-      let bodyHTML;
+      let bodyHTML, speakText;
       if (matches.length) {
         bodyHTML = `Con eso te puedo armar esto (ordenado por lo que más se ajusta a lo que tenés):${this._buildChatRecipeCardsHTML(matches)}`;
+        speakText = `Con eso te puedo armar: ${matches.map(m => m.name).join(', ')}.`;
       } else {
         bodyHTML = `No encontré recetas que usen esos ingredientes en tu base todavía. Probá con otros ingredientes, o mirá el menú completo en <b>Inicio</b> o <b>Semana</b>.`;
+        speakText = 'No encontré recetas que usen esos ingredientes todavía. Probá con otros, o mirá el menú completo en Inicio o Semana.';
       }
+      this._chatTextRefs[msgId] = speakText;
 
       if (scroll) {
         scroll.innerHTML += `
@@ -983,10 +1158,15 @@ const UI = {
             <div class="msg-wrap">
               <div class="msg-bubble bot">${bodyHTML}</div>
               <div class="msg-time">${this._formatTime(botNow)}</div>
+              <div class="chat-feedback">
+                <button type="button" data-role="speak" title="Escuchar" onclick="UI.speakMessage('${msgId}')">🔊</button>
+              </div>
             </div>
           </div>`;
         scroll.scrollTop = scroll.scrollHeight;
       }
+
+      if (Speech.enabled) Speech.speak(speakText);
     }, 400);
   },
 
@@ -1486,6 +1666,70 @@ window.ChatApp = {
         (n) => `¡Dale${n}, cuidate! Nos vemos prontito por acá. 🍎`,
         (n) => `¡Chau chau${n}! Fue un gusto charlar, ¡a comer rico! 🥗`
       ], name);
+    }
+
+    // --- "¿Qué comí hoy?" / "cuánto llevo comido" — repasa el registro del día ---
+    const preguntaQueComiHoy =
+      msg.includes('que comi hoy') ||
+      msg.includes('que comi en el dia') ||
+      msg.includes('cuanto comi') ||
+      msg.includes('cuanto llevo comido') ||
+      msg.includes('cuantas calorias llevo') ||
+      msg.includes('cuantas kcal llevo') ||
+      msg.includes('mi registro de hoy') ||
+      msg.includes('que anote hoy') ||
+      msg.includes('resumen del dia') ||
+      msg.includes('resumen de hoy');
+
+    if (preguntaQueComiHoy) {
+      const log = MealLog.getToday();
+      this._lastTopic = null;
+
+      if (!log.length) {
+        return this.pickVariant('registro_vacio', [
+          `Todavía no tenés nada anotado hoy. Cuando abras una receta, tocá "Ya lo comí" para que quede registrada, o contame acá mismo qué comiste (por ejemplo "comí una ensalada de pollo"). 📝`
+        ]);
+      }
+
+      const items = log.map(e => `${e.name}${e.kcal ? ` (${e.kcal} kcal)` : ''} — ${e.time}`).join('<br>');
+      const total = MealLog.totalKcalToday();
+      let kcalNote;
+      if (total > 0 && profile && profile.targetKcal) {
+        const restante = profile.targetKcal - total;
+        kcalNote = restante >= 0
+          ? ` Vas por **${total} kcal** de tu meta de ${profile.targetKcal} kcal — te quedan ${restante} kcal disponibles hoy.`
+          : ` Vas por **${total} kcal**, ya pasaste tu meta de ${profile.targetKcal} kcal por ${Math.abs(restante)} kcal. Nada grave, mañana ajustamos. 😉`;
+      } else if (total > 0) {
+        kcalNote = ` Llevás **${total} kcal** anotadas hoy.`;
+      } else {
+        kcalNote = ` (Algunas entradas no tienen kcal cargada porque las anotaste como texto libre.)`;
+      }
+
+      return this.pickVariant('registro_hoy', [
+        (i, k) => `Hoy anotaste esto:<br>${i}<br>${k}`,
+        (i, k) => `Tu registro de hoy:<br>${i}<br>${k}`
+      ], items, kcalNote);
+    }
+
+    // --- "Comí X" / "acabo de comer X" — registra una comida por texto libre ---
+    // (después de traducir lunfardo, "morfé/manyé/tragué X" ya llega acá como "comí X")
+    const comidaLibreMatch = msg.match(/\b(?:ya\s+)?com[ií]\s+(.+)/) || msg.match(/\bacabo de comer\s+(.+)/);
+    const noEsPreguntaSobreComer =
+      !msg.includes('que puedo comer') && !msg.includes('que como') &&
+      !msg.includes('que comer') && !msg.includes('quiero comer') &&
+      !msg.includes('algo para comer') && !msg.includes('hay para comer');
+
+    if (comidaLibreMatch && noEsPreguntaSobreComer) {
+      const rawName = comidaLibreMatch[1].trim().replace(/[.!?]+$/, '');
+      if (rawName) {
+        MealLog.add({ name: rawName, kcal: null, slot: this._getMealSlot().key });
+        const total = MealLog.totalKcalToday();
+        this._lastTopic = 'comida';
+        return this.pickVariant('registro_comida_libre', [
+          (n) => `Anotado: **${n}** ✅. No tengo las kcal exactas porque lo escribiste vos (no es una receta de la base), pero ya quedó en tu registro de hoy. Pedime "qué comí hoy" cuando quieras repasarlo.`,
+          (n) => `Listo, sumé **${n}** a tu registro de hoy ✅. Si querés ver todo lo anotado, pedime "resumen de hoy".`
+        ], rawName);
+      }
     }
 
     // --- Domingo / día permitido ---
