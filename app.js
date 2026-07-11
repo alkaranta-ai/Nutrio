@@ -119,7 +119,7 @@ const Onboarding = {
       }
     }
     // Los pasos 4 a 8 son todos opcionales: salud, alergias, restricciones,
-    // hábitos, gustos y estilo de chat no bloquean el avance.
+    // hábitos, gustos, apodo y estilo de chat no bloquean el avance.
 
     if (message) {
       if (errorBox) {
@@ -205,10 +205,15 @@ const Onboarding = {
     const favoriteFoodsRaw = document.getElementById('fFavoriteFoods').value.trim();
     const waterGlasses = document.getElementById('fWaterGlasses').value;
     const sleepHours = document.getElementById('fSleepHours').value;
+    const nicknameRaw = document.getElementById('fNickname').value.trim();
     const chatCustom = document.getElementById('fChatCustom').value.trim();
 
     const profile = {
       name,
+      // Apodo/como quiere que le hable Nutrio. Si lo deja vacío, usamos el
+      // nombre real del paso 1 como valor por defecto (ver también el
+      // fallback "profile.nickname || profile.name" donde se usa el saludo).
+      nickname: nicknameRaw || name,
       age: parseInt(age, 10),
       sex,
       weight: parseFloat(weight),
@@ -442,7 +447,8 @@ const UI = {
   renderHome() {
     const profile = StorageApp.getProfile();
     if (!profile || typeof RECIPES_DB === 'undefined' || typeof MealEngine === 'undefined') return;
-    document.getElementById('homeGreeting').innerText = `¡Hola, ${profile.name}!`;
+    // Usamos el apodo si lo cargó en el onboarding; si no, caemos al nombre real.
+    document.getElementById('homeGreeting').innerText = `¡Hola, ${profile.nickname || profile.name}!`;
     document.getElementById('kcalDisplayNum').innerText = profile.targetKcal;
     document.getElementById('kcalDisplayTarget').innerText = `Calculado según tu cuerpo, actividad y objetivo activo.`;
 
@@ -701,7 +707,11 @@ const UI = {
   renderProfile() {
     const profile = StorageApp.getProfile();
     if (!profile) return;
-    document.getElementById('profileNameDisplay').innerText = profile.name;
+    // Mostramos el apodo si es distinto del nombre real, así se ve que quedó guardado.
+    document.getElementById('profileNameDisplay').innerText =
+      profile.nickname && profile.nickname !== profile.name
+        ? `${profile.name} (te dice "${profile.nickname}")`
+        : profile.name;
     document.getElementById('profileMetaDisplay').innerText = `Meta diaria asignada: ${profile.targetKcal} kcal, adaptada a tu cuerpo, actividad y objetivo.`;
 
     const prefsEl = document.getElementById('profilePrefsDisplay');
@@ -1403,7 +1413,10 @@ window.ChatApp = {
 
   getBotResponse(userMessage, profile) {
     const msg = this._normalize(userMessage);
-    const name = profile && profile.name ? ` ${profile.name}` : ' che';
+    // Usamos el apodo (o "cómo querés que te llame") si lo cargó en el
+    // onboarding; si no, caemos al nombre real del perfil.
+    const displayName = profile && (profile.nickname || profile.name);
+    const name = displayName ? ` ${displayName}` : ' che';
 
     // --- Modo barman activo: intercepta TODO antes que el resto de las reglas ---
     if (this._barmanMode) {
