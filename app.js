@@ -719,6 +719,12 @@ window.ChatApp = {
   // para saber a qué se refiere un "dame otra opción" genérico.
   _lastTopic: null,
 
+  // Modo barman: mientras está activo, cada mensaje del usuario (salvo el
+  // de salida) recibe un trago/cóctel nuevo, en vez de pasar por el resto
+  // de las reglas de comida. _lastCocktail evita repetir el mismo dos veces seguidas.
+  _barmanMode: false,
+  _lastCocktail: null,
+
   // Saca tildes y pasa a minúsculas para que el matching de palabras clave
   // sea más flexible ("qué puedo comer" == "que puedo comer").
   // También traduce lunfardo/modismos rioplatenses (morfar, manyar, tragar, etc.)
@@ -859,9 +865,95 @@ window.ChatApp = {
     return { text, category, idx };
   },
 
+  // --------------------------------------------------------------------
+  // MODO BARMAN: junta todas las opciones "conAlcohol" de BEBIDAS_DB
+  // (de todas las franjas: desayuno, almuerzo, meriendas, cena) en un
+  // único pool de tragos/cócteles, sin repetir el desayuno/almuerzo/etc.
+  // Así no hace falta cargar una base de datos nueva para esto.
+  // --------------------------------------------------------------------
+  _getAllCocktails() {
+    if (typeof BEBIDAS_DB === 'undefined') return [];
+    const set = new Set();
+    Object.values(BEBIDAS_DB).forEach(opt => {
+      if (opt && Array.isArray(opt.conAlcohol)) {
+        opt.conAlcohol.forEach(c => set.add(c));
+      }
+    });
+    return Array.from(set);
+  },
+
+  _getRandomCocktail() {
+    const pool = this._getAllCocktails();
+    if (!pool.length) return null;
+
+    let choices = pool;
+    if (pool.length > 1 && this._lastCocktail) {
+      const withoutLast = pool.filter(c => c !== this._lastCocktail);
+      if (withoutLast.length) choices = withoutLast;
+    }
+    const pick = choices[Math.floor(Math.random() * choices.length)];
+    this._lastCocktail = pick;
+    return pick;
+  },
+
+  // isFirstTime=true solo para el mensaje de bienvenida al activar el modo.
+  _respondBarman(isFirstTime) {
+    const cocktail = this._getRandomCocktail();
+    if (!cocktail) {
+      return this.pickVariant('barman_sin_datos', [
+        `Activé el modo barman 🍸, pero todavía no tengo tragos cargados en la base (BEBIDAS_DB necesita opciones "conAlcohol"). Cargalas en data.js y probamos de nuevo.`
+      ]);
+    }
+    if (isFirstTime) {
+      return this.pickVariant('barman_activado', [
+        (c) => `¡Modo barman activado! 🍸 Arrancamos con: **${c}**. Pedime "otro trago" cuando quieras otro, o decime "salir del barman" para volver a hablar de comida.`,
+        (c) => `🍹 Barra abierta. Primer trago de la noche: **${c}**. Seguí pidiendo cuando quieras, y decime "salir del barman" para cortar.`
+      ], cocktail);
+    }
+    return this.pickVariant('barman_otro', [
+      (c) => `Va este: **${c}** 🍸. ¿Otro? Pedime nomás, o decime "salir del barman" para volver a las comidas.`,
+      (c) => `Ahí tenés: **${c}** 🍹. Seguimos si querés más, o "salir del barman" cuando quieras parar.`
+    ], cocktail);
+  },
+
   getBotResponse(userMessage, profile) {
     const msg = this._normalize(userMessage);
     const name = profile && profile.name ? ` ${profile.name}` : ' che';
+
+    // --- Modo barman activo: intercepta TODO antes que el resto de las reglas ---
+    if (this._barmanMode) {
+      const quiereSalirBarman =
+        msg.includes('salir') || msg.includes('modo normal') ||
+        msg.includes('volver a nutri') || msg.includes('chau barman') ||
+        msg.includes('desactiva barman') || msg.includes('apagar barman') ||
+        msg.includes('basta de tragos');
+
+      if (quiereSalirBarman) {
+        this._barmanMode = false;
+        return this.pickVariant('barman_salir', [
+          `Listo, guardo la coctelera 🍸 y vuelvo a mi rol de nutricionista. ¿Qué necesitás?`,
+          `Dale, cerramos la barra por hoy. Volvemos al modo comida saludable. 😄`
+        ]);
+      }
+
+      return this._respondBarman(false);
+    }
+
+    // --- Activar modo barman ---
+    const activaBarman =
+      msg.includes('modo barman') ||
+      msg.includes('modo bartender') ||
+      msg.includes('activa barman') ||
+      msg.includes('activar barman') ||
+      msg.includes('quiero un coctel') ||
+      msg.includes('dame un trago') ||
+      msg.includes('quiero un trago');
+
+    if (activaBarman) {
+      this._barmanMode = true;
+      this._lastTopic = 'bebida';
+      return this._respondBarman(true);
+    }
 
     // --- Caso especial: pregunta por el mate (antes de todo lo demás) ---
     const hablaDeMate = /\bmate\b/.test(msg) && !msg.includes('matematica');
