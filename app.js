@@ -700,9 +700,9 @@ const UI = {
   // La app no puede "ver" el contenido real de la foto (no hay ningún
   // servicio de visión conectado). Lo que sí hace: muestra la foto en el
   // chat como referencia, y le pide al usuario que confirme qué ingredientes
-  // hay tocando chips (armados con los ingredientes que ya existen en
-  // RECIPES_DB) o escribiéndolos. Con esa lista arma sugerencias reales
-  // de recetas, respetando alergias/restricciones del perfil.
+  // hay tocando chips (armados con TU LISTA DE SUPERMERCADO/carrito, ya
+  // filtrada de condimentos/especias) o escribiéndolos. Con esa lista arma
+  // sugerencias reales de recetas, respetando alergias/restricciones del perfil.
   // ======================================================================
   handlePhotoSelected(event) {
     const file = event.target.files && event.target.files[0];
@@ -738,11 +738,21 @@ const UI = {
     setTimeout(() => this._promptIngredientSelection(), 450);
   },
 
+  // Arma la lista de chips para elegir ingredientes de la foto.
+  // Prioridad: tu lista de supermercado (carrito) ya filtrada de condimentos
+  // y especias. Si todavía no armaste esa lista, caemos a los ingredientes
+  // generales de RECIPES_DB para no dejar el chat sin opciones.
   _promptIngredientSelection() {
     ChatApp._awaitingIngredients = true;
     ChatApp._pendingIngredients = [];
 
-    const known = ChatApp._getKnownIngredients();
+    let known = ChatApp._getCartIngredientsFiltered();
+    let notaCarritoVacio = '';
+    if (!known.length) {
+      known = ChatApp._getKnownIngredients();
+      notaCarritoVacio = ' (Ojo: todavía no tenés nada cargado en tu lista de supermercado, así que por ahora te muestro ingredientes generales — armá tu lista en la solapa Carrito para verla acá.)';
+    }
+
     const chipsHTML = known.map(ing =>
       `<span class="chip-sm tap-feedback" onclick="UI.toggleIngredientChip(this, '${ing.replace(/'/g, "\\'")}')">${ing}</span>`
     ).join('');
@@ -755,7 +765,7 @@ const UI = {
       <div class="msg-row bot">
         <div class="msg-wrap">
           <div class="msg-bubble bot">
-            Todavía no tengo forma de "ver" la foto (funciono 100% local, sin ningún servicio de reconocimiento de imágenes conectado 📵). Pero contame qué hay: tocá los ingredientes que reconozcas, o escribilos directo en el chat separados por coma.
+            Todavía no tengo forma de "ver" la foto (funciono 100% local, sin ningún servicio de reconocimiento de imágenes conectado 📵). Pero contame qué hay: tocá en tu lista de supermercado los ingredientes que reconozcas en la foto${notaCarritoVacio}, o escribilos directo en el chat separados por coma.
             <div class="ingredient-picker-chips">${chipsHTML}</div>
             <input type="text" id="extraIngredientsInput" placeholder="Otros ingredientes (separados por coma)">
             <button class="btn btn-primary ingredient-search-btn" onclick="UI.confirmIngredientSearch()">Buscar recetas 🔍</button>
@@ -1039,6 +1049,10 @@ window.ChatApp = {
   // y especias, y arma la lista de chips balanceando categorías (proteínas,
   // vegetales, frutas, carbohidratos, lácteos) para que haya variedad real
   // en vez de que unos pocos ingredientes muy repetidos ocupen todo el lugar.
+  //
+  // Esta lista es un RESPALDO (fallback) para cuando el usuario todavía no
+  // armó su lista de supermercado (carrito). Si el carrito tiene datos, el
+  // picker de la foto usa _getCartIngredientsFiltered() en su lugar.
   _getKnownIngredients() {
     if (this.__knownIngredientsCache) return this.__knownIngredientsCache;
     if (typeof RECIPES_DB === 'undefined') return [];
@@ -1082,6 +1096,38 @@ window.ChatApp = {
 
     this.__knownIngredientsCache = known;
     return known;
+  },
+
+  // Toma la lista de supermercado (carrito) del usuario y descarta condimentos,
+  // especias y aditivos, reutilizando las mismas keywords/categorías que ya
+  // usamos para RECIPES_DB. Se recalcula siempre (no se cachea) porque el
+  // carrito puede cambiar en cualquier momento durante la sesión (se tilda,
+  // se archiva la compra, etc.).
+  _getCartIngredientsFiltered() {
+    if (typeof StorageApp === 'undefined') return [];
+    const cart = StorageApp.getCart() || [];
+    if (!cart.length) return [];
+
+    const filtered = cart.filter(ing => {
+      const norm = this._stripAccents(ing);
+      return !this._CONDIMENT_KEYWORDS.some(kw => norm.includes(kw));
+    });
+
+    const classify = (ing) => {
+      const norm = this._stripAccents(ing);
+      for (const [cat, keywords] of Object.entries(this._INGREDIENT_CATEGORIES)) {
+        if (keywords.some(kw => norm.includes(kw))) return cat;
+      }
+      return 'otros';
+    };
+
+    const order = ['proteinas', 'vegetales', 'frutas', 'carbohidratos', 'lacteos', 'otros'];
+    const buckets = { proteinas: [], vegetales: [], frutas: [], carbohidratos: [], lacteos: [], otros: [] };
+    filtered.forEach(ing => buckets[classify(ing)].push(ing));
+
+    let result = [];
+    order.forEach(cat => { result = result.concat(buckets[cat]); });
+    return result;
   },
 
   // Junta el pool de recetas ya filtrado por perfil (alergias, restricciones,
