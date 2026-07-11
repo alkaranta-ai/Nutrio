@@ -648,6 +648,15 @@ const UI = {
     input.value = '';
     input.style.height = 'auto';
 
+    // Si estamos esperando que el usuario liste los ingredientes de una foto
+    // adjuntada, este mensaje se interpreta como esa lista (separada por
+    // coma) en vez de pasar por las reglas normales del chat.
+    if (ChatApp._awaitingIngredients) {
+      const list = msg.split(',').map(s => s.trim()).filter(Boolean);
+      setTimeout(() => this._resolveIngredientSearch(list), 350);
+      return;
+    }
+
     setTimeout(() => {
       const profile = StorageApp.getProfile();
       const response = ChatApp.getBotResponse(msg, profile);
@@ -685,6 +694,173 @@ const UI = {
     if (dislikeBtn) dislikeBtn.classList.toggle('active', !liked);
   },
 
+  // ======================================================================
+  // FOTO DE INGREDIENTES → SUGERENCIA DE RECETAS (100% local, sin API)
+  //
+  // La app no puede "ver" el contenido real de la foto (no hay ningún
+  // servicio de visión conectado). Lo que sí hace: muestra la foto en el
+  // chat como referencia, y le pide al usuario que confirme qué ingredientes
+  // hay tocando chips (armados con los ingredientes que ya existen en
+  // RECIPES_DB) o escribiéndolos. Con esa lista arma sugerencias reales
+  // de recetas, respetando alergias/restricciones del perfil.
+  // ======================================================================
+  handlePhotoSelected(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    if (!file.type || !file.type.startsWith('image/')) {
+      alert('Elegí un archivo de imagen (foto) para poder seguir.');
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      this._addPhotoMessage(e.target.result);
+      event.target.value = ''; // permite volver a elegir la misma foto si hace falta
+    };
+    reader.readAsDataURL(file);
+  },
+
+  _addPhotoMessage(dataUrl) {
+    const scroll = document.getElementById('chatScroll');
+    const now = new Date();
+    if (scroll) {
+      scroll.innerHTML += `
+        <div class="msg-row user">
+          <div class="msg-wrap">
+            <div class="msg-bubble user msg-bubble-photo"><img class="chat-photo" src="${dataUrl}" alt="Foto de ingredientes"></div>
+            <div class="msg-time">${this._formatTime(now)}</div>
+          </div>
+        </div>`;
+      scroll.scrollTop = scroll.scrollHeight;
+    }
+    setTimeout(() => this._promptIngredientSelection(), 450);
+  },
+
+  _promptIngredientSelection() {
+    ChatApp._awaitingIngredients = true;
+    ChatApp._pendingIngredients = [];
+
+    const known = ChatApp._getKnownIngredients();
+    const chipsHTML = known.map(ing =>
+      `<span class="chip-sm tap-feedback" onclick="UI.toggleIngredientChip(this, '${ing.replace(/'/g, "\\'")}')">${ing}</span>`
+    ).join('');
+
+    const scroll = document.getElementById('chatScroll');
+    const now = new Date();
+    if (!scroll) return;
+
+    scroll.innerHTML += `
+      <div class="msg-row bot">
+        <div class="msg-wrap">
+          <div class="msg-bubble bot">
+            Todavía no tengo forma de "ver" la foto (funciono 100% local, sin ningún servicio de reconocimiento de imágenes conectado 📵). Pero contame qué hay: tocá los ingredientes que reconozcas, o escribilos directo en el chat separados por coma.
+            <div class="ingredient-picker-chips">${chipsHTML}</div>
+            <input type="text" id="extraIngredientsInput" placeholder="Otros ingredientes (separados por coma)">
+            <button class="btn btn-primary ingredient-search-btn" onclick="UI.confirmIngredientSearch()">Buscar recetas 🔍</button>
+          </div>
+          <div class="msg-time">${this._formatTime(now)}</div>
+        </div>
+      </div>`;
+    scroll.scrollTop = scroll.scrollHeight;
+  },
+
+  toggleIngredientChip(el, val) {
+    el.classList.toggle('active');
+    const idx = ChatApp._pendingIngredients.indexOf(val);
+    if (el.classList.contains('active') && idx === -1) {
+      ChatApp._pendingIngredients.push(val);
+    } else if (!el.classList.contains('active') && idx !== -1) {
+      ChatApp._pendingIngredients.splice(idx, 1);
+    }
+  },
+
+  confirmIngredientSearch() {
+    const extraInput = document.getElementById('extraIngredientsInput');
+    let extra = [];
+    if (extraInput && extraInput.value.trim()) {
+      extra = extraInput.value.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    const all = [...ChatApp._pendingIngredients, ...extra];
+    this._resolveIngredientSearch(all);
+  },
+
+  _resolveIngredientSearch(ingredientsArr) {
+    ChatApp._awaitingIngredients = false;
+    const scroll = document.getElementById('chatScroll');
+    const now = new Date();
+
+    if (!ingredientsArr.length) {
+      if (scroll) {
+        scroll.innerHTML += `
+          <div class="msg-row bot">
+            <div class="msg-wrap">
+              <div class="msg-bubble bot">Necesito al menos un ingrediente para buscarte algo. Tocá algún chip de arriba o escribime uno. 🙂</div>
+              <div class="msg-time">${this._formatTime(now)}</div>
+            </div>
+          </div>`;
+        scroll.scrollTop = scroll.scrollHeight;
+      }
+      ChatApp._awaitingIngredients = true; // seguimos esperando la lista
+      return;
+    }
+
+    if (scroll) {
+      scroll.innerHTML += `
+        <div class="msg-row user">
+          <div class="msg-wrap">
+            <div class="msg-bubble user">Tengo: ${ingredientsArr.join(', ')}</div>
+            <div class="msg-time">${this._formatTime(now)}</div>
+          </div>
+        </div>`;
+      scroll.scrollTop = scroll.scrollHeight;
+    }
+
+    setTimeout(() => {
+      const profile = StorageApp.getProfile();
+      const matches = ChatApp.matchRecipesByIngredients(ingredientsArr, profile);
+      const msgId = 'chatmsg_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+      const botNow = new Date();
+
+      let bodyHTML;
+      if (matches.length) {
+        bodyHTML = `Con eso te puedo armar esto (ordenado por lo que más se ajusta a lo que tenés):${this._buildChatRecipeCardsHTML(matches)}`;
+      } else {
+        bodyHTML = `No encontré recetas que usen esos ingredientes en tu base todavía. Probá con otros ingredientes, o mirá el menú completo en <b>Inicio</b> o <b>Semana</b>.`;
+      }
+
+      if (scroll) {
+        scroll.innerHTML += `
+          <div class="msg-row bot" id="${msgId}">
+            <div class="msg-wrap">
+              <div class="msg-bubble bot">${bodyHTML}</div>
+              <div class="msg-time">${this._formatTime(botNow)}</div>
+            </div>
+          </div>`;
+        scroll.scrollTop = scroll.scrollHeight;
+      }
+    }, 400);
+  },
+
+  // Tarjetas compactas de recetas sugeridas, insertadas dentro de la burbuja del chat.
+  _buildChatRecipeCardsHTML(recipes) {
+    if (!recipes.length) return '';
+    return `<div class="chat-recipe-results">` + recipes.map((r, i) => {
+      const refId = 'chatmatch-' + Date.now() + '-' + i;
+      this._registerRecipeRef(refId, r, r.category || 'almuerzo', null);
+      const ing = (r.ingredients || []).join(', ');
+      return `
+        <div class="chat-recipe-mini tap-feedback" onclick="UI.openRecipeModalByRef('${refId}')">
+          <div class="mini-top">
+            <span class="mini-name">${r.name || ''}</span>
+            <span class="mini-kcal">${r.kcal || '—'} kcal</span>
+          </div>
+          <div class="mini-ing">${ing}</div>
+        </div>`;
+    }).join('') + `</div>`;
+  },
+
   resetAll() {
     StorageApp.clearAll();
     location.reload();
@@ -718,6 +894,12 @@ window.ChatApp = {
   // Recuerda si lo último que se le ofreció al usuario fue comida o bebida,
   // para saber a qué se refiere un "dame otra opción" genérico.
   _lastTopic: null,
+
+  // true mientras el chat está esperando que el usuario confirme los
+  // ingredientes de una foto recién adjuntada (ver UI._promptIngredientSelection).
+  _awaitingIngredients: false,
+  _pendingIngredients: [],
+  __knownIngredientsCache: null,
 
   // Modo barman: mientras está activo, cada mensaje del usuario (salvo el
   // de salida) recibe un trago/cóctel nuevo, en vez de pasar por el resto
@@ -819,6 +1001,80 @@ window.ChatApp = {
     }
 
     return { sinAlcohol, conAlcohol, alcoholPermitido: isSunday };
+  },
+
+  // --------------------------------------------------------------------
+  // SUGERENCIA POR FOTO DE INGREDIENTES (100% local)
+  // --------------------------------------------------------------------
+
+  // Junta los ingredientes únicos de toda RECIPES_DB, ordenados por
+  // frecuencia de aparición, y devuelve los más usados (mejor cobertura
+  // para armar la grilla de chips sin que sea interminable).
+  _getKnownIngredients() {
+    if (this.__knownIngredientsCache) return this.__knownIngredientsCache;
+    if (typeof RECIPES_DB === 'undefined') return [];
+
+    const counts = {};
+    RECIPES_DB.forEach(r => {
+      (r.ingredients || []).forEach(ing => {
+        const key = (ing || '').trim();
+        if (!key) return;
+        counts[key] = (counts[key] || 0) + 1;
+      });
+    });
+
+    const sorted = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    this.__knownIngredientsCache = sorted.slice(0, 48);
+    return this.__knownIngredientsCache;
+  },
+
+  // Junta el pool de recetas ya filtrado por perfil (alergias, restricciones,
+  // condiciones de salud) para las 4 categorías, deduplicado por id.
+  _getProfileFilteredPool(profile) {
+    const categories = ['desayuno', 'almuerzo', 'meriendas', 'cena'];
+    const seen = new Set();
+    const pool = [];
+
+    categories.forEach(cat => {
+      let list = [];
+      if (typeof MealEngine !== 'undefined' && MealEngine.filterRecipesForProfile) {
+        list = MealEngine.filterRecipesForProfile(cat, profile, false) || [];
+      } else if (typeof getRecipesByCategory === 'function') {
+        list = getRecipesByCategory(cat) || [];
+      }
+      list.forEach(r => {
+        if (r && r.id !== undefined && !seen.has(r.id)) {
+          seen.add(r.id);
+          pool.push(r);
+        }
+      });
+    });
+
+    if (!pool.length && typeof RECIPES_DB !== 'undefined') return RECIPES_DB;
+    return pool;
+  },
+
+  // Ordena las recetas del pool filtrado según cuántos de los ingredientes
+  // pedidos aparecen en cada una (match parcial e insensible a mayúsculas),
+  // y devuelve las 5 con más coincidencias.
+  matchRecipesByIngredients(ingredientsArr, profile) {
+    if (!ingredientsArr || !ingredientsArr.length) return [];
+    const pool = this._getProfileFilteredPool(profile);
+    if (!pool.length) return [];
+
+    const wanted = ingredientsArr.map(i => i.toLowerCase().trim()).filter(Boolean);
+
+    const scored = pool.map(r => {
+      const ing = (r.ingredients || []).map(i => i.toLowerCase());
+      let score = 0;
+      wanted.forEach(w => {
+        if (ing.some(i => i.includes(w) || w.includes(i))) score++;
+      });
+      return { recipe: r, score };
+    }).filter(x => x.score > 0);
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, 5).map(x => x.recipe);
   },
 
   // --------------------------------------------------------------------
