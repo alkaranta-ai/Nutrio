@@ -258,6 +258,7 @@
   }
   .msg-bubble.bot { background: var(--surface); color: var(--text); border-bottom-left-radius: 4px; }
   .msg-bubble.user { background: var(--primary-dim); color: var(--primary-ink); border-bottom-right-radius: 4px; }
+  .msg-bubble.msg-bubble-photo { padding: 6px; background: var(--surface); }
   .msg-time { font-size: 10.5px; color: var(--text-muted); margin-top: 3px; padding: 0 4px; opacity: 0.8; }
   .chat-feedback { margin-top: 3px; padding-left: 4px; }
   .chat-feedback button {
@@ -267,12 +268,49 @@
   .chat-feedback button:hover { transform: scale(1.15); }
   .chat-feedback button.active { opacity: 1; }
 
+  /* Foto adjuntada en el chat */
+  .chat-photo { display: block; max-width: 220px; max-height: 220px; width: 100%; height: auto; border-radius: 12px; object-fit: cover; }
+
+  /* Selector de ingredientes dentro de la burbuja del bot */
+  .ingredient-picker-chips {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
+    max-height: 170px; overflow-y: auto; padding: 2px;
+  }
+  .chip-sm {
+    padding: 6px 12px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 16px; font-size: 12.5px; cursor: pointer; color: var(--text);
+    white-space: nowrap;
+  }
+  .chip-sm.active { background: var(--primary-dim); border-color: var(--primary); color: var(--primary-ink); font-weight: 600; }
+  #extraIngredientsInput {
+    width: 100%; margin-top: 8px; padding: 9px 11px; border-radius: 10px;
+    border: 1px solid var(--border); font-size: 13px; font-family: var(--font-sans);
+    background: var(--bg); color: var(--text);
+  }
+  .ingredient-search-btn { margin-top: 10px; padding: 10px; font-size: 13.5px; }
+
+  /* Tarjetas de recetas sugeridas dentro del chat */
+  .chat-recipe-results { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .chat-recipe-mini {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px 12px; cursor: pointer;
+  }
+  .mini-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .mini-name { font-weight: 700; font-size: 13.5px; color: var(--text); }
+  .mini-kcal { font-size: 11px; color: var(--text-muted); font-weight: 700; white-space: nowrap; }
+  .mini-ing { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+
   .chat-input-bar { position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 460px; padding: 0 16px; z-index: 1001; }
-  .chat-input-inner { display: flex; align-items: flex-end; gap: 10px; background: var(--surface); border: 1px solid var(--border); padding: 6px; border-radius: 20px; box-shadow: 0 4px 14px rgba(0,0,0,0.08); }
+  .chat-input-inner { display: flex; align-items: flex-end; gap: 8px; background: var(--surface); border: 1px solid var(--border); padding: 6px; border-radius: 20px; box-shadow: 0 4px 14px rgba(0,0,0,0.08); }
   .chat-input-inner textarea, .chat-input-inner input {
     flex: 1; border: none; padding: 12px 14px; font-size: 16px; outline: none;
     background: transparent; font-family: var(--font-sans); resize: none;
     min-height: 44px; max-height: 120px; line-height: 1.4;
+  }
+  .attach-btn {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text-muted);
+    width: 44px; height: 44px; border-radius: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 18px;
   }
   .send-btn {
     background: var(--primary); border: none; color: white; width: 44px; height: 44px;
@@ -551,7 +589,7 @@
     <div class="chat-scroll" id="chatScroll">
       <div class="msg-row bot">
         <div class="msg-wrap">
-          <div class="msg-bubble bot">¡Hola! Contame, ¿en qué puedo ayudarte con tu alimentación o tus comidas de hoy?</div>
+          <div class="msg-bubble bot">¡Hola! Contame, ¿en qué puedo ayudarte con tu alimentación o tus comidas de hoy? También podés tocar el 📷 y mandarme una foto de los ingredientes que tenés.</div>
           <div class="msg-time" id="chatFirstMsgTime"></div>
         </div>
       </div>
@@ -605,6 +643,8 @@
 
 <div class="chat-input-bar" id="chatInputBar" style="display:none;">
   <div class="chat-input-inner">
+    <button class="attach-btn" type="button" title="Adjuntar foto de ingredientes" onclick="document.getElementById('chatPhotoInput').click()">📷</button>
+    <input type="file" id="chatPhotoInput" accept="image/*" capture="environment" style="display:none" onchange="UI.handlePhotoSelected(event)">
     <textarea id="chatInput" placeholder="Escribí un mensaje..." rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); UI.sendChat();}"></textarea>
     <button class="send-btn" onclick="UI.sendChat()">➔</button>
   </div>
