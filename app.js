@@ -486,6 +486,176 @@ if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
   window.speechSynthesis.onvoiceschanged = () => { /* noop: getVoices() ya las trae frescas cuando se llama */ };
 }
 
+// ==========================================================================
+// VOICEINPUT - Reconocimiento de voz (Speech-to-Text) con la Web Speech API
+// nativa del navegador (sin costo ni servicios externos). Transcribe lo que
+// decís, lo muestra en tiempo real en el input del chat y, apenas detecta
+// que terminaste de hablar (resultado final), MANDA EL MENSAJE SOLO — no
+// hace falta tocar el botón de enviar. En Chrome/Android funciona bárbaro;
+// en iOS Safari el soporte es más limitado (a veces no está disponible).
+// ==========================================================================
+const VoiceInput = {
+  _recognition: null,
+  _listening: false,
+  _finalTranscript: '',
+  _autoSent: false, // evita mandar dos veces si onresult y onend se solapan
+
+  _supported() {
+    return typeof window !== 'undefined' &&
+      (window.SpeechRecognition || window.webkitSpeechRecognition);
+  },
+
+  _ensureRecognition() {
+    if (this._recognition) return this._recognition;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return null;
+
+    const rec = new SR();
+    rec.lang = 'es-AR';
+    rec.continuous = false;       // corta sola cuando dejás de hablar
+    rec.interimResults = true;    // vas viendo el texto mientras hablás
+    rec.maxAlternatives = 1;
+
+    rec.onresult = (e) => {
+      let interim = '';
+      let gotFinal = false;
+
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const transcript = e.results[i][0].transcript;
+        if (e.results[i].isFinal) {
+          this._finalTranscript += transcript;
+          gotFinal = true;
+        } else {
+          interim += transcript;
+        }
+      }
+
+      // Mientras hay resultado parcial, solo actualizamos el input para que
+      // el usuario vea lo que va diciendo (sin mandar nada todavía).
+      this._updateInput(this._finalTranscript + interim);
+
+      // Apenas llega el resultado FINAL de una frase, se manda solo.
+      if (gotFinal && this._finalTranscript.trim() && !this._autoSent) {
+        this._autoSent = true;
+        rec.stop(); // corta la escucha; el envío no espera a onend
+        this._sendTranscribed();
+      }
+    };
+
+    rec.onerror = (e) => {
+      this._listening = false;
+      this._updateButtonState();
+      let msg = null;
+      if (e.error === 'not-allowed' || e.error === 'permission-denied') {
+        msg = 'Necesito permiso para usar el micrófono. Habilitalo en la configuración del navegador y probá de nuevo.';
+      } else if (e.error === 'no-speech') {
+        msg = null; // no hace falta molestar con esto, simplemente no capturó nada
+      } else if (e.error === 'network') {
+        msg = 'Se cortó la conexión mientras escuchaba. Probá de nuevo.';
+      }
+      if (msg) this._notify(msg);
+    };
+
+    rec.onend = () => {
+      this._listening = false;
+      this._updateButtonState();
+      // Si terminó sin haber mandado nada (por ejemplo, no dijiste nada y
+      // cortó por silencio), dejamos el foco listo para escribir a mano.
+      if (!this._autoSent) {
+        const input = document.getElementById('chatInput');
+        if (input) input.focus();
+      }
+    };
+
+    this._recognition = rec;
+    return rec;
+  },
+
+  _updateInput(text) {
+    const input = document.getElementById('chatInput');
+    if (!input) return;
+    input.value = text;
+    // Dispara el auto-grow que ya tenés bindeado en _bindChatInputAutoGrow
+    input.dispatchEvent(new Event('input'));
+  },
+
+  // Envía lo transcripto usando el flujo normal de chat (UI.sendChat), así
+  // el mensaje del usuario pasa por exactamente el mismo camino que si lo
+  // hubiera escrito y tocado "enviar" a mano.
+  _sendTranscribed() {
+    const input = document.getElementById('chatInput');
+    if (input) {
+      input.value = this._finalTranscript.trim();
+      input.dispatchEvent(new Event('input'));
+    }
+    // Pequeño delay para que se vea el texto transcripto un instante antes
+    // de que se dispare el envío (mejor feedback visual para el usuario).
+    setTimeout(() => {
+      UI.sendChat();
+      this._finalTranscript = '';
+    }, 250);
+  },
+
+  _updateButtonState() {
+    const btn = document.getElementById('voiceInputBtn');
+    if (!btn) return;
+    btn.innerText = this._listening ? '🔴' : '🎤';
+    btn.classList.toggle('listening', this._listening);
+    btn.title = this._listening ? 'Escuchando... tocá para cancelar' : 'Hablarle a NutrIO';
+  },
+
+  _notify(text) {
+    const scroll = document.getElementById('chatScroll');
+    if (!scroll) { alert(text); return; }
+    const now = new Date();
+    scroll.innerHTML += `
+      <div class="msg-row bot">
+        <div class="msg-wrap">
+          <div class="msg-bubble bot">${text}</div>
+          <div class="msg-time">${UI._formatTime(now)}</div>
+        </div>
+      </div>`;
+    scroll.scrollTop = scroll.scrollHeight;
+  },
+
+  toggle() {
+    if (!this._supported()) {
+      this._notify('Tu navegador no soporta reconocimiento de voz nativo 😕. Probá desde Chrome en Android, o escribime como siempre.');
+      return;
+    }
+
+    const rec = this._ensureRecognition();
+    if (!rec) return;
+
+    if (this._listening) {
+      // Tocar el mic mientras está escuchando CANCELA (no envía nada a medias).
+      this._finalTranscript = '';
+      this._autoSent = true; // evita que onend/onresult disparen un envío
+      rec.stop();
+      this._listening = false;
+      this._updateButtonState();
+      const input = document.getElementById('chatInput');
+      if (input) { input.value = ''; input.dispatchEvent(new Event('input')); }
+      return;
+    }
+
+    this._finalTranscript = '';
+    this._autoSent = false;
+    const input = document.getElementById('chatInput');
+    if (input) { input.value = ''; input.dispatchEvent(new Event('input')); }
+
+    try {
+      rec.start();
+      this._listening = true;
+      this._updateButtonState();
+    } catch (err) {
+      // rec.start() explota si ya estaba arrancado (doble click rápido, etc.)
+      this._listening = false;
+      this._updateButtonState();
+    }
+  }
+};
+
 const UI = {
 
   // Guarda referencias de recetas (y su bebida sugerida) para poder abrir
@@ -554,9 +724,10 @@ const UI = {
     return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
   },
 
-  // Agrega el botón 🔈/🔊 de "que Nutrio te hable" dentro de la barra de
-  // chat, sin necesidad de tocar el index.html a mano. Se inserta una sola
-  // vez (chequea si ya existe) y refleja el estado guardado en Speech.enabled.
+  // Agrega los botones 🔈/🔊 (auto-hablar), 🎙️ (elegir voz) y 🎤 (hablarle
+  // al chat) dentro de la barra de chat, sin necesidad de tocar el
+  // index.html a mano. Se inserta una sola vez (chequea si ya existe) y
+  // refleja el estado guardado en Speech.enabled.
   _injectSpeechToggle() {
     const bar = document.getElementById('chatInputBar');
     if (!bar || document.getElementById('speechToggleBtn')) return;
@@ -581,6 +752,17 @@ const UI = {
     voiceBtn.innerText = '🎙️';
     voiceBtn.onclick = () => this.openVoicePicker();
     bar.insertBefore(voiceBtn, btn.nextSibling);
+
+    // Botón de reconocimiento de voz: al tocarlo empieza a escuchar, y
+    // apenas termina de detectar la frase la manda sola al chat.
+    const micBtn = document.createElement('button');
+    micBtn.id = 'voiceInputBtn';
+    micBtn.type = 'button';
+    micBtn.title = 'Hablarle a NutrIO';
+    micBtn.style.cssText = 'background:none; border:none; font-size:20px; cursor:pointer; padding:0 6px; line-height:1; transition: transform 0.15s;';
+    micBtn.innerText = '🎤';
+    micBtn.onclick = () => VoiceInput.toggle();
+    bar.insertBefore(micBtn, voiceBtn.nextSibling);
   },
 
   // Muestra, como mensaje del bot, las voces en español instaladas en el
