@@ -1115,6 +1115,48 @@ const UI = {
     if (Speech.enabled) Speech.speak(text);
   },
 
+  // ----------------------------------------------------------------------
+  // INDICADOR DE "ESCRIBIENDO...": se muestra apenas se manda un mensaje y
+  // se saca justo antes de pintar la respuesta (venga de la IA o de las
+  // reglas). Usa un id fijo así siempre hay a lo sumo un indicador en
+  // pantalla, sin importar cuántas veces se llame a _showTypingIndicator.
+  // ----------------------------------------------------------------------
+  _showTypingIndicator() {
+    this._hideTypingIndicator();
+    const scroll = document.getElementById('chatScroll');
+    if (!scroll) return;
+    scroll.innerHTML += `
+      <div class="msg-row bot" id="typingIndicator">
+        <div class="msg-wrap">
+          <div class="msg-bubble bot typing-bubble">
+            <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
+          </div>
+        </div>
+      </div>`;
+    scroll.scrollTop = scroll.scrollHeight;
+
+    // Inyecta el CSS de los puntitos una sola vez, así no hace falta tocar
+    // el archivo de estilos a mano para que esto se vea bien.
+    if (!document.getElementById('typingIndicatorStyles')) {
+      const style = document.createElement('style');
+      style.id = 'typingIndicatorStyles';
+      style.textContent = `
+        .typing-bubble { display:flex; align-items:center; gap:4px; padding:12px 14px; }
+        .typing-dot { width:6px; height:6px; border-radius:50%; background:currentColor; opacity:0.4;
+          animation: nutrioTypingBlink 1.2s infinite ease-in-out; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes nutrioTypingBlink { 0%, 80%, 100% { opacity: 0.2; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+      `;
+      document.head.appendChild(style);
+    }
+  },
+
+  _hideTypingIndicator() {
+    const el = document.getElementById('typingIndicator');
+    if (el) el.remove();
+  },
+
   // Da la sensación de "toque" en tarjetas y pestañas: agrega/quita
   // la clase .pressed sin depender de :active (poco confiable en iOS/Safari).
   _bindTapFeedback() {
@@ -1736,7 +1778,16 @@ const UI = {
     }
   },
 
-  sendChat() {
+  // ----------------------------------------------------------------------
+  // sendChat(): ahora es async porque ChatApp.getBotResponseSmart puede
+  // llamar a la IA (Gemini) antes de contestar. Mientras se resuelve, se
+  // muestra el indicador de "escribiendo..." (ver _showTypingIndicator).
+  // Los botones 👍/👎 solo se pintan cuando response.source === 'reglas',
+  // porque ahí sí hay un category/idx real de una variante del motor de
+  // reglas para aprender. Cuando la respuesta vino de la IA (source: 'ia')
+  // no tiene sentido mostrarlos: solo se pinta el botón de 🔊 escuchar.
+  // ----------------------------------------------------------------------
+  async sendChat() {
     const input = document.getElementById('chatInput');
     if (!input || !input.value.trim()) return;
     const msg = input.value.trim();
@@ -1766,12 +1817,23 @@ const UI = {
       return;
     }
 
-    setTimeout(() => {
+    // Chiquito delay antes de mostrar "escribiendo...", para que no se vea
+    // como un parpadeo instantáneo en respuestas súper rápidas.
+    setTimeout(() => this._showTypingIndicator(), 150);
+
+    try {
       const profile = StorageApp.getProfile();
-      const response = ChatApp.getBotResponse(msg, profile);
+      const response = await ChatApp.getBotResponseSmart(msg, profile);
+      this._hideTypingIndicator();
+
       const msgId = 'chatmsg_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
       const botTime = new Date();
       this._chatTextRefs[msgId] = response.text;
+
+      const feedbackButtonsHTML = response.source === 'reglas'
+        ? `<button type="button" data-role="like" title="Me gusta" onclick="UI.rateResponse('${msgId}', '${response.category}', ${response.idx}, true)">👍</button>
+           <button type="button" data-role="dislike" title="No me gusta" onclick="UI.rateResponse('${msgId}', '${response.category}', ${response.idx}, false)">👎</button>`
+        : '';
 
       if (scroll) {
         scroll.innerHTML += `
@@ -1781,8 +1843,7 @@ const UI = {
               <div class="msg-time">${this._formatTime(botTime)}</div>
               <div class="chat-feedback">
                 <button type="button" data-role="speak" title="Escuchar" onclick="UI.speakMessage('${msgId}')">🔊</button>
-                <button type="button" data-role="like" title="Me gusta" onclick="UI.rateResponse('${msgId}', '${response.category}', ${response.idx}, true)">👍</button>
-                <button type="button" data-role="dislike" title="No me gusta" onclick="UI.rateResponse('${msgId}', '${response.category}', ${response.idx}, false)">👎</button>
+                ${feedbackButtonsHTML}
               </div>
             </div>
           </div>`;
@@ -1790,12 +1851,19 @@ const UI = {
       }
 
       if (Speech.enabled) Speech.speak(response.text);
-    }, 400);
+    } catch (err) {
+      // Red de seguridad extra: si algo inesperado explota acá (no debería,
+      // porque getBotResponseSmart nunca rechaza su promesa), no dejamos el
+      // indicador de "escribiendo..." colgado para siempre.
+      this._hideTypingIndicator();
+      console.error('NutrIO: error inesperado en sendChat', err);
+    }
   },
 
   // Guarda si al usuario le gustó o no una respuesta puntual del bot.
   // Esto hace que ChatApp deje de repetir las variantes marcadas con 👎
-  // (y priorice, dentro de lo posible, las que tuvieron 👍).
+  // (y priorice, dentro de lo posible, las que tuvieron 👍). Solo se llama
+  // para respuestas del motor de reglas (ver feedbackButtonsHTML en sendChat).
   rateResponse(msgId, category, idx, liked) {
     ChatApp.recordFeedback(category, idx, liked);
 
@@ -2465,7 +2533,7 @@ window.ChatApp = {
     if (esDespedida) {
       return this.pickVariant('despedida', [
         (n) => `¡Chau${n}! Que la vayas bien, nos vemos en la próxima. Recordá tomar agua y no saltearte las comidas. 👋`,
-        (n) => `¡Nos vemos${n}! Cualquier cosa acá ando. Que tengas un lindo resto del día. 🌱`,
+        (n) => `¡Nos vemos${n}! Cualquier cosita acá ando. Que tengas un lindo resto del día. 🌱`,
         (n) => `¡Listo${n}, hasta la próxima! Si te tienta algo raro de comer, ya sabés dónde encontrarme. 😉`,
         (n) => `¡Dale${n}, cuidate! Nos vemos prontito por acá. 🍎`,
         (n) => `¡Chau chau${n}! Fue un gusto charlar, ¡a comer rico! 🥗`
