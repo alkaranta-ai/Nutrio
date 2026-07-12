@@ -1189,9 +1189,10 @@ const UI = {
 
   // Agrega los botones 🔈/🔊 (auto-hablar), 🎙️ (elegir voz) y 🔔 (notificaciones)
   // arriba, al lado del nombre "Nutrio" en el header del chat, y el botón 🎤
-  // (hablarle al chat) dentro de la barra de chat, pegado a la izquierda de la
-  // flecha de enviar. Se inserta una sola vez (chequea si ya existe) y
-  // refleja el estado guardado en Speech.enabled / Notifications.isEnabled().
+  // (hablarle al chat) y 🥕 (buscar por ingredientes) dentro de la barra de
+  // chat, pegados a la izquierda de la flecha de enviar. Se inserta una sola
+  // vez (chequea si ya existe) y refleja el estado guardado en
+  // Speech.enabled / Notifications.isEnabled().
   _injectSpeechToggle() {
     if (document.getElementById('speechToggleBtn')) return;
 
@@ -1258,29 +1259,26 @@ const UI = {
       if (sendBtn) inner.insertBefore(micBtn, sendBtn);
       else inner.appendChild(micBtn);
     }
-if (inner && !document.getElementById('chatPhotoInput')) {
+
+    // --- Botón de ingredientes: abre los chips para buscar recetas con lo
+    // que tenés a mano (reemplaza al viejo botón de cámara/foto, que no
+    // tenía ningún servicio de visión conectado detrás). ---
+    if (inner && !document.getElementById('chatIngredientsBtn')) {
       const micBtnRef = document.getElementById('voiceInputBtn');
 
-      const photoInput = document.createElement('input');
-      photoInput.type = 'file';
-      photoInput.id = 'chatPhotoInput';
-      photoInput.accept = 'image/*';
-      photoInput.capture = 'environment';
-      photoInput.hidden = true;
-      photoInput.onchange = (e) => this.handlePhotoSelected(e);
-      inner.appendChild(photoInput);
+      const ingBtn = document.createElement('button');
+      ingBtn.id = 'chatIngredientsBtn';
+      ingBtn.type = 'button';
+      ingBtn.title = 'Buscar recetas por ingredientes que tenés';
+      ingBtn.style.cssText = 'background:none; border:none; font-size:20px; cursor:pointer; padding:0 6px; line-height:1; flex-shrink:0;';
+      ingBtn.innerText = '🥕';
+      ingBtn.onclick = () => UI.openIngredientPicker();
 
-      const photoBtn = document.createElement('button');
-      photoBtn.id = 'chatPhotoBtn';
-      photoBtn.type = 'button';
-      photoBtn.title = 'Mandar foto de ingredientes';
-      photoBtn.style.cssText = 'background:none; border:none; font-size:20px; cursor:pointer; padding:0 6px; line-height:1; flex-shrink:0;';
-      photoBtn.innerText = '📷';
-      photoBtn.onclick = () => document.getElementById('chatPhotoInput').click();
+      if (micBtnRef) inner.insertBefore(ingBtn, micBtnRef);
+      else inner.appendChild(ingBtn);
+    }
 
-      if (micBtnRef) inner.insertBefore(photoBtn, micBtnRef);
-      else inner.appendChild(photoBtn);
-    }    if (Notifications.isEnabled()) Notifications.start();
+    if (Notifications.isEnabled()) Notifications.start();
   },
 
   // Muestra, como mensaje del bot, las voces en español instaladas en el
@@ -1829,9 +1827,10 @@ if (inner && !document.getElementById('chatPhotoInput')) {
     input.value = '';
     input.style.height = 'auto';
 
-    // Si estamos esperando que el usuario liste los ingredientes de una foto
-    // adjuntada, este mensaje se interpreta como esa lista (separada por
-    // coma) en vez de pasar por las reglas normales del chat.
+    // Si estamos esperando que el usuario liste los ingredientes que tiene
+    // (después de abrir el picker con 🥕), este mensaje se interpreta como
+    // esa lista (separada por coma) en vez de pasar por las reglas normales
+    // del chat.
     if (ChatApp._awaitingIngredients) {
       const list = msg.split(',').map(s => s.trim()).filter(Boolean);
       setTimeout(() => this._resolveIngredientSearch(list), 350);
@@ -1897,91 +1896,47 @@ if (inner && !document.getElementById('chatPhotoInput')) {
   },
 
   // ======================================================================
-  // FOTO DE INGREDIENTES → SUGERENCIA DE RECETAS (100% local, sin API)
+  // BÚSQUEDA POR INGREDIENTES → SUGERENCIA DE RECETAS (100% local, sin API)
   //
-  // La app no puede "ver" el contenido real de la foto (no hay ningún
-  // servicio de visión conectado). Lo que sí hace: muestra la foto en el
-  // chat como referencia, y le pide al usuario que confirme qué ingredientes
-  // hay tocando chips (armados con TU LISTA DE SUPERMERCADO/carrito, ya
-  // filtrada de condimentos/especias) o escribiéndolos. Con esa lista arma
+  // Se abre con el botón 🥕: muestra chips armados con TU LISTA DE
+  // SUPERMERCADO (carrito), ya filtrada de condimentos/especias, o con los
+  // ingredientes más comunes de la base si el carrito está vacío. El
+  // usuario toca los que tiene (o escribe otros) y con esa lista se arman
   // sugerencias reales de recetas, respetando alergias/restricciones del perfil.
   // ======================================================================
-handlePhotoSelected(event) {
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
-
-    if (!file.type || !file.type.startsWith('image/')) {
-      alert('Elegí un archivo de imagen (foto) para poder seguir.');
-      event.target.value = '';
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      this._addPhotoMessage(e.target.result, file);
-      event.target.value = '';
-    };
-    reader.readAsDataURL(file);
-  },
-
-  _addPhotoMessage(dataUrl, file) {
+  openIngredientPicker() {
     const scroll = document.getElementById('chatScroll');
+    if (!scroll) return;
+
+    ChatApp._awaitingIngredients = true;
+    ChatApp._pendingIngredients = [];
+
+    let known = ChatApp._getCartIngredientsFiltered();
+    if (!known.length) known = ChatApp._getKnownIngredients();
+
     const now = new Date();
-    if (scroll) {
-      scroll.innerHTML += `
-        <div class="msg-row user">
-          <div class="msg-wrap">
-            <div class="msg-bubble user msg-bubble-photo"><img class="chat-photo" src="${dataUrl}" alt="Foto de ingredientes"></div>
-            <div class="msg-time">${this._formatTime(now)}</div>
-          </div>
-        </div>`;
-      scroll.scrollTop = scroll.scrollHeight;
-    }
-    setTimeout(() => this._resolvePhoto(file), 450);
+    const chipsHTML = known.map(ing => {
+      const safe = ing.replace(/'/g, "\\'");
+      return `<span class="chip-sm tap-feedback" data-ing="${ing}" onclick="UI.toggleIngredientChip(this, '${safe}')">${ing}</span>`;
+    }).join('');
+
+    const bodyHTML = known.length
+      ? `Tocá los ingredientes que tenés a mano (podés elegir varios):
+         <div class="ingredient-picker-chips" id="ingredientPickerChips">${chipsHTML}</div>
+         <input type="text" id="extraIngredientsInput" placeholder="¿Algo más? Separá con coma" style="width:100%; margin-top:10px; padding:8px; border-radius:8px; border:1px solid #ddd; box-sizing:border-box;">
+         <button type="button" onclick="UI.confirmIngredientSearch()" style="width:100%; margin-top:10px; padding:10px; border:none; border-radius:8px; font-weight:bold; cursor:pointer; background:var(--primary); color:white;">Buscar recetas</button>`
+      : `Todavía no tengo ingredientes para sugerirte (armá primero tu lista de supermercado en el Carrito). Escribime acá los que tengas, separados por coma, y te busco recetas.`;
+
+    scroll.innerHTML += `
+      <div class="msg-row bot">
+        <div class="msg-wrap">
+          <div class="msg-bubble bot">${bodyHTML}</div>
+          <div class="msg-time">${this._formatTime(now)}</div>
+        </div>
+      </div>`;
+    scroll.scrollTop = scroll.scrollHeight;
   },
 
-  async _resolvePhoto(file) {
-    if (typeof ChatApp.getBotResponseConFoto !== 'function') {
-      this._promptIngredientSelection();
-      return;
-    }
-
-    this._showTypingIndicator();
-    const profile = StorageApp.getProfile();
-
-    try {
-      const response = await ChatApp.getBotResponseConFoto(file, '', profile);
-      this._hideTypingIndicator();
-
-      if (response.source === 'ia') {
-        const msgId = 'chatmsg_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-        const now = new Date();
-        this._chatTextRefs[msgId] = response.text;
-        const scroll = document.getElementById('chatScroll');
-        if (scroll) {
-          scroll.innerHTML += `
-            <div class="msg-row bot" id="${msgId}">
-              <div class="msg-wrap">
-                <div class="msg-bubble bot">${response.text}</div>
-                <div class="msg-time">${this._formatTime(now)}</div>
-                <div class="chat-feedback">
-                  <button type="button" data-role="speak" title="Escuchar" onclick="UI.speakMessage('${msgId}')">🔊</button>
-                </div>
-              </div>
-            </div>`;
-          scroll.scrollTop = scroll.scrollHeight;
-        }
-        if (Speech.enabled) Speech.speak(response.text);
-        return;
-      }
-
-      this._promptIngredientSelection();
-    } catch (err) {
-      this._hideTypingIndicator();
-      console.warn('NutrIO: fallback a picker local de ingredientes →', err.message);
-      this._promptIngredientSelection();
-    }
-  },
   toggleIngredientChip(el, val) {
     el.classList.toggle('active');
     const idx = ChatApp._pendingIngredients.indexOf(val);
@@ -2113,6 +2068,9 @@ window.ChatApp = {
   // de datos (desayuno/almuerzo/meriendas/cena), para no repetir la misma
   // dos veces seguidas cuando se pregunta de nuevo.
   _lastChatRecipe: {},
+  // Últimos ids (hasta 3) mostrados por categoría cuando se piden varias
+  // recetas de una — evita repetir la misma tanda dos veces seguidas.
+  _lastChatRecipes: {},
   _lastChatDrink: {},
 
   // Recuerda si lo último que se le ofreció al usuario fue comida o bebida,
@@ -2120,7 +2078,7 @@ window.ChatApp = {
   _lastTopic: null,
 
   // true mientras el chat está esperando que el usuario confirme los
-  // ingredientes de una foto recién adjuntada (ver UI._promptIngredientSelection).
+  // ingredientes que tiene a mano (ver UI.openIngredientPicker).
   _awaitingIngredients: false,
   _pendingIngredients: [],
   __knownIngredientsCache: null,
@@ -2165,6 +2123,18 @@ window.ChatApp = {
     return { key: 'antojo', label: 'Piqueteo / algo ligero' }; // madrugada
   },
 
+  // Si el usuario pidió una comida puntual por su nombre ("qué puedo
+  // cenar", "qué almuerzo", etc.), devolvemos esa franja aunque no sea la
+  // hora real. Si no menciona ninguna en particular, caemos a la franja
+  // horaria actual (_getMealSlot).
+  _getRequestedSlot(msg) {
+    if (msg.includes('cenar') || msg.includes('para la cena') || msg.includes('que ceno')) return { key: 'cena', label: 'Cena' };
+    if (msg.includes('almorzar') || msg.includes('para el almuerzo') || msg.includes('que almuerzo')) return { key: 'almuerzo', label: 'Almuerzo' };
+    if (msg.includes('desayunar') || msg.includes('para el desayuno') || msg.includes('que desayuno')) return { key: 'desayuno', label: 'Desayuno' };
+    if (msg.includes('merendar') || msg.includes('para la merienda') || msg.includes('que meriendo')) return { key: 'merienda', label: 'Merienda' };
+    return this._getMealSlot();
+  },
+
   // --------------------------------------------------------------------
   // VARIEDAD DE COMIDA: arma el pool filtrado (respeta alergias, dislikes,
   // restricciones y condiciones de salud vía MealEngine.filterRecipesForProfile)
@@ -2190,6 +2160,36 @@ window.ChatApp = {
     const pick = choices[Math.floor(Math.random() * choices.length)];
     this._lastChatRecipe[category] = pick.id;
     return pick;
+  },
+
+  // --------------------------------------------------------------------
+  // VARIEDAD DE COMIDA (VARIAS A LA VEZ): igual que la de arriba, pero
+  // devuelve hasta "count" recetas distintas del pool filtrado, evitando
+  // repetir la última tanda mostrada en el chat para esa categoría cuando
+  // hay suficientes opciones para no repetir.
+  // --------------------------------------------------------------------
+  _getRandomRecipesForSlot(slotKey, profile, count, forceCheatDay) {
+    if (typeof MealEngine === 'undefined' || typeof RECIPES_DB === 'undefined') return [];
+    const category = SLOT_TO_CATEGORY[slotKey] || 'meriendas';
+
+    const isSunday = forceCheatDay !== undefined ? forceCheatDay : MealEngine.isCheatDay(new Date());
+    let pool = MealEngine.filterRecipesForProfile(category, profile, isSunday);
+    pool = MealEngine.refineByKcal(pool, profile, category);
+    if (!pool.length) pool = getRecipesByCategory(category);
+    if (!pool.length) return [];
+
+    const lastIds = this._lastChatRecipes[category] || [];
+    let choices = pool;
+    if (pool.length > count) {
+      const withoutLast = pool.filter(r => !lastIds.includes(r.id));
+      if (withoutLast.length >= count) choices = withoutLast;
+    }
+
+    const shuffled = [...choices].sort(() => Math.random() - 0.5);
+    const picked = shuffled.slice(0, Math.min(count, shuffled.length));
+
+    this._lastChatRecipes[category] = picked.map(r => r.id);
+    return picked;
   },
 
   // --------------------------------------------------------------------
@@ -2228,12 +2228,12 @@ window.ChatApp = {
   },
 
   // --------------------------------------------------------------------
-  // SUGERENCIA POR FOTO DE INGREDIENTES (100% local)
+  // SUGERENCIA POR INGREDIENTES DISPONIBLES (100% local)
   // --------------------------------------------------------------------
 
   // Palabras que identifican condimentos, especias, líquidos base o aditivos:
-  // se descartan de los chips porque no son algo que alguien "vea y toque"
-  // en una foto de ingredientes, y ensucian la lista (aparecen en casi
+  // se descartan de los chips porque no son algo que alguien tenga que
+  // "elegir" al armar una receta, y ensucian la lista (aparecen en casi
   // todas las recetas, así que sin este filtro le ganan el lugar a cosas
   // como carne o zanahoria).
   _CONDIMENT_KEYWORDS: [
@@ -2266,7 +2266,7 @@ window.ChatApp = {
   //
   // Esta lista es un RESPALDO (fallback) para cuando el usuario todavía no
   // armó su lista de supermercado (carrito). Si el carrito tiene datos, el
-  // picker de la foto usa _getCartIngredientsFiltered() en su lugar.
+  // picker de ingredientes usa _getCartIngredientsFiltered() en su lugar.
   _getKnownIngredients() {
     if (this.__knownIngredientsCache) return this.__knownIngredientsCache;
     if (typeof RECIPES_DB === 'undefined') return [];
@@ -2301,7 +2301,7 @@ window.ChatApp = {
     });
 
     // Límites por categoría: priorizamos proteínas y vegetales (lo más
-    // "reconocible" en una foto), sin dejar afuera frutas/carbohidratos/lácteos.
+    // "reconocible" al armar la lista), sin dejar afuera frutas/carbohidratos/lácteos.
     const limits = { proteinas: 14, vegetales: 14, carbohidratos: 8, lacteos: 6, frutas: 8, otros: 6 };
     let known = [];
     Object.keys(limits).forEach(cat => {
@@ -2819,12 +2819,20 @@ window.ChatApp = {
       ], horaTxt, slot.label, drink);
     }
 
-    // --- "¿Qué puedo comer ahora?" tiene prioridad sobre el resto ---
+    // --- "¿Qué puedo comer/cenar/almorzar/desayunar/merendar ahora?" ---
     // (incluye variantes en lunfardo, ya normalizadas arriba a "comer")
     const preguntaQueComer =
       (msg.includes('que puedo comer') ||
        msg.includes('que como') ||
        msg.includes('que comer') ||
+       msg.includes('que puedo cenar') ||
+       msg.includes('que ceno') ||
+       msg.includes('que puedo almorzar') ||
+       msg.includes('que almuerzo') ||
+       msg.includes('que puedo desayunar') ||
+       msg.includes('que desayuno') ||
+       msg.includes('que puedo merendar') ||
+       msg.includes('que meriendo') ||
        msg.includes('tengo hambre') ||
        msg.includes('hambre canina') ||
        msg.includes('hambre feroz') ||
@@ -2836,26 +2844,24 @@ window.ChatApp = {
       !msg.includes('no me gusta');
 
     if (preguntaQueComer) {
-      const slot = this._getMealSlot();
-      const recipe = this._getRandomRecipeForSlot(slot.key, profile);
+      const slot = this._getRequestedSlot(msg);
+      const recipes = this._getRandomRecipesForSlot(slot.key, profile, 3);
       const drink = this._getRandomDrinkForSlot(slot.key, profile);
       const now = new Date();
       const horaTxt = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
       this._lastTopic = 'comida';
 
-      if (!recipe) {
+      if (!recipes.length) {
         return this.pickVariant('que_comer_sin_receta', [
           (h, l) => `Son las ${h}, momento de **${l}**. Todavía no tengo tus recetas cargadas, pero fijate en Inicio o en la Semana para ver qué te armé.`
         ], horaTxt, slot.label);
       }
 
-      const ingredientesTxt = recipe.ingredients ? recipe.ingredients.join(', ') : '';
       let restriccionesNote = '';
       if (profile && profile.restrictions && profile.restrictions.length) {
         restriccionesNote = ` (ya tuve en cuenta que sos ${profile.restrictions.join(', ')})`;
       }
 
-      // Armamos la frase de bebida acá para no repetir la lógica en las 3 variantes.
       let drinkTxt = '';
       if (drink && drink.sinAlcohol) {
         drinkTxt = ` Para acompañar, va bien con ${drink.sinAlcohol}`;
@@ -2864,11 +2870,13 @@ window.ChatApp = {
           : '.';
       }
 
+      const cardsHTML = (typeof UI !== 'undefined' && UI._buildChatRecipeCardsHTML) ? UI._buildChatRecipeCardsHTML(recipes) : '';
+
       return this.pickVariant('que_comer', [
-        (h, l, r, ing, note, d) => `Son las ${h}, así que te toca **${l}**${note}: **${r.name}** (${r.kcal} kcal) con ${ing}.${d} Si no te cierra, pedime "otra receta" y probamos con otra. Está armado también en la solapa de Inicio si querés verlo con detalle. 🍽️`,
-        (h, l, r, ing, note, d) => `Mirá la hora, son las ${h}: momento de **${l}**${note}. Te tiro esta: **${r.name}** (${r.kcal} kcal) con ${ing}.${d} Si querés otra idea, avisame. Lo tenés también en Inicio. 😋`,
-        (h, l, r, ing, note, d) => `A las ${h} te toca directamente **${l}**${note}. Va **${r.name}** (${r.kcal} kcal), con ${ing}.${d} Chequealo en Inicio si querés más detalle, o pedime otra opción si esta no te tienta. 🍽️`
-      ], horaTxt, slot.label, recipe, ingredientesTxt, restriccionesNote, drinkTxt);
+        (h, l, note, d, cards) => `Son las ${h}, así que te toca **${l}**${note}. Te tiro 3 opciones:${cards}${d} Tocá la que más te copa para ver la receta completa. Si ninguna te cierra, pedime "otra opción". 🍽️`,
+        (h, l, note, d, cards) => `Mirá la hora, son las ${h}: momento de **${l}**${note}. Estas son 3 ideas:${cards}${d} Tocá alguna para ver el paso a paso. 😋`,
+        (h, l, note, d, cards) => `A las ${h} te toca **${l}**${note}. Elegí entre estas 3:${cards}${d} Si ninguna te tienta, pedime otra tanda. 🍽️`
+      ], horaTxt, slot.label, restriccionesNote, drinkTxt, cardsHTML);
     }
 
     // --- Saludos ---
