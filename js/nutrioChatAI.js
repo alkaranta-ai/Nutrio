@@ -302,4 +302,7 @@ Reglas:
       return { ...r, source: 'reglas' };
     }
   };
+  window.ChatApp._construirContextoIA = construirContexto;
+  window.ChatApp._construirSystemPromptIA = construirSystemPrompt;
+  window.ChatApp._WORKER_URL = WORKER_URL;
 })();
