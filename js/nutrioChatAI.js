@@ -1,3 +1,4 @@
+
 // ==========================================================================
 // NUTRIO CHAT AI — capa híbrida sobre ChatApp (app.js)
 //
@@ -118,6 +119,20 @@ Reglas:
 
   function limiteAlcanzado() {
     return usoDeHoy() >= LIMITE_DIARIO;
+  }
+
+  // Modo debug SIN consola: agregá "?debug=ia" al final de la URL de tu
+  // app (ej. https://tuapp.com/index.html?debug=ia) y recargá. Mientras
+  // esté activo, si la IA falla por lo que sea, el motivo del error se
+  // pega directo en el texto de la respuesta del chat, así se ve en la
+  // pantalla sin abrir nada técnico. Sacá el "?debug=ia" de la URL (o
+  // recargá sin él) para volver al comportamiento normal.
+  function debugActivo() {
+    try {
+      return new URLSearchParams(window.location.search).get('debug') === 'ia';
+    } catch (e) {
+      return false;
+    }
   }
 
   function construirSystemPrompt(profile) {
@@ -265,8 +280,15 @@ Reglas:
       return { ...r, source: 'reglas' };
     }
 
-    if (!navigator.onLine || limiteAlcanzado()) {
+    if (!navigator.onLine) {
       const r = this.getBotResponse(userMessage, profile);
+      if (debugActivo()) r.text = `[DEBUG: sin conexión a internet] ${r.text}`;
+      return { ...r, source: 'reglas' };
+    }
+
+    if (limiteAlcanzado()) {
+      const r = this.getBotResponse(userMessage, profile);
+      if (debugActivo()) r.text = `[DEBUG: límite diario de IA alcanzado (${usoDeHoy()}/${LIMITE_DIARIO})] ${r.text}`;
       return { ...r, source: 'reglas' };
     }
 
@@ -276,6 +298,7 @@ Reglas:
     } catch (err) {
       console.warn('NutrioChatAI: fallback al motor de reglas →', err.message);
       const r = this.getBotResponse(userMessage, profile);
+      if (debugActivo()) r.text = `[DEBUG: ${err.message}] ${r.text}`;
       return { ...r, source: 'reglas' };
     }
   };
