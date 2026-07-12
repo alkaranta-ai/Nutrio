@@ -710,7 +710,7 @@ const Speech = {
   },
 
   // Lista todas las voces en español disponibles en este dispositivo/navegador,
-  // usada por el selector de voz (UI.openVoicePicker).
+  // usada por el selector de voz (si se reactiva en el futuro).
   getSpanishVoices() {
     if (!this._supported()) return [];
     return window.speechSynthesis.getVoices()
@@ -1187,12 +1187,11 @@ const UI = {
     return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
   },
 
-  // Agrega los botones 🔈/🔊 (auto-hablar), 🎙️ (elegir voz) y 🔔 (notificaciones)
-  // arriba, al lado del nombre "Nutrio" en el header del chat, y el botón 🎤
-  // (hablarle al chat) y 🥕 (buscar por ingredientes) dentro de la barra de
-  // chat, pegados a la izquierda de la flecha de enviar. Se inserta una sola
-  // vez (chequea si ya existe) y refleja el estado guardado en
-  // Speech.enabled / Notifications.isEnabled().
+  // Agrega los botones 🔈/🔊 (auto-hablar) y 🔔 (notificaciones) arriba, al
+  // lado del nombre "Nutrio" en el header del chat, y el botón 🥕 (buscar
+  // por ingredientes) a la IZQUIERDA de la barra de chat (antes del input
+  // de texto). Se inserta una sola vez (chequea si ya existe) y refleja el
+  // estado guardado en Speech.enabled / Notifications.isEnabled().
   _injectSpeechToggle() {
     if (document.getElementById('speechToggleBtn')) return;
 
@@ -1219,15 +1218,6 @@ const UI = {
       };
       headerControls.appendChild(btn);
 
-      const voiceBtn = document.createElement('button');
-      voiceBtn.id = 'speechVoiceBtn';
-      voiceBtn.type = 'button';
-      voiceBtn.title = 'Elegir qué voz usa Nutrio';
-      voiceBtn.style.cssText = 'background:none; border:none; font-size:18px; cursor:pointer; padding:0 6px; line-height:1;';
-      voiceBtn.innerText = '🎙️';
-      voiceBtn.onclick = () => this.openVoicePicker();
-      headerControls.appendChild(voiceBtn);
-
       // Botón de recordatorios: pide permiso de notificaciones la primera vez
       // y prende/apaga los avisos de "¿ya comiste?" en cada franja horaria.
       const notifBtn = document.createElement('button');
@@ -1243,11 +1233,9 @@ const UI = {
       headerControls.appendChild(notifBtn);
     }
 
-    // --- Botón de ingredientes: a la izquierda del botón de enviar ---
+    // --- Botón de ingredientes: a la IZQUIERDA de la barra de chat ---
     const inner = document.querySelector('.chat-input-inner');
     if (inner && !document.getElementById('chatIngredientsBtn')) {
-      const sendBtn = inner.querySelector('.send-btn');
-
       const ingBtn = document.createElement('button');
       ingBtn.id = 'chatIngredientsBtn';
       ingBtn.type = 'button';
@@ -1256,8 +1244,7 @@ const UI = {
       ingBtn.innerText = '🥕';
       ingBtn.onclick = () => UI.openIngredientPicker();
 
-      if (sendBtn) inner.insertBefore(ingBtn, sendBtn);
-      else inner.appendChild(ingBtn);
+      inner.insertBefore(ingBtn, inner.firstChild);
     }
 
     if (Notifications.isEnabled()) Notifications.start();
@@ -1267,6 +1254,8 @@ const UI = {
   // dispositivo/navegador para que el usuario pruebe y elija cuál le suena
   // mejor (la calidad varía muchísimo entre celulares). La elección queda
   // guardada y se usa a partir de ahí en todas las lecturas.
+  // NOTA: el botón 🎙️ que abría este picker desde el header fue removido;
+  // esta función queda disponible por si se la quiere invocar desde otro lado.
   openVoicePicker() {
     const scroll = document.getElementById('chatScroll');
     if (!scroll) return;
@@ -1284,7 +1273,7 @@ const UI = {
 
     let bodyHTML;
     if (!voices.length) {
-      bodyHTML = `Todavía no encontré voces en español en este dispositivo/navegador. Probá tocar el 🔊 de algún mensaje mío primero (a veces recién ahí el navegador carga la lista de voces) y volvé a tocar 🎙️.`;
+      bodyHTML = `Todavía no encontré voces en español en este dispositivo/navegador. Probá tocar el 🔊 de algún mensaje mío primero (a veces recién ahí el navegador carga la lista de voces) y volvé a intentar.`;
     } else {
       const chips = voices.map(v => {
         const isActive = v.name === currentName;
