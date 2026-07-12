@@ -1243,28 +1243,10 @@ const UI = {
       headerControls.appendChild(notifBtn);
     }
 
-    // --- Botón de micrófono: pegado a la izquierda de la flecha de enviar ---
+    // --- Botón de ingredientes: a la izquierda del botón de enviar ---
     const inner = document.querySelector('.chat-input-inner');
-    if (inner && !document.getElementById('voiceInputBtn')) {
-      const sendBtn = inner.querySelector('.send-btn');
-
-      const micBtn = document.createElement('button');
-      micBtn.id = 'voiceInputBtn';
-      micBtn.type = 'button';
-      micBtn.title = 'Hablarle a NutrIO';
-      micBtn.style.cssText = 'background:none; border:none; font-size:20px; cursor:pointer; padding:0 6px; line-height:1; transition: transform 0.15s; flex-shrink:0;';
-      micBtn.innerText = '🎤';
-      micBtn.onclick = () => VoiceInput.toggle();
-
-      if (sendBtn) inner.insertBefore(micBtn, sendBtn);
-      else inner.appendChild(micBtn);
-    }
-
-    // --- Botón de ingredientes: abre los chips para buscar recetas con lo
-    // que tenés a mano (reemplaza al viejo botón de cámara/foto, que no
-    // tenía ningún servicio de visión conectado detrás). ---
     if (inner && !document.getElementById('chatIngredientsBtn')) {
-      const micBtnRef = document.getElementById('voiceInputBtn');
+      const sendBtn = inner.querySelector('.send-btn');
 
       const ingBtn = document.createElement('button');
       ingBtn.id = 'chatIngredientsBtn';
@@ -1274,7 +1256,7 @@ const UI = {
       ingBtn.innerText = '🥕';
       ingBtn.onclick = () => UI.openIngredientPicker();
 
-      if (micBtnRef) inner.insertBefore(ingBtn, micBtnRef);
+      if (sendBtn) inner.insertBefore(ingBtn, sendBtn);
       else inner.appendChild(ingBtn);
     }
 
