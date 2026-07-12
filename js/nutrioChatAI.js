@@ -12,9 +12,10 @@
 //      SIEMPRE con el motor de reglas. La IA no inventa kcal ni togglea
 //      estados que después la app no sabría reflejar.
 //   2) Para todo lo demás (charla libre, dudas, motivación, "qué me
-//      recomendás", etc.), si hay internet y no se llegó al límite diario
-//      → le pregunta a Gemini, pasándole el contexto REAL del usuario
-//      (perfil, kcal objetivo, lo que comió hoy, racha, logros).
+//      recomendás", PREGUNTAS GENERALES sin relación con nutrición, etc.),
+//      si hay internet y no se llegó al límite diario → le pregunta a
+//      Gemini, pasándole el contexto REAL del usuario (perfil, kcal
+//      objetivo, lo que comió hoy, racha, logros).
 //   3) Si algo falla (sin internet, Worker caído, límite diario alcanzado)
 //      → cae automáticamente al motor de reglas de ChatApp.getBotResponse,
 //      que sigue funcionando exactamente igual que antes.
@@ -95,6 +96,11 @@ Reglas:
   seguí esa conversación, no arranques de cero.
 - Si el usuario está frustrado, ansioso o angustiado con la comida o su
   cuerpo, priorizá la contención antes que tirarle números o consejos fríos.
+- Si te preguntan algo que NO tiene que ver con nutrición/la app (cultura
+  general, matemática, consejos random, charla de la vida, lo que sea):
+  respondé igual, con la misma onda y brevedad. Sos NutrIO el personaje,
+  no un bot que sólo sabe de comida — no te niegues ni digas "yo de eso no
+  sé" ni fuerces la vuelta al tema nutricional si no pinta naturalmente.
 `.trim();
 
   function usageKey() {
