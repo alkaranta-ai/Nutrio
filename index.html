@@ -655,7 +655,7 @@
     <div class="chat-scroll" id="chatScroll">
       <div class="msg-row bot">
         <div class="msg-wrap">
-          <div class="msg-bubble bot">¡Hola! Contame, ¿en qué puedo ayudarte con tu alimentación o tus comidas de hoy? También podés tocar el 📷 y mandarme una foto de los ingredientes que tenés.</div>
+          <div class="msg-bubble bot">¡Hola! Contame, ¿en qué puedo ayudarte con tu alimentación o tus comidas de hoy? También podés tocar el 🥕 y te ayudo a buscar recetas con lo que tenés a mano.</div>
           <div class="msg-time" id="chatFirstMsgTime"></div>
         </div>
       </div>
@@ -709,8 +709,6 @@
 
 <div class="chat-input-bar" id="chatInputBar" style="display:none;">
   <div class="chat-input-inner">
-    <button class="attach-btn" type="button" title="Adjuntar foto de ingredientes" onclick="document.getElementById('chatPhotoInput').click()">📷</button>
-    <input type="file" id="chatPhotoInput" accept="image/*" capture="environment" style="display:none" onchange="UI.handlePhotoSelected(event)">
     <textarea id="chatInput" placeholder="Escribí un mensaje..." rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); UI.sendChat();}"></textarea>
     <button class="send-btn" onclick="UI.sendChat()">➔</button>
   </div>
