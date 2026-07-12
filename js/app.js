@@ -1258,8 +1258,29 @@ const UI = {
       if (sendBtn) inner.insertBefore(micBtn, sendBtn);
       else inner.appendChild(micBtn);
     }
+if (inner && !document.getElementById('chatPhotoInput')) {
+      const micBtnRef = document.getElementById('voiceInputBtn');
 
-    if (Notifications.isEnabled()) Notifications.start();
+      const photoInput = document.createElement('input');
+      photoInput.type = 'file';
+      photoInput.id = 'chatPhotoInput';
+      photoInput.accept = 'image/*';
+      photoInput.capture = 'environment';
+      photoInput.hidden = true;
+      photoInput.onchange = (e) => this.handlePhotoSelected(e);
+      inner.appendChild(photoInput);
+
+      const photoBtn = document.createElement('button');
+      photoBtn.id = 'chatPhotoBtn';
+      photoBtn.type = 'button';
+      photoBtn.title = 'Mandar foto de ingredientes';
+      photoBtn.style.cssText = 'background:none; border:none; font-size:20px; cursor:pointer; padding:0 6px; line-height:1; flex-shrink:0;';
+      photoBtn.innerText = '📷';
+      photoBtn.onclick = () => document.getElementById('chatPhotoInput').click();
+
+      if (micBtnRef) inner.insertBefore(photoBtn, micBtnRef);
+      else inner.appendChild(photoBtn);
+    }    if (Notifications.isEnabled()) Notifications.start();
   },
 
   // Muestra, como mensaje del bot, las voces en español instaladas en el
@@ -1885,7 +1906,7 @@ const UI = {
   // filtrada de condimentos/especias) o escribiéndolos. Con esa lista arma
   // sugerencias reales de recetas, respetando alergias/restricciones del perfil.
   // ======================================================================
-  handlePhotoSelected(event) {
+handlePhotoSelected(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
 
@@ -1897,13 +1918,13 @@ const UI = {
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      this._addPhotoMessage(e.target.result);
-      event.target.value = ''; // permite volver a elegir la misma foto si hace falta
+      this._addPhotoMessage(e.target.result, file);
+      event.target.value = '';
     };
     reader.readAsDataURL(file);
   },
 
-  _addPhotoMessage(dataUrl) {
+  _addPhotoMessage(dataUrl, file) {
     const scroll = document.getElementById('chatScroll');
     const now = new Date();
     if (scroll) {
@@ -1916,47 +1937,51 @@ const UI = {
         </div>`;
       scroll.scrollTop = scroll.scrollHeight;
     }
-    setTimeout(() => this._promptIngredientSelection(), 450);
+    setTimeout(() => this._resolvePhoto(file), 450);
   },
 
-  // Arma la lista de chips para elegir ingredientes de la foto.
-  // Prioridad: tu lista de supermercado (carrito) ya filtrada de condimentos
-  // y especias. Si todavía no armaste esa lista, caemos a los ingredientes
-  // generales de RECIPES_DB para no dejar el chat sin opciones.
-  _promptIngredientSelection() {
-    ChatApp._awaitingIngredients = true;
-    ChatApp._pendingIngredients = [];
-
-    let known = ChatApp._getCartIngredientsFiltered();
-    let notaCarritoVacio = '';
-    if (!known.length) {
-      known = ChatApp._getKnownIngredients();
-      notaCarritoVacio = ' (Ojo: todavía no tenés nada cargado en tu lista de supermercado, así que por ahora te muestro ingredientes generales — armá tu lista en la solapa Carrito para verla acá.)';
+  async _resolvePhoto(file) {
+    if (typeof ChatApp.getBotResponseConFoto !== 'function') {
+      this._promptIngredientSelection();
+      return;
     }
 
-    const chipsHTML = known.map(ing =>
-      `<span class="chip-sm tap-feedback" onclick="UI.toggleIngredientChip(this, '${ing.replace(/'/g, "\\'")}')">${ing}</span>`
-    ).join('');
+    this._showTypingIndicator();
+    const profile = StorageApp.getProfile();
 
-    const scroll = document.getElementById('chatScroll');
-    const now = new Date();
-    if (!scroll) return;
+    try {
+      const response = await ChatApp.getBotResponseConFoto(file, '', profile);
+      this._hideTypingIndicator();
 
-    scroll.innerHTML += `
-      <div class="msg-row bot">
-        <div class="msg-wrap">
-          <div class="msg-bubble bot">
-            Todavía no tengo forma de "ver" la foto (funciono 100% local, sin ningún servicio de reconocimiento de imágenes conectado 📵). Pero contame qué hay: tocá en tu lista de supermercado los ingredientes que reconozcas en la foto${notaCarritoVacio}, o escribilos directo en el chat separados por coma.
-            <div class="ingredient-picker-chips">${chipsHTML}</div>
-            <input type="text" id="extraIngredientsInput" placeholder="Otros ingredientes (separados por coma)">
-            <button class="btn btn-primary ingredient-search-btn" onclick="UI.confirmIngredientSearch()">Buscar recetas 🔍</button>
-          </div>
-          <div class="msg-time">${this._formatTime(now)}</div>
-        </div>
-      </div>`;
-    scroll.scrollTop = scroll.scrollHeight;
+      if (response.source === 'ia') {
+        const msgId = 'chatmsg_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+        const now = new Date();
+        this._chatTextRefs[msgId] = response.text;
+        const scroll = document.getElementById('chatScroll');
+        if (scroll) {
+          scroll.innerHTML += `
+            <div class="msg-row bot" id="${msgId}">
+              <div class="msg-wrap">
+                <div class="msg-bubble bot">${response.text}</div>
+                <div class="msg-time">${this._formatTime(now)}</div>
+                <div class="chat-feedback">
+                  <button type="button" data-role="speak" title="Escuchar" onclick="UI.speakMessage('${msgId}')">🔊</button>
+                </div>
+              </div>
+            </div>`;
+          scroll.scrollTop = scroll.scrollHeight;
+        }
+        if (Speech.enabled) Speech.speak(response.text);
+        return;
+      }
+
+      this._promptIngredientSelection();
+    } catch (err) {
+      this._hideTypingIndicator();
+      console.warn('NutrIO: fallback a picker local de ingredientes →', err.message);
+      this._promptIngredientSelection();
+    }
   },
-
   toggleIngredientChip(el, val) {
     el.classList.toggle('active');
     const idx = ChatApp._pendingIngredients.indexOf(val);
