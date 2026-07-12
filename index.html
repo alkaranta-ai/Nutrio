@@ -266,7 +266,8 @@
     display: flex; flex-direction: column; gap: 3px;
     border: 1px solid var(--border);
   }
-  .msg-row { display: flex; }
+  @keyframes msgIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  .msg-row { display: flex; animation: msgIn 0.28s cubic-bezier(.34,1.3,.4,1); }
   .msg-row.bot { justify-content: flex-start; }
   .msg-row.user { justify-content: flex-end; }
   .msg-wrap { max-width: 80%; display: flex; flex-direction: column; margin: 5px 0; }
@@ -335,6 +336,11 @@
     background: var(--primary); border: none; color: white; width: 44px; height: 44px;
     border-radius: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
     flex-shrink: 0; font-size: 17px;
+    transition: transform 0.15s cubic-bezier(.34,1.5,.4,1), filter 0.15s ease;
+  }
+  .send-btn:active {
+    transform: scale(0.85) rotate(-8deg);
+    filter: brightness(0.92);
   }
 
   /* Lista de compras */
@@ -397,7 +403,7 @@
   }
 </style>
 </head>
-<body>
+<body ontouchstart="">
 
 <div id="onboarding">
 
