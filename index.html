@@ -966,4 +966,38 @@ button svg,
     visibility: visible !important;
 }
 </style>
+<style>
+/* --- 1. SOLUCIÓN: Espacio para que el chat no pise el dock --- */
+.chat-container, .messages-wrapper {
+    padding-bottom: 120px !important; /* Esto crea el aire necesario */
+}
+
+/* --- 2. LIMPIEZA: El dock debe ser minimalista y transparente --- */
+.dock {
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.5) !important;
+    box-shadow: 0 -5px 20px rgba(0,0,0,0.03) !important;
+}
+
+/* 3. Aseguramos que los iconos del dock NO tengan fondo verde */
+.dock-item, .dock svg, .dock i {
+    background: transparent !important;
+    color: #94a3b8 !important; /* Color gris suave para iconos inactivos */
+}
+
+/* 4. El icono activo puede ser verde, pero SIN fondo */
+.dock-item.active, .dock-item.active svg {
+    color: #10b981 !important;
+    background: transparent !important;
+}
+
+/* 5. Aseguramos que el botón de envío sea el ÚNICO con color */
+.send-btn {
+    background: #10b981 !important;
+    color: #ffffff !important;
+    border-radius: 50% !important;
+}
+</style>
 </style>
