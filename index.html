@@ -1202,4 +1202,37 @@ window.addEventListener('load', () => {
     });
 });
 </script>
+<style>
+/* --- ESTILO PROFESIONAL: BOTÓN ARCHIVAR --- */
+
+/* Apuntamos al botón por su función onclick */
+button[onclick*="UI.archivePurchases"] {
+    background: #10b981 !important; /* Verde Nutrio */
+    color: white !important;
+    padding: 16px !important;
+    width: 90% !important;
+    margin: 20px auto !important;
+    border-radius: 30px !important;
+    border: none !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    display: block !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+    transition: all 0.3s ease !important;
+    /* Ocultamos el texto largo y ponemos solo "Archivar" */
+    font-size: 0 !important; /* Escondemos el texto viejo */
+}
+
+/* Ponemos el texto nuevo "Archivar" */
+button[onclick*="UI.archivePurchases"]::before {
+    content: "Archivar" !important;
+    font-size: 16px !important;
+}
+
+/* Efecto al tocar */
+button[onclick*="UI.archivePurchases"]:active {
+    transform: scale(0.98);
+    background: #059669 !important;
+}
+</style>
 </style>
