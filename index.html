@@ -1107,4 +1107,39 @@ button svg,
     height: 20px !important;
 }
 </style>
+<style>
+/* --- BUSCADOR AGRESIVO DE BOTÓN DE CARRITO --- */
+
+/* Buscamos cualquier botón que contenga "cart", "checkout" o "archivar" */
+button[class*="cart"], 
+button[class*="checkout"], 
+button[class*="archivar"],
+a[class*="cart"],
+.btn-cart {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 90% !important;
+    max-width: 400px !important;
+    margin: 20px auto !important;
+    padding: 18px !important;
+    background: #10b981 !important; /* El verde Nutrio */
+    color: #ffffff !important;
+    font-size: 18px !important;
+    font-weight: bold !important;
+    border-radius: 30px !important;
+    box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3) !important;
+    border: none !important;
+    text-decoration: none !important;
+    position: relative !important;
+}
+
+/* Forzamos a que el icono dentro sea grande si existe */
+button[class*="cart"] svg, 
+button[class*="checkout"] svg {
+    width: 24px !important;
+    height: 24px !important;
+    margin-right: 10px !important;
+}
+</style>
 </style>
