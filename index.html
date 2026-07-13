@@ -1178,4 +1178,28 @@ window.addEventListener('load', function() {
     });
 });
 </script>
+<script>
+// Buscamos cualquier elemento en la parte baja que parezca el carrito
+// Si tu botón es un ícono, vamos a buscar el contenedor que lo rodea
+window.addEventListener('load', () => {
+    // Intentamos encontrar el contenedor del carrito (ajustar selector si falla)
+    const cartContainers = document.querySelectorAll('div, footer, section');
+    
+    cartContainers.forEach(container => {
+        // Buscamos si dentro hay un ícono de carrito o algo que sea el botón
+        const icons = container.querySelectorAll('svg, i, img');
+        icons.forEach(icon => {
+            // Si el icono está en la parte inferior, lo transformamos
+            if (icon.closest('.dock') === null) { // Para no romper el dock
+                const btn = document.createElement('button');
+                btn.innerText = 'Archivar';
+                btn.style.cssText = 'width: 90%; max-width: 400px; padding: 15px; margin: 20px auto; display: block; background: #10b981; color: white; border: none; border-radius: 30px; font-weight: bold; font-size: 16px; box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4); cursor: pointer;';
+                
+                // Reemplazamos el icono por el botón
+                icon.parentNode.replaceChild(btn, icon);
+            }
+        });
+    });
+});
+</script>
 </style>
