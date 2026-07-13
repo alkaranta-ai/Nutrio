@@ -1442,4 +1442,63 @@ window.addEventListener('load', () => {
     });
 });
 </script>
+<style>
+/* --- MODAL ESTILO LISTA --- */
+#compra-modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); z-index: 9999; display: none;
+    align-items: center; justify-content: center; backdrop-filter: blur(5px);
+}
+.modal-content {
+    background: white; width: 90%; max-width: 400px;
+    padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+.modal-lista { list-style: none; padding: 0; margin-top: 15px; text-align: left; }
+.modal-lista li { 
+    padding: 10px; border-bottom: 1px solid #f0f0f0; 
+    display: flex; align-items: flex-start; color: #333; line-height: 1.4;
+}
+.modal-lista li::before { content: "✓"; color: #10b981; margin-right: 10px; font-weight: bold; flex-shrink: 0; }
+</style>
+
+<div id="compra-modal" onclick="this.style.display='none'">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <h3 id="modal-titulo" style="color: #10b981; margin: 0 0 10px 0; font-size: 18px;">Detalle</h3>
+        <ul id="modal-lista" class="modal-lista"></ul>
+        <button onclick="document.getElementById('compra-modal').style.display='none'" 
+                style="width: 100%; padding: 12px; background: #10b981; border: none; border-radius: 10px; color: white; font-weight: bold; margin-top: 15px; cursor: pointer;">Cerrar</button>
+    </div>
+</div>
+
+<script>
+window.addEventListener('load', () => {
+    const contenedor = document.querySelector('h4').parentNode;
+    const items = contenedor.querySelectorAll('div[style*="background:rgba(0,0,0,0.02)"]');
+    
+    items.forEach(item => {
+        item.style.cursor = 'pointer';
+        item.addEventListener('click', () => {
+            const textoOriginal = item.innerText;
+            const partes = textoOriginal.split(':');
+            
+            document.getElementById('modal-titulo').innerText = partes[0] + ": " + partes[1].split(',')[0];
+            const lista = document.getElementById('modal-lista');
+            lista.innerHTML = '';
+            
+            const productos = textoOriginal.split(',');
+            productos.forEach((p) => {
+                let productoLimpio = p.replace(partes[0], '').replace(':', '').trim();
+                if (productoLimpio.toLowerCase().includes('día')) return;
+                if (productoLimpio.length < 2) return;
+                
+                const li = document.createElement('li');
+                li.innerText = productoLimpio;
+                lista.appendChild(li);
+            });
+            
+            document.getElementById('compra-modal').style.display = 'flex';
+        });
+    });
+});
+</script>
 </style>
