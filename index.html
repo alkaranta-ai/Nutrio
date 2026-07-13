@@ -1142,4 +1142,40 @@ button[class*="checkout"] svg {
     margin-right: 10px !important;
 }
 </style>
+<style>
+/* --- ESTILO DEL BOTÓN ARCHIVAR --- */
+.btn-archivar-final {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    background: #10b981 !important;
+    color: white !important;
+    padding: 15px !important;
+    margin: 20px auto !important;
+    width: 90% !important;
+    max-width: 400px !important;
+    border-radius: 30px !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    cursor: pointer !important;
+    border: none !important;
+    font-size: 16px !important;
+    box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4) !important;
+    z-index: 999 !important;
+}
+</style>
+
+<script>
+/* Esto busca cualquier icono de carrito y le pone texto o lo reemplaza */
+window.addEventListener('load', function() {
+    // Busca botones que parezcan de carrito
+    var botones = document.querySelectorAll('button, div, a');
+    botones.forEach(function(el) {
+        if (el.innerText.toLowerCase().includes('cart') || el.classList.contains('cart-icon')) {
+            el.innerHTML = 'Archivar';
+            el.className = 'btn-archivar-final';
+        }
+    });
+});
+</script>
 </style>
