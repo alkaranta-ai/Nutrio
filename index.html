@@ -1327,4 +1327,62 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 </script>
+<style>
+/* 1. Estilo base para que se note que se pueden tocar */
+.historial-item {
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    border-radius: 8px !important;
+    margin-bottom: 8px !important;
+    padding: 10px !important;
+    background: rgba(0,0,0,0.03) !important;
+    border: 1px solid transparent !important;
+}
+
+.historial-item:hover {
+    background: rgba(16, 185, 129, 0.1) !important;
+}
+
+/* 2. El contenido que está "dentro" se oculta o se muestra */
+.historial-item .detalle {
+    display: none; /* Oculto al principio */
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #ccc;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* 3. Clase para cuando está activo */
+.historial-item.abierto {
+    background: rgba(255, 255, 255, 0.8) !important;
+    border: 1px solid #10b981 !important;
+}
+.historial-item.abierto .detalle {
+    display: block !important;
+}
+</style>
+
+<script>
+window.addEventListener('load', () => {
+    // Seleccionamos los divs que son hijos del contenedor de compras
+    const contenedor = document.querySelector('h4').parentNode;
+    const items = contenedor.querySelectorAll('div[style*="background:rgba(0,0,0,0.02)"]');
+
+    items.forEach(item => {
+        item.classList.add('historial-item');
+        
+        // Convertimos el texto del div en un resumen y un detalle
+        const textoCompleto = item.innerText;
+        item.innerHTML = `
+            <div class="resumen"><strong>${textoCompleto.split(':')[0]}:</strong> ${textoCompleto.split(':')[1].substring(0, 30)}...</div>
+            <div class="detalle">${textoCompleto}</div>
+        `;
+
+        item.addEventListener('click', () => {
+            item.classList.toggle('abierto');
+        });
+    });
+});
+</script>
 </style>
