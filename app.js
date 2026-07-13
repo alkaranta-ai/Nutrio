@@ -1660,16 +1660,27 @@ const UI = {
       </button>
     </div>`;
 
+    // Historial de compras: cada compra archivada se guarda en localStorage
+    // ('nutrio_history'). Acá NO mostramos la lista completa de ítems de
+    // cada día (solo una vista previa recortada, para no romper el diseño
+    // de la lista); el detalle completo se ve tocando la tarjeta, que abre
+    // un modal (ver openPurchaseModal). Guardamos el historial completo en
+    // _historialCache para que el modal pueda leerlo por índice.
     let historial = JSON.parse(localStorage.getItem('nutrio_history')) || [];
+    this._historialCache = historial;
+
     html += `<div style="margin-top:25px; border-top:1px dashed #ccc; padding-top:15px;">
               <h4 style="margin-bottom:10px; color:var(--text);">🗃️ Carrito e Historial de Compras</h4>`;
 
     if (historial.length === 0) {
       html += `<p style="font-size:12px; color:gray;">Aún no guardaste compras. Lo que tildes arriba quedará registrado acá por día.</p>`;
     } else {
-      historial.forEach(h => {
-        html += `<div style="background:rgba(0,0,0,0.02); padding:8px; border-radius:6px; margin-bottom:6px; font-size:13px;">
-                  <b>📅 Día ${h.date}:</b> ${h.items.join(', ')}
+      historial.forEach((h, i) => {
+        const preview = h.items.slice(0, 4).join(', ') + (h.items.length > 4 ? `… (+${h.items.length - 4} más)` : '');
+        html += `<div class="tap-feedback" onclick="UI.openPurchaseModal(${i})"
+                  style="background:rgba(0,0,0,0.02); padding:8px; border-radius:6px; margin-bottom:6px; font-size:13px; cursor:pointer;">
+                  <b>📅 Día ${h.date}</b> <span style="opacity:0.6;">(${h.items.length} ítem${h.items.length === 1 ? '' : 's'})</span><br>
+                  <span style="opacity:0.8;">${preview}</span>
                  </div>`;
       });
     }
@@ -1715,6 +1726,66 @@ const UI = {
       newBadges.forEach(badge => this._pushBotMessage(`🎉 ¡Nuevo logro desbloqueado! ${badge.icon} **${badge.name}** — ${badge.desc}`));
       this.renderProfile();
     }
+  },
+
+  // --------------------------------------------------------------------
+  // Modal de historial de compras: al tocar un día archivado en la lista
+  // se abre este modal con el detalle completo (la lista solo muestra una
+  // vista previa recortada). El modal se crea una sola vez de forma
+  // dinámica, sin depender de nada agregado a mano en index.html.
+  // --------------------------------------------------------------------
+  _ensurePurchaseModal() {
+    if (document.getElementById('purchaseHistoryModal')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'purchaseHistoryModal';
+    overlay.style.cssText = `
+      display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5);
+      z-index:9999; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;`;
+    overlay.onclick = (e) => { if (e.target === overlay) this.closePurchaseModal(); };
+
+    overlay.innerHTML = `
+      <div id="purchaseHistoryModalContent" style="
+        background:var(--bg, #fff); color:var(--text, #222); border-radius:14px;
+        max-width:420px; width:100%; max-height:80vh; overflow-y:auto; padding:18px;
+        box-shadow:0 10px 30px rgba(0,0,0,0.25);">
+      </div>`;
+
+    document.body.appendChild(overlay);
+  },
+
+  // Abre el modal con el detalle completo de la compra archivada en el
+  // índice "idx" de _historialCache (el mismo array que arma renderCart()).
+  openPurchaseModal(idx) {
+    const h = this._historialCache && this._historialCache[idx];
+    if (!h) return;
+    this._ensurePurchaseModal();
+
+    const content = document.getElementById('purchaseHistoryModalContent');
+    const overlay = document.getElementById('purchaseHistoryModal');
+    if (!content || !overlay) return;
+
+    const itemsHTML = h.items.map(item => `
+      <div style="padding:8px 0; border-bottom:1px solid rgba(0,0,0,0.06);">🛒 ${item}</div>
+    `).join('');
+
+    content.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <div style="font-weight:bold; font-size:16px;">📅 Compra del ${h.date}</div>
+        <button type="button" onclick="UI.closePurchaseModal()" style="background:none; border:none; font-size:18px; cursor:pointer; line-height:1;">✕</button>
+      </div>
+      <div style="font-size:12px; opacity:0.6; margin-bottom:8px;">${h.items.length} ítem${h.items.length === 1 ? '' : 's'} comprados</div>
+      <div>${itemsHTML}</div>
+    `;
+
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  },
+
+  closePurchaseModal() {
+    const overlay = document.getElementById('purchaseHistoryModal');
+    if (overlay) overlay.style.display = 'none';
+    document.body.style.overflow = '';
   },
 
   renderProfile() {
