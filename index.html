@@ -401,6 +401,49 @@
     font-size: 13.5px; color: var(--text-muted); background: var(--bg);
     border: 1px dashed var(--border); border-radius: 12px; padding: 12px 14px; line-height: 1.5;
   }
+  /* --- INICIO DE ESTILOS LIQUID GLASS --- */
+/* Estas reglas sobrescriben los colores sólidos para dar efecto de vidrio traslúcido */
+
+body {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%) !important;
+    background-attachment: fixed !important;
+}
+
+.card, .onb-step, .msg-bubble.bot, .msg-bubble.user {
+    background: rgba(255, 255, 255, 0.65) !important;
+    backdrop-filter: blur(15px) !important;
+    -webkit-backdrop-filter: blur(15px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.8) !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.05) !important;
+}
+
+.dock {
+    background: rgba(255, 255, 255, 0.5) !important;
+    backdrop-filter: blur(25px) !important;
+    -webkit-backdrop-filter: blur(25px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.8) !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08) !important;
+}
+
+.modal-sheet {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(30px) !important;
+    -webkit-backdrop-filter: blur(30px) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.9) !important;
+}
+
+input, select, textarea {
+    background: rgba(255, 255, 255, 0.4) !important;
+    border: 1px solid rgba(0,0,0,0.05) !important;
+}
+
+.onb-nav-wrap {
+    background: rgba(255, 255, 255, 0.6) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+}
+
+/* --- FIN DE ESTILOS LIQUID GLASS --- */
 </style>
 </head>
 <body ontouchstart="">
