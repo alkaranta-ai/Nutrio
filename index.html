@@ -1386,180 +1386,94 @@ window.addEventListener('load', () => {
 });
 </script>
 <style>
-/* --- MODAL DE COMPRA --- */
-#compra-modal {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.5); z-index: 9999; display: none;
-    align-items: center; justify-content: center; backdrop-filter: blur(5px);
-}
-.modal-content {
-    background: white; width: 90%; max-width: 400px;
-    padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
-.modal-lista { list-style: none; padding: 0; margin-top: 15px; }
-.modal-lista li { 
-    padding: 10px; border-bottom: 1px solid #f0f0f0; 
-    display: flex; align-items: center; color: #333;
-}
-.modal-lista li::before { content: "✓"; color: #10b981; margin-right: 10px; font-weight: bold; }
-</style>
-
-<div id="compra-modal" onclick="this.style.display='none'">
-    <div class="modal-content" onclick="event.stopPropagation()">
-        <h3 id="modal-titulo" style="color: #10b981;">Detalle de Compra</h3>
-        <ul id="modal-lista" class="modal-lista"></ul>
-        <button onclick="document.getElementById('compra-modal').style.display='none'" 
-                style="width: 100%; padding: 12px; background: #10b981; border: none; border-radius: 10px; color: white; font-weight: bold; margin-top: 10px;">Cerrar</button>
-    </div>
-</div>
-
-<script>
-window.addEventListener('load', () => {
-    // Buscamos los divs de las compras
-    const contenedor = document.querySelector('h4').parentNode;
-    const items = contenedor.querySelectorAll('div[style*="background:rgba(0,0,0,0.02)"]');
-    
-    items.forEach(item => {
-        item.style.cursor = 'pointer';
-        item.addEventListener('click', () => {
-            const texto = item.innerText;
-            const partes = texto.split(':');
-            const titulo = partes[0];
-            const productos = partes[1] ? partes[1].split(',') : [];
-            
-            document.getElementById('modal-titulo').innerText = titulo;
-            const lista = document.getElementById('modal-lista');
-            lista.innerHTML = '';
-            
-            productos.forEach(p => {
-                const li = document.createElement('li');
-                li.innerText = p.trim();
-                lista.appendChild(li);
-            });
-            
-            document.getElementById('compra-modal').style.display = 'flex';
-        });
-    });
-});
-</script>
 <style>
-/* --- MODAL ESTILO LISTA --- */
-#compra-modal {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.5); z-index: 9999; display: none;
-    align-items: center; justify-content: center; backdrop-filter: blur(5px);
-}
-.modal-content {
-    background: white; width: 90%; max-width: 400px;
-    padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
-.modal-lista { list-style: none; padding: 0; margin-top: 15px; text-align: left; }
-.modal-lista li { 
-    padding: 10px; border-bottom: 1px solid #f0f0f0; 
-    display: flex; align-items: flex-start; color: #333; line-height: 1.4;
-}
-.modal-lista li::before { content: "✓"; color: #10b981; margin-right: 10px; font-weight: bold; flex-shrink: 0; }
-</style>
-
-<div id="compra-modal" onclick="this.style.display='none'">
-    <div class="modal-content" onclick="event.stopPropagation()">
-        <h3 id="modal-titulo" style="color: #10b981; margin: 0 0 10px 0; font-size: 18px;">Detalle</h3>
-        <ul id="modal-lista" class="modal-lista"></ul>
-        <button onclick="document.getElementById('compra-modal').style.display='none'" 
-                style="width: 100%; padding: 12px; background: #10b981; border: none; border-radius: 10px; color: white; font-weight: bold; margin-top: 15px; cursor: pointer;">Cerrar</button>
-    </div>
-</div>
-
-<script>
-window.addEventListener('load', () => {
-    const contenedor = document.querySelector('h4').parentNode;
-    const items = contenedor.querySelectorAll('div[style*="background:rgba(0,0,0,0.02)"]');
-    
-    items.forEach(item => {
-        item.style.cursor = 'pointer';
-        item.addEventListener('click', () => {
-            const textoOriginal = item.innerText;
-            const partes = textoOriginal.split(':');
-            
-            document.getElementById('modal-titulo').innerText = partes[0] + ": " + partes[1].split(',')[0];
-            const lista = document.getElementById('modal-lista');
-            lista.innerHTML = '';
-            
-            const productos = textoOriginal.split(',');
-            productos.forEach((p) => {
-                let productoLimpio = p.replace(partes[0], '').replace(':', '').trim();
-                if (productoLimpio.toLowerCase().includes('día')) return;
-                if (productoLimpio.length < 2) return;
-                
-                const li = document.createElement('li');
-                li.innerText = productoLimpio;
-                lista.appendChild(li);
-            });
-            
-            document.getElementById('compra-modal').style.display = 'flex';
-        });
-    });
-});
-</script>
-<style>
-/* --- MODAL V2: PROTEGIDO Y AISLADO --- */
-#compra-modal-v2 {
+/* --- MODAL DE HISTORIAL DE COMPRAS (versión única y consolidada) --- */
+#compra-modal-historial {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.6); z-index: 999999; display: none;
     align-items: center; justify-content: center; backdrop-filter: blur(5px);
+    padding: 20px; box-sizing: border-box;
 }
-#compra-modal-v2 .modal-content {
-    background: white; width: 90%; max-width: 400px;
-    padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    max-height: 80vh; display: flex; flex-direction: column;
+#compra-modal-historial .modal-content {
+    background: white;
+    width: 100%; max-width: 400px;
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
 }
-#modal-lista-v2 { 
-    list-style: none; padding: 0; margin: 15px 0; 
-    overflow-y: auto; flex-grow: 1;
+#compra-modal-historial h3 {
+    color: #10b981; margin: 0 0 10px 0; font-size: 18px; flex-shrink: 0;
 }
-#modal-lista-v2 li { 
-    padding: 12px 0; border-bottom: 1px solid #eee; 
-    display: flex; align-items: flex-start; color: #333;
-    line-height: 1.5; font-size: 15px;
+#modal-lista-historial {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 15px 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1 1 auto;
+    min-height: 0; /* clave: sin esto el scroll no funciona dentro de flexbox */
+}
+#modal-lista-historial li {
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: flex-start;
+    color: #333;
+    line-height: 1.5;
+    font-size: 15px;
+}
+#compra-modal-historial button {
+    width: 100%;
+    padding: 14px;
+    background: #10b981;
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    flex-shrink: 0;
 }
 </style>
 
-<div id="compra-modal-v2" onclick="this.style.display='none'">
+<div id="compra-modal-historial" onclick="this.style.display='none'">
     <div class="modal-content" onclick="event.stopPropagation()">
-        <h3 id="modal-titulo-v2" style="color: #10b981; margin: 0; font-size: 18px;">Detalle</h3>
-        <ul id="modal-lista-v2"></ul>
-        <button onclick="document.getElementById('compra-modal-v2').style.display='none'" 
-                style="width: 100%; padding: 14px; background: #10b981; border: none; border-radius: 12px; color: white; font-weight: bold; cursor: pointer;">Cerrar</button>
+        <h3 id="modal-titulo-historial">Detalle</h3>
+        <ul id="modal-lista-historial"></ul>
+        <button onclick="document.getElementById('compra-modal-historial').style.display='none'">Cerrar</button>
     </div>
 </div>
 
 <script>
 (function() {
-    const contenedor = document.querySelector('h4').parentNode;
-    const items = contenedor.querySelectorAll('div[style*="background:rgba(0,0,0,0.02)"]');
-    
-    items.forEach(item => {
-        item.style.cursor = 'pointer';
-        item.addEventListener('click', () => {
-            const textoOriginal = item.innerText;
-            const partes = textoOriginal.split(':');
-            document.getElementById('modal-titulo-v2').innerText = partes[0].trim();
-            
-            const lista = document.getElementById('modal-lista-v2');
-            lista.innerHTML = '';
-            
-            const productos = (partes[1] || "").split(',');
-            productos.forEach((p) => {
-                let txt = p.trim();
-                if (txt.toLowerCase().includes('día') || txt.length < 2) return;
-                const li = document.createElement('li');
-                li.innerText = "✓ " + txt;
-                lista.appendChild(li);
-            });
-            
-            document.getElementById('compra-modal-v2').style.display = 'flex';
+    // Buscamos SOLO dentro del carrito, no en toda la página
+    const cartCard = document.getElementById('cartCard');
+    if (!cartCard) return;
+
+    cartCard.addEventListener('click', (e) => {
+        const item = e.target.closest('div[style*="background:rgba(0,0,0,0.02)"]');
+        if (!item) return;
+
+        const textoOriginal = item.innerText;
+        const partes = textoOriginal.split(':');
+        document.getElementById('modal-titulo-historial').innerText = partes[0].trim();
+
+        const lista = document.getElementById('modal-lista-historial');
+        lista.innerHTML = '';
+
+        const productos = (partes[1] || "").split(',');
+        productos.forEach((p) => {
+            let txt = p.trim();
+            if (txt.toLowerCase().includes('día') || txt.length < 2) return;
+            const li = document.createElement('li');
+            li.innerText = "✓ " + txt;
+            lista.appendChild(li);
         });
+
+        document.getElementById('compra-modal-historial').style.display = 'flex';
     });
 })();
 </script>
-</style>
