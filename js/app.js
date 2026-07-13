@@ -1077,14 +1077,23 @@ const VoiceInput = {
 
 // ==========================================================================
 // NUTRIOAVATAR - Carita animada de Nutrio en el header del chat (100% SVG +
-// CSS, sin imágenes externas). Estados:
-//  - 'dormido'    : sin actividad hace rato, ojitos cerrados + "z" flotando.
-//  - 'despierto'  : hay actividad reciente, ojos abiertos, parpadea de vez
-//                   en cuando.
-//  - 'pensando'   : está esperando la respuesta del bot (mientras se ve el
-//                   indicador de "escribiendo...").
-//  - 'feliz'      : acaba de mandarse o recibirse un mensaje. Pega un
-//                   saltito y después vuelve a 'despierto'.
+// CSS, sin imágenes externas). Versión mejorada: más grande, más expresiva
+// (cejas, cachetes, distintas formas de boca según el ánimo) y con más
+// estados/reacciones que antes.
+//
+// Estados:
+//  - 'dormido'     : sin actividad hace rato, ojitos cerrados + "z" flotando.
+//  - 'despierto'   : hay actividad reciente, ojos abiertos, parpadea de vez
+//                    en cuando, mejillas visibles.
+//  - 'pensando'    : está esperando la respuesta del bot (mientras se ve el
+//                    indicador de "escribiendo..."), ceja levantada, boca en "o".
+//  - 'feliz'       : acaba de mandarse o recibirse un mensaje. Pega un
+//                    saltito, sonrisa grande, y después vuelve a 'despierto'.
+//  - 'sorprendido' : reacción grande para logros/racha — ojos y boca bien
+//                    abiertos, cejas arriba, chispitas alrededor, con un
+//                    "pop" más marcado que el de 'feliz'.
+//  - 'guino'       : guiño juguetón con media sonrisa (uso puntual, vía
+//                    NutrioAvatar.wink()).
 // Si pasan _IDLE_MS sin ninguna interacción, vuelve solo a 'dormido'.
 // ==========================================================================
 const NutrioAvatar = {
@@ -1092,32 +1101,57 @@ const NutrioAvatar = {
   _idleTimer: null,
   _IDLE_MS: 18000, // 18s sin actividad en el chat y se vuelve a dormir
   _el: null,
+  _SIZE: 48, // antes 36px: le damos más presencia en el header
 
   _FACES: {
     dormido: `
       <g class="nutrio-face nutrio-face-dormido">
-        <path d="M11 15 q3 -3 6 0" />
-        <path d="M23 15 q3 -3 6 0" />
-        <path d="M15 24 q5 3 10 0" />
-        <text x="29" y="9" class="nutrio-zzz">z</text>
+        <path d="M12 18 q3 -3 6 0" class="nutrio-eye-closed" />
+        <path d="M26 18 q3 -3 6 0" class="nutrio-eye-closed" />
+        <ellipse cx="15" cy="23.5" rx="2.2" ry="1.3" class="nutrio-cheek" />
+        <ellipse cx="29" cy="23.5" rx="2.2" ry="1.3" class="nutrio-cheek" />
+        <path d="M16 27 q6 2.5 12 0" class="nutrio-mouth" />
+        <text x="32" y="10" class="nutrio-zzz nutrio-zzz1">z</text>
+        <text x="36" y="6" class="nutrio-zzz nutrio-zzz2">z</text>
       </g>`,
     despierto: `
       <g class="nutrio-face nutrio-face-despierto">
-        <circle cx="14" cy="16" r="2.4" class="nutrio-eye" />
-        <circle cx="26" cy="16" r="2.4" class="nutrio-eye" />
-        <path d="M15 24 q5 4 10 0" class="nutrio-mouth" />
+        <circle cx="15" cy="18" r="2.6" class="nutrio-eye" />
+        <circle cx="29" cy="18" r="2.6" class="nutrio-eye" />
+        <ellipse cx="15" cy="24.5" rx="2.2" ry="1.3" class="nutrio-cheek" />
+        <ellipse cx="29" cy="24.5" rx="2.2" ry="1.3" class="nutrio-cheek" />
+        <path d="M16 27 q6 4 12 0" class="nutrio-mouth" />
       </g>`,
     pensando: `
       <g class="nutrio-face nutrio-face-pensando">
-        <circle cx="14" cy="15" r="2.2" class="nutrio-eye" />
-        <circle cx="27" cy="14" r="2.2" class="nutrio-eye" />
-        <ellipse cx="20" cy="25" rx="2.5" ry="2" class="nutrio-mouth-o" />
+        <path d="M10.5 14 q3 -1.8 6 0" class="nutrio-eyebrow" />
+        <circle cx="14" cy="17.5" r="2.3" class="nutrio-eye" />
+        <circle cx="29" cy="16.5" r="2.3" class="nutrio-eye" />
+        <ellipse cx="21" cy="28" rx="2.6" ry="2.1" class="nutrio-mouth-o" />
       </g>`,
     feliz: `
       <g class="nutrio-face nutrio-face-feliz">
-        <path d="M11 16 q3 -4 6 0" class="nutrio-eye-happy" />
-        <path d="M23 16 q3 -4 6 0" class="nutrio-eye-happy" />
-        <path d="M13 22 q7 7 14 0" class="nutrio-mouth-big" />
+        <path d="M10.5 18 q3.5 -4.8 7 0" class="nutrio-eye-happy" />
+        <path d="M25.5 18 q3.5 -4.8 7 0" class="nutrio-eye-happy" />
+        <ellipse cx="14" cy="24.5" rx="2.7" ry="1.7" class="nutrio-cheek nutrio-cheek-bright" />
+        <ellipse cx="30" cy="24.5" rx="2.7" ry="1.7" class="nutrio-cheek nutrio-cheek-bright" />
+        <path d="M13.5 25 q8 8.5 16 0" class="nutrio-mouth-big" />
+      </g>`,
+    sorprendido: `
+      <g class="nutrio-face nutrio-face-sorprendido">
+        <path d="M10 12.5 q3.5 -2.4 7 0" class="nutrio-eyebrow nutrio-eyebrow-up" />
+        <path d="M26 12.5 q3.5 -2.4 7 0" class="nutrio-eyebrow nutrio-eyebrow-up" />
+        <circle cx="14" cy="18" r="3.2" class="nutrio-eye" />
+        <circle cx="30" cy="18" r="3.2" class="nutrio-eye" />
+        <ellipse cx="22" cy="28.5" rx="3.2" ry="3.4" class="nutrio-mouth-o" />
+        <path d="M4 9 l2 2 M40 9 l-2 2 M3 26 l2 -1.5 M41 26 l-2 -1.5" class="nutrio-sparkle" />
+      </g>`,
+    guino: `
+      <g class="nutrio-face nutrio-face-guino">
+        <path d="M10.5 18 q3.5 -3 7 0" class="nutrio-eye-closed" />
+        <circle cx="29" cy="18" r="2.6" class="nutrio-eye" />
+        <ellipse cx="15" cy="24.5" rx="2.2" ry="1.3" class="nutrio-cheek" />
+        <path d="M16 26.5 q6 3 11 0" class="nutrio-mouth-smirk" />
       </g>`
   },
 
@@ -1128,13 +1162,21 @@ const NutrioAvatar = {
     const header = document.querySelector('.chat-header');
     if (!header) return null;
 
+    const size = this._SIZE;
     const wrap = document.createElement('div');
     wrap.id = 'nutrioAvatar';
     wrap.title = 'Nutrio';
-    wrap.style.cssText = 'width:36px; height:36px; flex-shrink:0; margin-right:8px;';
+    wrap.style.cssText = `width:${size}px; height:${size}px; flex-shrink:0; margin-right:10px;`;
     wrap.innerHTML = `
-      <svg viewBox="0 0 40 40" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="20" cy="20" r="18" class="nutrio-avatar-body" />
+      <svg viewBox="0 0 44 44" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="nutrioBodyGradient" cx="35%" cy="30%" r="75%">
+            <stop offset="0%" stop-color="var(--primary-dim, #eef7ee)" />
+            <stop offset="100%" stop-color="var(--primary-dim, #dcf0dc)" />
+          </radialGradient>
+        </defs>
+        <circle cx="22" cy="22" r="20" class="nutrio-avatar-body" />
+        <circle cx="15.5" cy="13" r="4" class="nutrio-avatar-shine" />
         <g id="nutrioAvatarFace"></g>
       </svg>`;
 
@@ -1150,28 +1192,50 @@ const NutrioAvatar = {
     style.id = 'nutrioAvatarStyles';
     style.textContent = `
       .nutrio-avatar-body {
-        fill: var(--primary-dim, #eef7ee);
+        fill: url(#nutrioBodyGradient);
         stroke: var(--primary, #4caf50);
-        stroke-width: 1.5;
+        stroke-width: 1.6;
       }
-      #nutrioAvatar svg { display:block; }
+      .nutrio-avatar-shine {
+        fill: rgba(255,255,255,0.5);
+        pointer-events: none;
+      }
+      #nutrioAvatar { cursor: pointer; }
+      #nutrioAvatar svg { display:block; overflow:visible; }
       .nutrio-face path, .nutrio-face circle, .nutrio-face ellipse {
         stroke: var(--primary, #4caf50);
-        stroke-width: 1.8;
+        stroke-width: 1.9;
         fill: none;
         stroke-linecap: round;
       }
       .nutrio-face .nutrio-eye, .nutrio-face .nutrio-mouth-o { fill: var(--primary, #4caf50); }
+      .nutrio-face .nutrio-cheek {
+        fill: var(--accent-desayuno, #ffb74d);
+        stroke: none;
+        opacity: 0.35;
+      }
+      .nutrio-face .nutrio-cheek-bright { opacity: 0.55; }
+      .nutrio-face .nutrio-eyebrow { stroke-width: 2; }
+      .nutrio-face .nutrio-mouth-smirk { stroke-width: 2; }
+      .nutrio-face .nutrio-sparkle {
+        stroke: var(--accent-desayuno, #ffb74d);
+        stroke-width: 1.6;
+      }
       .nutrio-zzz {
         font-size: 7px;
         fill: var(--primary, #4caf50);
         opacity: 0;
-        animation: nutrioZzzFloat 2.4s ease-in-out infinite;
       }
+      .nutrio-zzz1 { animation: nutrioZzzFloat 2.4s ease-in-out infinite; }
+      .nutrio-zzz2 { animation: nutrioZzzFloat 2.4s ease-in-out infinite 0.7s; }
+
       #nutrioAvatar.is-dormido svg { animation: nutrioBreathe 3s ease-in-out infinite; transform-origin: center; }
       #nutrioAvatar.is-despierto .nutrio-eye { animation: nutrioBlink 4.5s ease-in-out infinite; transform-origin: center; }
       #nutrioAvatar.is-pensando svg { animation: nutrioThinkTilt 1.6s ease-in-out infinite; transform-origin: center; }
-      #nutrioAvatar.is-feliz svg { animation: nutrioBounce 0.5s ease-in-out; transform-origin: center; }
+      #nutrioAvatar.is-feliz svg { animation: nutrioBounce 0.55s ease-in-out; transform-origin: center; }
+      #nutrioAvatar.is-sorprendido svg { animation: nutrioPop 0.7s cubic-bezier(.34,1.56,.64,1); transform-origin: center; }
+      #nutrioAvatar.is-sorprendido .nutrio-sparkle { animation: nutrioTwinkle 0.7s ease-in-out infinite; transform-origin: center; }
+      #nutrioAvatar.is-guino svg { animation: nutrioWinkPop 0.4s ease-out; transform-origin: center; }
 
       @keyframes nutrioBreathe {
         0%, 100% { transform: scale(1); }
@@ -1180,7 +1244,7 @@ const NutrioAvatar = {
       @keyframes nutrioZzzFloat {
         0% { opacity: 0; transform: translateY(0); }
         30% { opacity: 1; }
-        100% { opacity: 0; transform: translateY(-8px); }
+        100% { opacity: 0; transform: translateY(-9px); }
       }
       @keyframes nutrioBlink {
         0%, 92%, 100% { transform: scaleY(1); }
@@ -1188,13 +1252,28 @@ const NutrioAvatar = {
       }
       @keyframes nutrioThinkTilt {
         0%, 100% { transform: rotate(0deg); }
-        50% { transform: rotate(-6deg); }
+        50% { transform: rotate(-7deg); }
       }
       @keyframes nutrioBounce {
         0% { transform: scale(1) translateY(0); }
-        30% { transform: scale(1.15) translateY(-4px); }
+        30% { transform: scale(1.16) translateY(-5px); }
         60% { transform: scale(0.95) translateY(1px); }
         100% { transform: scale(1) translateY(0); }
+      }
+      @keyframes nutrioPop {
+        0% { transform: scale(1) rotate(0deg); }
+        35% { transform: scale(1.3) rotate(-4deg); }
+        65% { transform: scale(0.92) rotate(3deg); }
+        100% { transform: scale(1) rotate(0deg); }
+      }
+      @keyframes nutrioTwinkle {
+        0%, 100% { opacity: 0.3; }
+        50% { opacity: 1; }
+      }
+      @keyframes nutrioWinkPop {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.08) rotate(-3deg); }
+        100% { transform: scale(1); }
       }
     `;
     document.head.appendChild(style);
@@ -1204,7 +1283,7 @@ const NutrioAvatar = {
     const wrap = this._ensureEl();
     if (!wrap) return;
     this._state = state;
-    wrap.classList.remove('is-dormido', 'is-despierto', 'is-pensando', 'is-feliz');
+    wrap.classList.remove('is-dormido', 'is-despierto', 'is-pensando', 'is-feliz', 'is-sorprendido', 'is-guino');
     wrap.classList.add(`is-${state}`);
     const faceContainer = wrap.querySelector('#nutrioAvatarFace');
     if (faceContainer) faceContainer.innerHTML = this._FACES[state] || this._FACES.despierto;
@@ -1230,12 +1309,37 @@ const NutrioAvatar = {
   },
 
   // Festejo cortito (saltito + carita feliz) y después vuelve a 'despierto'.
+  // Se usa en cada mensaje nuevo del chat (ver _pushBotMessage / sendChat).
   happy() {
     this.setState('feliz');
     setTimeout(() => {
       if (this._state === 'feliz') this.setState('despierto');
       this._resetIdleTimer();
     }, 900);
+  },
+
+  // Reacción grande, reservada para momentos especiales: nueva racha,
+  // logro desbloqueado, día permitido activado, etc. Dura más que happy()
+  // y usa la carita 'sorprendido' con chispitas alrededor.
+  excited() {
+    if (this._idleTimer) clearTimeout(this._idleTimer);
+    this.setState('sorprendido');
+    setTimeout(() => {
+      if (this._state === 'sorprendido') this.setState('despierto');
+      this._resetIdleTimer();
+    }, 1500);
+  },
+
+  // Guiño juguetón puntual (uso opcional, por ejemplo en algún tip o chiste
+  // del bot). Vuelve solo al estado anterior después de un ratito.
+  wink() {
+    const previous = this._state === 'guino' ? 'despierto' : this._state;
+    if (this._idleTimer) clearTimeout(this._idleTimer);
+    this.setState('guino');
+    setTimeout(() => {
+      if (this._state === 'guino') this.setState(previous === 'dormido' ? 'despierto' : previous);
+      this._resetIdleTimer();
+    }, 800);
   },
 
   init() {
@@ -1247,6 +1351,11 @@ const NutrioAvatar = {
     if (input) {
       input.addEventListener('focus', () => this.wake());
       input.addEventListener('input', () => this.wake());
+    }
+
+    // Tocar al propio Nutrio le saca un guiño simpático (easter egg chiquito).
+    if (this._el) {
+      this._el.addEventListener('click', () => this.wink());
     }
   }
 };
@@ -1294,7 +1403,9 @@ const UI = {
 
   // Racha + logros + notificaciones: se corre una vez por carga de app,
   // después de que el chat ya está visible, así los mensajes de racha o
-  // de logros nuevos aparecen como mensajes del bot al toque.
+  // de logros nuevos aparecen como mensajes del bot al toque. Usamos la
+  // reacción 'excited' del avatar (más grande que la de un mensaje común)
+  // para que estos momentos se sientan especiales.
   _handleDailyEngagement() {
     const streakResult = Streak.checkIn();
 
@@ -1302,12 +1413,12 @@ const UI = {
       const msg = streakResult.brokeStreak
         ? `Che, se cortó tu racha anterior, pero arrancamos una nueva hoy 💪. ¡Vamos de nuevo!`
         : `🔥 ¡Racha de ${streakResult.count} días seguidos usando NutrIO! Seguí así.`;
-      this._pushBotMessage(msg);
+      this._pushBotMessage(msg, 'excited');
     }
 
     const newBadges = Achievements.checkAndUnlock();
     newBadges.forEach(badge => {
-      this._pushBotMessage(`🎉 ¡Nuevo logro desbloqueado! ${badge.icon} **${badge.name}** — ${badge.desc}`);
+      this._pushBotMessage(`🎉 ¡Nuevo logro desbloqueado! ${badge.icon} **${badge.name}** — ${badge.desc}`, 'excited');
     });
 
     this.renderProfile();
@@ -1317,7 +1428,9 @@ const UI = {
 
   // Inserta un mensaje del bot en el chat sin pasar por sendChat (para
   // mensajes automáticos como racha/logros, no respuestas a algo escrito).
-  _pushBotMessage(text) {
+  // "reaction" controla qué animación pega el avatar: 'happy' (default,
+  // saltito normal) o 'excited' (reacción grande, para racha/logros).
+  _pushBotMessage(text, reaction) {
     const scroll = document.getElementById('chatScroll');
     if (!scroll) return;
     const msgId = 'chatmsg_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
@@ -1334,7 +1447,8 @@ const UI = {
         </div>
       </div>`;
     scroll.scrollTop = scroll.scrollHeight;
-    NutrioAvatar.happy();
+    if (reaction === 'excited') NutrioAvatar.excited();
+    else NutrioAvatar.happy();
     if (Speech.enabled) Speech.speak(text);
   },
 
@@ -1790,7 +1904,7 @@ const UI = {
 
     const newBadges = Achievements.checkAndUnlock();
     if (newBadges.length) {
-      newBadges.forEach(badge => this._pushBotMessage(`🎉 ¡Nuevo logro desbloqueado! ${badge.icon} **${badge.name}** — ${badge.desc}`));
+      newBadges.forEach(badge => this._pushBotMessage(`🎉 ¡Nuevo logro desbloqueado! ${badge.icon} **${badge.name}** — ${badge.desc}`, 'excited'));
       this.renderProfile();
     }
   },
@@ -1903,7 +2017,7 @@ const UI = {
     alert("¡Espectacular! Guardado en tu historial. Los artículos se destildaron para que la lista te quede limpia.");
     this.renderCart();
     if (newBadges.length) {
-      newBadges.forEach(badge => this._pushBotMessage(`🎉 ¡Nuevo logro desbloqueado! ${badge.icon} **${badge.name}** — ${badge.desc}`));
+      newBadges.forEach(badge => this._pushBotMessage(`🎉 ¡Nuevo logro desbloqueado! ${badge.icon} **${badge.name}** — ${badge.desc}`, 'excited'));
       this.renderProfile();
     }
   },
