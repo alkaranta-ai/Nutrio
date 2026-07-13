@@ -1075,6 +1075,182 @@ const VoiceInput = {
   }
 };
 
+// ==========================================================================
+// NUTRIOAVATAR - Carita animada de Nutrio en el header del chat (100% SVG +
+// CSS, sin imágenes externas). Estados:
+//  - 'dormido'    : sin actividad hace rato, ojitos cerrados + "z" flotando.
+//  - 'despierto'  : hay actividad reciente, ojos abiertos, parpadea de vez
+//                   en cuando.
+//  - 'pensando'   : está esperando la respuesta del bot (mientras se ve el
+//                   indicador de "escribiendo...").
+//  - 'feliz'      : acaba de mandarse o recibirse un mensaje. Pega un
+//                   saltito y después vuelve a 'despierto'.
+// Si pasan _IDLE_MS sin ninguna interacción, vuelve solo a 'dormido'.
+// ==========================================================================
+const NutrioAvatar = {
+  _state: 'dormido',
+  _idleTimer: null,
+  _IDLE_MS: 18000, // 18s sin actividad en el chat y se vuelve a dormir
+  _el: null,
+
+  _FACES: {
+    dormido: `
+      <g class="nutrio-face nutrio-face-dormido">
+        <path d="M11 15 q3 -3 6 0" />
+        <path d="M23 15 q3 -3 6 0" />
+        <path d="M15 24 q5 3 10 0" />
+        <text x="29" y="9" class="nutrio-zzz">z</text>
+      </g>`,
+    despierto: `
+      <g class="nutrio-face nutrio-face-despierto">
+        <circle cx="14" cy="16" r="2.4" class="nutrio-eye" />
+        <circle cx="26" cy="16" r="2.4" class="nutrio-eye" />
+        <path d="M15 24 q5 4 10 0" class="nutrio-mouth" />
+      </g>`,
+    pensando: `
+      <g class="nutrio-face nutrio-face-pensando">
+        <circle cx="14" cy="15" r="2.2" class="nutrio-eye" />
+        <circle cx="27" cy="14" r="2.2" class="nutrio-eye" />
+        <ellipse cx="20" cy="25" rx="2.5" ry="2" class="nutrio-mouth-o" />
+      </g>`,
+    feliz: `
+      <g class="nutrio-face nutrio-face-feliz">
+        <path d="M11 16 q3 -4 6 0" class="nutrio-eye-happy" />
+        <path d="M23 16 q3 -4 6 0" class="nutrio-eye-happy" />
+        <path d="M13 22 q7 7 14 0" class="nutrio-mouth-big" />
+      </g>`
+  },
+
+  // Crea el avatar (una sola vez) como primer hijo del header del chat, así
+  // queda a la izquierda del nombre "Nutrio" sin tener que tocar index.html.
+  _ensureEl() {
+    if (this._el) return this._el;
+    const header = document.querySelector('.chat-header');
+    if (!header) return null;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'nutrioAvatar';
+    wrap.title = 'Nutrio';
+    wrap.style.cssText = 'width:36px; height:36px; flex-shrink:0; margin-right:8px;';
+    wrap.innerHTML = `
+      <svg viewBox="0 0 40 40" width="36" height="36" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="20" r="18" class="nutrio-avatar-body" />
+        <g id="nutrioAvatarFace"></g>
+      </svg>`;
+
+    header.insertBefore(wrap, header.firstChild);
+    this._el = wrap;
+    this._injectStyles();
+    return wrap;
+  },
+
+  _injectStyles() {
+    if (document.getElementById('nutrioAvatarStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'nutrioAvatarStyles';
+    style.textContent = `
+      .nutrio-avatar-body {
+        fill: var(--primary-dim, #eef7ee);
+        stroke: var(--primary, #4caf50);
+        stroke-width: 1.5;
+      }
+      #nutrioAvatar svg { display:block; }
+      .nutrio-face path, .nutrio-face circle, .nutrio-face ellipse {
+        stroke: var(--primary, #4caf50);
+        stroke-width: 1.8;
+        fill: none;
+        stroke-linecap: round;
+      }
+      .nutrio-face .nutrio-eye, .nutrio-face .nutrio-mouth-o { fill: var(--primary, #4caf50); }
+      .nutrio-zzz {
+        font-size: 7px;
+        fill: var(--primary, #4caf50);
+        opacity: 0;
+        animation: nutrioZzzFloat 2.4s ease-in-out infinite;
+      }
+      #nutrioAvatar.is-dormido svg { animation: nutrioBreathe 3s ease-in-out infinite; transform-origin: center; }
+      #nutrioAvatar.is-despierto .nutrio-eye { animation: nutrioBlink 4.5s ease-in-out infinite; transform-origin: center; }
+      #nutrioAvatar.is-pensando svg { animation: nutrioThinkTilt 1.6s ease-in-out infinite; transform-origin: center; }
+      #nutrioAvatar.is-feliz svg { animation: nutrioBounce 0.5s ease-in-out; transform-origin: center; }
+
+      @keyframes nutrioBreathe {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+      @keyframes nutrioZzzFloat {
+        0% { opacity: 0; transform: translateY(0); }
+        30% { opacity: 1; }
+        100% { opacity: 0; transform: translateY(-8px); }
+      }
+      @keyframes nutrioBlink {
+        0%, 92%, 100% { transform: scaleY(1); }
+        96% { transform: scaleY(0.1); }
+      }
+      @keyframes nutrioThinkTilt {
+        0%, 100% { transform: rotate(0deg); }
+        50% { transform: rotate(-6deg); }
+      }
+      @keyframes nutrioBounce {
+        0% { transform: scale(1) translateY(0); }
+        30% { transform: scale(1.15) translateY(-4px); }
+        60% { transform: scale(0.95) translateY(1px); }
+        100% { transform: scale(1) translateY(0); }
+      }
+    `;
+    document.head.appendChild(style);
+  },
+
+  setState(state) {
+    const wrap = this._ensureEl();
+    if (!wrap) return;
+    this._state = state;
+    wrap.classList.remove('is-dormido', 'is-despierto', 'is-pensando', 'is-feliz');
+    wrap.classList.add(`is-${state}`);
+    const faceContainer = wrap.querySelector('#nutrioAvatarFace');
+    if (faceContainer) faceContainer.innerHTML = this._FACES[state] || this._FACES.despierto;
+  },
+
+  // Reinicia el contador de inactividad: si pasan _IDLE_MS sin actividad
+  // nueva, Nutrio se vuelve a dormir solo (salvo que esté "pensando").
+  _resetIdleTimer() {
+    if (this._idleTimer) clearTimeout(this._idleTimer);
+    this._idleTimer = setTimeout(() => {
+      if (this._state !== 'pensando') this.setState('dormido');
+    }, this._IDLE_MS);
+  },
+
+  wake() {
+    if (this._state === 'dormido') this.setState('despierto');
+    this._resetIdleTimer();
+  },
+
+  thinking() {
+    if (this._idleTimer) clearTimeout(this._idleTimer);
+    this.setState('pensando');
+  },
+
+  // Festejo cortito (saltito + carita feliz) y después vuelve a 'despierto'.
+  happy() {
+    this.setState('feliz');
+    setTimeout(() => {
+      if (this._state === 'feliz') this.setState('despierto');
+      this._resetIdleTimer();
+    }, 900);
+  },
+
+  init() {
+    this._ensureEl();
+    this.setState('dormido');
+
+    // Se despierta si tocás o escribís en el input del chat.
+    const input = document.getElementById('chatInput');
+    if (input) {
+      input.addEventListener('focus', () => this.wake());
+      input.addEventListener('input', () => this.wake());
+    }
+  }
+};
+
 const UI = {
 
   // Guarda referencias de recetas (y su bebida sugerida) para poder abrir
@@ -1091,6 +1267,7 @@ const UI = {
     this._bindTapFeedback();
     this._bindChatInputAutoGrow();
     this._injectSpeechToggle();
+    NutrioAvatar.init();
 
     const firstTimeEl = document.getElementById('chatFirstMsgTime');
     if (firstTimeEl) firstTimeEl.innerText = this._formatTime(new Date());
@@ -1157,6 +1334,7 @@ const UI = {
         </div>
       </div>`;
     scroll.scrollTop = scroll.scrollHeight;
+    NutrioAvatar.happy();
     if (Speech.enabled) Speech.speak(text);
   },
 
@@ -1378,6 +1556,8 @@ const UI = {
 
     const inputBar = document.getElementById('chatInputBar');
     if (inputBar) inputBar.style.display = viewName === 'chat' ? 'block' : 'none';
+
+    if (viewName === 'chat') NutrioAvatar.wake();
   },
 
   // --------------------------------------------------------------------
@@ -1911,6 +2091,8 @@ const UI = {
       scroll.scrollTop = scroll.scrollHeight;
     }
 
+    NutrioAvatar.happy();
+
     input.value = '';
     input.style.height = 'auto';
 
@@ -1927,11 +2109,13 @@ const UI = {
     // Chiquito delay antes de mostrar "escribiendo...", para que no se vea
     // como un parpadeo instantáneo en respuestas súper rápidas.
     setTimeout(() => this._showTypingIndicator(), 150);
+    NutrioAvatar.thinking();
 
     try {
       const profile = StorageApp.getProfile();
       const response = await ChatApp.getBotResponseSmart(msg, profile);
       this._hideTypingIndicator();
+      NutrioAvatar.happy();
 
       const msgId = 'chatmsg_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
       const botTime = new Date();
