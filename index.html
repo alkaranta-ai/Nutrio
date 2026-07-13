@@ -1019,4 +1019,30 @@ button svg,
     padding-bottom: 150px !important; 
 }
 </style>
+<style>
+/* --- SOLUCIÓN FINAL: Separación de Cajón y Dock --- */
+
+/* 1. Subimos el cajón de entrada para que no toque el dock */
+.input-container, .input-wrap {
+    position: fixed !important;
+    bottom: 80px !important; /* Lo levanta exactamente 80px del borde inferior */
+    left: 0 !important;
+    right: 0 !important;
+    margin: 0 auto !important;
+    z-index: 100 !important;
+}
+
+/* 2. Damos espacio en la lista de mensajes para que no se oculten */
+.chat-scroll, .messages-container {
+    padding-bottom: 150px !important; /* Espacio extra para que el último mensaje no se esconda */
+}
+
+/* 3. Aseguramos que el dock siempre quede al fondo y limpio */
+.dock {
+    position: fixed !important;
+    bottom: 0 !important;
+    height: 70px !important;
+    z-index: 200 !important;
+}
+</style>
 </style>
