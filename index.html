@@ -936,4 +936,34 @@ i, .material-icons, .fa {
     color: #10b981 !important; 
 }
 </style>
+<style>
+/* --- FORZAR VISIBILIDAD DE LA FLECHA --- */
+
+/* Aseguramos que el botón de la flecha sea visible y tenga color */
+button .fa-arrow-right, 
+button svg, 
+.send-btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #ffffff !important; /* Color blanco para resaltar */
+    background: #10b981 !important; /* Fondo verde esmeralda para que se vea */
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important; /* Forma circular para el botón */
+    border: none !important;
+}
+
+/* Si la flecha es un icono dentro de un botón, le damos contraste */
+.send-btn svg {
+    stroke: #ffffff !important;
+    stroke-width: 2.5px !important;
+}
+
+/* Quitamos cualquier opacidad que la esté ocultando */
+.send-btn {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+</style>
 </style>
