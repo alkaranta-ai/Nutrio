@@ -2,6 +2,38 @@
 // NUTRIO - ARCHIVO PRINCIPAL DE APLICACIÓN (js/app.js)
 // ==========================================================================
 
+// ==========================================================================
+// Saca la cantidad/unidad de un texto de ingrediente (ej: "200 g de pollo"
+// -> "Pollo", "2 huevos" -> "Huevos", "1/2 cebolla" -> "Cebolla"), así la
+// lista de supermercado muestra solo el nombre del ingrediente. También
+// permite que un mismo ingrediente con distinta cantidad en recetas
+// distintas se junte en una sola línea del carrito en vez de duplicarse.
+// ==========================================================================
+function stripIngredientQuantity(str) {
+  let s = (str || '').trim();
+  if (!s) return s;
+
+  const UNITS = [
+    'kilos?', 'kg', 'gramos?', 'grs?', 'g',
+    'mililitros?', 'ml', 'litros?', 'lts?', 'l',
+    'tazas?', 'cdas?', 'cucharadas?', 'cdtas?', 'cucharaditas?',
+    'unidad(?:es)?', 'dientes?', 'rodajas?', 'fetas?', 'hojas?',
+    'rebanadas?', 'filetes?', 'puñados?', 'pizcas?', 'chorros?',
+    'latas?', 'paquetes?', 'bolsas?', 'ramas?', 'ramitas?', 'tazitas?'
+  ].join('|');
+
+  // Cantidad inicial: entero/decimal, fracción tipo 1/2, o rango "2-3".
+  const qtyPattern = `\\d+[.,]?\\d*(?:\\s*\\/\\s*\\d+)?(?:\\s*-\\s*\\d+[.,]?\\d*)?`;
+
+  // Ej: "200 g de pollo" / "2 huevos" / "1/2 cebolla" / "3 dientes de ajo"
+  const regex = new RegExp(`^(?:${qtyPattern})\\s*(?:${UNITS})?\\.?\\s*(?:de\\s+)?`, 'i');
+
+  const cleaned = s.replace(regex, '').trim();
+  if (!cleaned) return s; // si no quedó nada legible, mejor devolver el original
+
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
 const Onboarding = {
   // Selecciones de chips en memoria
   selected: {
@@ -271,8 +303,21 @@ const Onboarding = {
   // así respeta restricciones (vegetariano/vegano/sin gluten/etc.), alergias y
   // condiciones de salud. Antes esto recorría TODO RECIPES_DB sin filtrar,
   // por eso aparecían ingredientes como carne/jamón/salmón con perfil vegetariano.
+  //
+  // Además, cada ingrediente pasa por stripIngredientQuantity() antes de
+  // guardarse, así el carrito muestra solo el nombre del ingrediente (sin
+  // "200 g de", "2 unidades de", etc.). Usamos un Map en vez de un Set
+  // plano para que, si el mismo ingrediente aparece con distinta cantidad
+  // en dos recetas distintas ("200 g de pollo" y "300 g de pollo"), quede
+  // una sola línea ("Pollo") en vez de duplicarse en la lista.
   autoGenerateCart() {
-    let itemsSet = new Set();
+    let itemsMap = new Map(); // clave: nombre en minúsculas -> valor mostrado
+    const addIngredient = (ing) => {
+      const clean = stripIngredientQuantity(ing);
+      const key = clean.toLowerCase();
+      if (!itemsMap.has(key)) itemsMap.set(key, clean);
+    };
+
     const profile = StorageApp.getProfile();
 
     if (typeof RECIPES_DB !== 'undefined' && profile && typeof MealEngine !== 'undefined' && MealEngine.filterRecipesForProfile) {
@@ -284,21 +329,21 @@ const Onboarding = {
         const poolNormal = MealEngine.filterRecipesForProfile(cat, profile, false) || [];
         const poolCheat = MealEngine.filterRecipesForProfile(cat, profile, true) || [];
         [...poolNormal, ...poolCheat].forEach(r => {
-          (r.ingredients || []).forEach(ing => itemsSet.add(ing));
+          (r.ingredients || []).forEach(addIngredient);
         });
       });
     }
 
     // Respaldo: si por algún motivo no hay perfil o MealEngine no filtró nada,
     // no dejamos el carrito vacío (aunque en ese caso no está filtrado por perfil).
-    if (itemsSet.size === 0 && typeof RECIPES_DB !== 'undefined') {
+    if (itemsMap.size === 0 && typeof RECIPES_DB !== 'undefined') {
       RECIPES_DB.forEach(r => {
         if (r.category === 'antojo') return;
-        r.ingredients.forEach(ing => itemsSet.add(ing));
+        r.ingredients.forEach(addIngredient);
       });
     }
 
-    StorageApp.saveCart(Array.from(itemsSet));
+    StorageApp.saveCart(Array.from(itemsMap.values()));
   }
 };
 
