@@ -1000,4 +1000,23 @@ button svg,
     border-radius: 50% !important;
 }
 </style>
+<style>
+/* --- SEPARACIÓN: Cajón de texto y Dock --- */
+
+/* Ajustamos la posición del contenedor de escritura */
+/* Ajusta el valor de 'margin-bottom' si querés más o menos separación */
+.input-container, .input-wrap, .message-input-area {
+    margin-bottom: 85px !important; /* Esto lo levanta sobre el dock */
+    width: 90% !important;         /* Para que no toque los bordes laterales */
+    margin-left: auto !important;
+    margin-right: auto !important;
+    position: relative !important;
+}
+
+/* Aseguramos que el contenido del chat pueda hacer scroll por debajo */
+/* y no se corte el último mensaje */
+.chat-scroll {
+    padding-bottom: 150px !important; 
+}
+</style>
 </style>
