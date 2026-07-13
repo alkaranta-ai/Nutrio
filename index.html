@@ -1235,4 +1235,43 @@ button[onclick*="UI.archivePurchases"]:active {
     background: #059669 !important;
 }
 </style>
+<style>
+/* --- CENTRADO VERTICAL DE ICONOS EN INPUT --- */
+
+/* Seleccionamos el contenedor que tiene la zanahoria, el textarea y la flecha */
+.chat-input-inner {
+    display: flex !important;
+    align-items: center !important; /* Esto centra verticalmente todo */
+    justify-content: space-between !important;
+    padding: 5px 10px !important;
+}
+
+/* Forzamos al botón de la zanahoria a estar centrado */
+#chatIngredientsBtn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Forzamos al botón de envío (flecha) a estar centrado */
+.send-btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    /* Ajustamos dimensiones para que sea un círculo perfecto */
+    width: 36px !important;
+    height: 36px !important;
+}
+
+/* Ajustamos el textarea para que no ocupe espacio extra que desplace los iconos */
+#chatInput {
+    display: flex !important;
+    align-items: center !important;
+    margin: 0 10px !important;
+}
+</style>
 </style>
