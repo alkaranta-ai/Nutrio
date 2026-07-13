@@ -1501,4 +1501,65 @@ window.addEventListener('load', () => {
     });
 });
 </script>
+<style>
+/* --- MODAL V2: PROTEGIDO Y AISLADO --- */
+#compra-modal-v2 {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); z-index: 999999; display: none;
+    align-items: center; justify-content: center; backdrop-filter: blur(5px);
+}
+#compra-modal-v2 .modal-content {
+    background: white; width: 90%; max-width: 400px;
+    padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    max-height: 80vh; display: flex; flex-direction: column;
+}
+#modal-lista-v2 { 
+    list-style: none; padding: 0; margin: 15px 0; 
+    overflow-y: auto; flex-grow: 1;
+}
+#modal-lista-v2 li { 
+    padding: 12px 0; border-bottom: 1px solid #eee; 
+    display: flex; align-items: flex-start; color: #333;
+    line-height: 1.5; font-size: 15px;
+}
+</style>
+
+<div id="compra-modal-v2" onclick="this.style.display='none'">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <h3 id="modal-titulo-v2" style="color: #10b981; margin: 0; font-size: 18px;">Detalle</h3>
+        <ul id="modal-lista-v2"></ul>
+        <button onclick="document.getElementById('compra-modal-v2').style.display='none'" 
+                style="width: 100%; padding: 14px; background: #10b981; border: none; border-radius: 12px; color: white; font-weight: bold; cursor: pointer;">Cerrar</button>
+    </div>
+</div>
+
+<script>
+(function() {
+    const contenedor = document.querySelector('h4').parentNode;
+    const items = contenedor.querySelectorAll('div[style*="background:rgba(0,0,0,0.02)"]');
+    
+    items.forEach(item => {
+        item.style.cursor = 'pointer';
+        item.addEventListener('click', () => {
+            const textoOriginal = item.innerText;
+            const partes = textoOriginal.split(':');
+            document.getElementById('modal-titulo-v2').innerText = partes[0].trim();
+            
+            const lista = document.getElementById('modal-lista-v2');
+            lista.innerHTML = '';
+            
+            const productos = (partes[1] || "").split(',');
+            productos.forEach((p) => {
+                let txt = p.trim();
+                if (txt.toLowerCase().includes('día') || txt.length < 2) return;
+                const li = document.createElement('li');
+                li.innerText = "✓ " + txt;
+                lista.appendChild(li);
+            });
+            
+            document.getElementById('compra-modal-v2').style.display = 'flex';
+        });
+    });
+})();
+</script>
 </style>
