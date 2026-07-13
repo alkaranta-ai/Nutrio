@@ -1385,3 +1385,92 @@ window.addEventListener('load', () => {
     });
 });
 </script>
+<style>
+<style>
+
+@supports not (height: 100dvh) {
+  #compra-modal-historial { height: 100vh; }
+}
+#compra-modal-historial .modal-content {
+    background: white;
+    width: 100%; max-width: 400px;
+    padding: 20px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+#compra-modal-historial h3 {
+    color: #10b981; margin: 0 0 10px 0; font-size: 18px; flex-shrink: 0;
+}
+#modal-lista-historial {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 15px 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1 1 auto;
+    min-height: 0; /* clave: sin esto el scroll no funciona dentro de flexbox */
+}
+#modal-lista-historial li {
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: flex-start;
+    color: #333;
+    line-height: 1.5;
+    font-size: 15px;
+}
+#compra-modal-historial button {
+    width: 100%;
+    padding: 14px;
+    background: #10b981;
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+</style>
+
+<div id="compra-modal-historial" onclick="this.style.display='none'">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <h3 id="modal-titulo-historial">Detalle</h3>
+        <ul id="modal-lista-historial"></ul>
+        <button onclick="document.getElementById('compra-modal-historial').style.display='none'">Cerrar</button>
+    </div>
+</div>
+
+<script>
+(function() {
+    // Buscamos SOLO dentro del carrito, no en toda la página
+    const cartCard = document.getElementById('cartCard');
+    if (!cartCard) return;
+
+    cartCard.addEventListener('click', (e) => {
+        const item = e.target.closest('div[style*="background:rgba(0,0,0,0.02)"]');
+        if (!item) return;
+
+        const textoOriginal = item.innerText;
+        const partes = textoOriginal.split(':');
+        document.getElementById('modal-titulo-historial').innerText = partes[0].trim();
+
+        const lista = document.getElementById('modal-lista-historial');
+        lista.innerHTML = '';
+
+        const productos = (partes[1] || "").split(',');
+        productos.forEach((p) => {
+            let txt = p.trim();
+            if (txt.toLowerCase().includes('día') || txt.length < 2) return;
+            const li = document.createElement('li');
+            li.innerText = "✓ " + txt;
+            lista.appendChild(li);
+        });
+
+        document.getElementById('compra-modal-historial').style.display = 'flex';
+    });
+})();
+</script>
