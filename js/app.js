@@ -2093,12 +2093,15 @@ const UI = {
   _buildMealCardHTML(refId, typeKey, recipe, drink) {
     if (!recipe) return '';
     this._registerRecipeRef(refId, recipe, typeKey, drink);
+    this._ensureShuffleButtonStyles();
     const meta = MEAL_META[typeKey] || MEAL_META.antojo;
     const ingredientsPreview = (recipe.ingredients || []).join(', ');
     const drinkPreview = this._buildDrinkPreviewHTML(drink);
 
     return `
-      <div class="meal-card tap-feedback" style="--accent:${meta.color}; --accent-dim:${meta.dim};" onclick="UI.openRecipeModalByRef('${refId}')">
+      <div class="meal-card tap-feedback" style="--accent:${meta.color}; --accent-dim:${meta.dim}; position:relative;" onclick="UI.openRecipeModalByRef('${refId}')">
+        <button type="button" class="meal-card-shuffle tap-feedback" title="Dame otra receta" aria-label="Dame otra receta"
+          onclick="event.stopPropagation(); UI.shuffleMealCard(event, '${refId}')">🔀</button>
         <div class="meal-icon">${meta.icon}</div>
         <div class="meal-card-body">
           <div class="meal-card-top">
@@ -2112,6 +2115,93 @@ const UI = {
         </div>
       </div>
     `;
+  },
+
+  // Inyecta el CSS del botón 🔀 de "otra receta" una sola vez, así no hace
+  // falta tocar la hoja de estilos a mano para que se vea bien.
+  _ensureShuffleButtonStyles() {
+    if (document.getElementById('shuffleButtonStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'shuffleButtonStyles';
+    style.textContent = `
+      .meal-card-shuffle {
+        position: absolute; top: 10px; right: 10px; z-index: 2;
+        width: 30px; height: 30px; border-radius: 50%; border: none;
+        background: var(--accent-dim); color: var(--accent);
+        font-size: 14px; line-height: 1; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: transform .12s ease;
+      }
+      .meal-card-shuffle:active, .meal-card-shuffle.pressed { transform: scale(0.88); }
+      .meal-card-shuffle.is-shuffling { animation: nutrioShuffleSpin .5s ease; }
+      @keyframes nutrioShuffleSpin { from { transform: rotate(0deg); } to { transform: rotate(180deg); } }
+    `;
+    document.head.appendChild(style);
+  },
+
+  // --------------------------------------------------------------------
+  // Botón 🔀 de las tarjetas: reemplaza la receta (y su bebida sugerida)
+  // por otra opción al azar del mismo pool filtrado por perfil (respeta
+  // alergias/restricciones/condiciones de salud, igual que el resto de la
+  // app), evitando repetir la receta que ya se estaba mostrando en ESA
+  // tarjeta puntual. Re-renderiza solo la tarjeta tocada, sin recargar el
+  // resto de Inicio/Semana.
+  // --------------------------------------------------------------------
+  shuffleMealCard(event, refId) {
+    const ref = this._recipeRefs[refId];
+    if (!ref) return;
+    const profile = StorageApp.getProfile();
+    if (!profile || typeof MealEngine === 'undefined' || typeof RECIPES_DB === 'undefined') return;
+
+    const { typeKey } = ref;
+    const category = SLOT_TO_CATEGORY[typeKey];
+    if (!category) return;
+
+    const isSunday = typeof MealEngine.isCheatDay === 'function'
+      ? MealEngine.isCheatDay(new Date())
+      : (new Date().getDay() === 0);
+
+    let pool = MealEngine.filterRecipesForProfile(category, profile, isSunday) || [];
+    if (typeof MealEngine.refineByKcal === 'function') pool = MealEngine.refineByKcal(pool, profile, category);
+    if (!pool.length && typeof getRecipesByCategory === 'function') pool = getRecipesByCategory(category);
+    if (!pool.length) return;
+
+    // Evita repetir la receta actual de ESTA tarjeta cuando hay otras opciones.
+    const currentId = ref.recipe ? (ref.recipe.id !== undefined ? ref.recipe.id : ref.recipe.name) : null;
+    let choices = pool;
+    if (pool.length > 1) {
+      const withoutCurrent = pool.filter(r => (r.id !== undefined ? r.id : r.name) !== currentId);
+      if (withoutCurrent.length) choices = withoutCurrent;
+    }
+    const newRecipe = choices[Math.floor(Math.random() * choices.length)];
+
+    // También sorteamos una bebida nueva para que combine con la nueva
+    // receta (si no hay bebidas cargadas para la categoría, se mantiene la
+    // que ya tenía la tarjeta).
+    let newDrink = ref.drink || null;
+    if (typeof BEBIDAS_DB !== 'undefined' && BEBIDAS_DB[category]) {
+      const options = BEBIDAS_DB[category];
+      const sinOpciones = options.sinAlcohol || [];
+      const conOpciones = isSunday ? (options.conAlcohol || []) : [];
+      if (sinOpciones.length) {
+        const sinPick = sinOpciones[Math.floor(Math.random() * sinOpciones.length)];
+        const conPick = conOpciones.length ? conOpciones[Math.floor(Math.random() * conOpciones.length)] : null;
+        newDrink = { sinAlcohol: sinPick, conAlcohol: conPick };
+      }
+    }
+
+    const cardEl = event && event.target ? event.target.closest('.meal-card') : null;
+    if (!cardEl) return;
+
+    // Pequeño delay para que se alcance a ver el giro del botón antes de
+    // reemplazar la tarjeta (si se reemplaza en el mismo instante, la
+    // animación no llega a notarse porque el elemento viejo desaparece).
+    const shuffleBtn = cardEl.querySelector('.meal-card-shuffle');
+    if (shuffleBtn) shuffleBtn.classList.add('is-shuffling');
+
+    setTimeout(() => {
+      cardEl.outerHTML = this._buildMealCardHTML(refId, typeKey, newRecipe, newDrink);
+    }, 150);
   },
 
   renderHome() {
