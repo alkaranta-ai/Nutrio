@@ -2562,13 +2562,13 @@ const UI = {
     }
 
     const COLORS = ['#ff6b6b', '#feca57', '#48dbfb', '#1dd1a1', '#5f27cd', '#ff9ff3', '#54a0ff'];
-    const PIECES = 34;
+    const PIECES = 160;
     for (let i = 0; i < PIECES; i++) {
       const piece = document.createElement('span');
       piece.className = 'confetti-piece';
 
       const angle = Math.random() * Math.PI * 2;
-      const distance = 60 + Math.random() * 130;
+      const distance = 70 + Math.random() * 220;
       const dx = Math.cos(angle) * distance;
       const dy = Math.sin(angle) * distance - 50; // sesgo hacia arriba, como explosión
 
@@ -2581,12 +2581,12 @@ const UI = {
       const size = 5 + Math.random() * 6;
       piece.style.width = size + 'px';
       piece.style.height = (size * 0.45) + 'px';
-      piece.style.animationDelay = (Math.random() * 0.12) + 's';
+      piece.style.animationDelay = (Math.random() * 0.2) + 's';
 
       overlay.appendChild(piece);
     }
 
-    setTimeout(() => overlay.remove(), 1400);
+    setTimeout(() => overlay.remove(), 1500);
   },
 
   _rainEffect() {
@@ -2594,7 +2594,7 @@ const UI = {
     if (!fx) return;
     const { overlay, rect } = fx;
 
-    const DROPS = 28;
+    const DROPS = 140;
     for (let i = 0; i < DROPS; i++) {
       const drop = document.createElement('span');
       drop.className = 'rain-drop';
@@ -2602,7 +2602,7 @@ const UI = {
       const x = Math.random() * rect.width;
       const height = 14 + Math.random() * 16;
       const duration = 0.6 + Math.random() * 0.5;
-      const delay = Math.random() * 0.5;
+      const delay = Math.random() * 0.9; // ventana más larga = lluvia sostenida, no un solo golpe
 
       drop.style.left = x + 'px';
       drop.style.height = height + 'px';
@@ -2613,7 +2613,7 @@ const UI = {
       overlay.appendChild(drop);
     }
 
-    setTimeout(() => overlay.remove(), 1700);
+    setTimeout(() => overlay.remove(), 2100);
   },
 
   // ======================================================================
