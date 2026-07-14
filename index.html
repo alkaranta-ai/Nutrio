@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, interactive-widget=resizes-content">
 <title>Nutrio — Tu nutricionista personal</title>
 <meta name="description" content="Tu nutricionista personal: recetas, chat con IA y carrito de compras.">
 
@@ -322,7 +322,7 @@
   .mini-kcal { font-size: 11px; color: var(--text-muted); font-weight: 700; white-space: nowrap; }
   .mini-ing { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
 
-  .chat-input-bar { position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 460px; padding: 0 16px; z-index: 1001; }
+  .chat-input-bar { position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 460px; padding: 0 16px; z-index: 1001; transition: bottom 0.15s ease; }
   .chat-input-inner { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); padding: 6px; border-radius: 20px; box-shadow: 0 4px 14px rgba(0,0,0,0.08); }
   .chat-input-inner textarea, .chat-input-inner input {
     flex: 1; border: none; padding: 12px 14px; font-size: 16px; outline: none;
@@ -760,7 +760,34 @@
 <script src="js/diaPermitidoChat.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/app.js"></script>
-  <script src="js/nutrioChatAI.js"></script>
-  <script src="js/nutrioChatAI-fotos.js"></script>
+<script src="js/nutrioChatAI.js"></script>
+<script src="js/nutrioChatAI-fotos.js"></script>
+
+<script>
+(function() {
+  if (!window.visualViewport) return;
+  const app = document.getElementById('app');
+  const chatInputBar = document.getElementById('chatInputBar');
+  const dockWrap = document.querySelector('.dock-wrap');
+
+  function handleViewport() {
+    const vv = window.visualViewport;
+    const keyboardOpen = vv.height < window.innerHeight * 0.85;
+
+    if (keyboardOpen) {
+      chatInputBar.style.bottom = '8px';
+      dockWrap.style.display = 'none';
+      app.style.paddingBottom = '80px';
+    } else {
+      chatInputBar.style.bottom = '85px';
+      dockWrap.style.display = '';
+      app.style.paddingBottom = '';
+    }
+  }
+
+  window.visualViewport.addEventListener('resize', handleViewport);
+  window.visualViewport.addEventListener('scroll', handleViewport);
+})();
+</script>
 </body>
 </html>
