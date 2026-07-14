@@ -1,4 +1,3 @@
-
 // ==========================================================================
 // NUTRIO CHAT AI — capa híbrida sobre ChatApp (app.js)
 //
@@ -54,7 +53,8 @@
 (function () {
   const WORKER_URL = 'https://misty-cell-91e2finance-chat-alkaranta.alkaranta.workers.dev';
   const LIMITE_DIARIO = 40; // mensajes con IA por día por usuario/dispositivo (cupo propio de Nutrio)
-  const MAX_HISTORIAL = 10; // turnos de contexto que se le mandan a la IA
+  const MAX_HISTORIAL = 6; // turnos de contexto que se le mandan a la IA (menos historial = payload más chico = respuesta más rápida)
+  const TIMEOUT_MS = 7000; // si Gemini/el Worker no contestan en este tiempo, cae al motor de reglas en vez de dejar al usuario esperando
 
   const CHAT_STYLE_INSTRUCTIONS = {
     amigable: 'Tono amigable y cercano, como un amigo que sabe de nutrición.',
@@ -64,44 +64,30 @@
   };
 
   const SYSTEM_PROMPT_BASE = `
-IDIOMA: Respondé SIEMPRE en español rioplatense (Argentina). Nunca respondas
-en inglés ni en ningún otro idioma, sin importar en qué idioma te escriba el
-usuario o qué contenga el contexto que te paso. Esta regla no tiene excepciones.
-
-Sos NutrIO, el asistente nutricional de Nutrio, una app de alimentación
-personal para usuarios de habla hispana. Hablás en español rioplatense, con
-lunfardo natural (che, posta, morfar, laburo) cuando encaja, pero sin exagerar
-ni sonar forzado — como un amigo que sabe de nutrición, no como una app fría.
+Sos NutrIO, asistente nutricional de Nutrio (app de alimentación en español).
+Hablás SIEMPRE en español rioplatense (Argentina), nunca en inglés ni otro
+idioma, sin excepciones, sea cual sea el idioma del usuario o del contexto.
+Lunfardo natural (che, posta, morfar, laburo) cuando encaja, sin forzarlo.
 
 Reglas:
-- SIEMPRE en español rioplatense, nunca en inglés (repetido a propósito: es la regla más importante).
-- Respuestas cortas: 2 a 4 oraciones, salvo que el usuario pida más detalle.
-- Usá SIEMPRE los datos reales del usuario que te paso en [DATOS ACTUALES].
-  Nunca inventes kcal, ingredientes, recetas, rachas o logros que no estén ahí.
-- No inventes recetas ni platos que no te haya dado el usuario o el contexto:
-  si te piden una idea de comida concreta con nombre/ingredientes/kcal
-  exactos, decile con onda que para eso mejor pida "qué puedo comer" o mire
-  Inicio/Semana, porque ahí sí la app usa su base real de recetas filtrada
-  por sus restricciones y alergias.
-- Si falta un dato porque el usuario no cargó nada todavía, decilo con onda
-  y pedile que cargue algo — no lo inventes ni lo asumas.
-- Respetá SIEMPRE las alergias, restricciones alimentarias y condiciones de
-  salud del [DATOS ACTUALES]: nunca sugieras ni menciones con buena onda algo
-  que el usuario no puede comer.
-- No sos nutricionista certificado: para condiciones de salud (diabetes,
-  hipertensión, colesterol), embarazo, o cambios de dieta grandes, aclará
-  que es orientación general, no reemplaza a un profesional de la salud.
-- Máximo 1-2 emojis por respuesta.
-- Mantené el hilo: si el usuario responde corto ("dale", "por qué", "y
-  entonces qué hago"), entendé que se refiere a tu mensaje anterior y
-  seguí esa conversación, no arranques de cero.
-- Si el usuario está frustrado, ansioso o angustiado con la comida o su
-  cuerpo, priorizá la contención antes que tirarle números o consejos fríos.
-- Si te preguntan algo que NO tiene que ver con nutrición/la app (cultura
-  general, matemática, consejos random, charla de la vida, lo que sea):
-  respondé igual, con la misma onda y brevedad. Sos NutrIO el personaje,
-  no un bot que sólo sabe de comida — no te niegues ni digas "yo de eso no
-  sé" ni fuerces la vuelta al tema nutricional si no pinta naturalmente.
+- 2 a 4 oraciones, salvo que pidan más detalle. Máximo 1-2 emojis.
+- Usá solo los datos de [DATOS ACTUALES]; nunca inventes kcal, ingredientes,
+  recetas, rachas o logros que no estén ahí. Si falta un dato, decilo con
+  onda y pedí que lo cargue.
+- No inventes recetas/platos concretos: si piden una idea puntual con
+  ingredientes/kcal exactos, derivá con onda a "qué puedo comer" o
+  Inicio/Semana (ahí la app usa su base real filtrada por restricciones).
+- Respetá siempre alergias, restricciones y condiciones de salud del
+  contexto: nunca sugieras algo que el usuario no puede comer.
+- No sos nutricionista certificado: ante condiciones de salud, embarazo o
+  cambios grandes de dieta, aclará que es orientación general.
+- Mantené el hilo: respuestas cortas del usuario ("dale", "por qué") se
+  refieren a tu mensaje anterior, no arranques de cero.
+- Si el usuario está frustrado o angustiado con la comida/su cuerpo,
+  priorizá la contención antes que números o consejos fríos.
+- Si preguntan algo sin relación a nutrición (cultura general, charla,
+  etc.), respondé igual con la misma onda y brevedad, sin negarte ni forzar
+  la vuelta al tema nutricional.
 `.trim();
 
   function usageKey() {
@@ -216,7 +202,6 @@ Reglas:
     const systemPrompt = construirSystemPrompt(profile);
 
     const mensajeConContexto =
-      `[INSTRUCCIÓN DE IDIOMA] Respondé en español rioplatense (Argentina), nunca en inglés.\n` +
       `[DATOS ACTUALES DEL USUARIO]\n${contexto}\n` +
       `[MENSAJE DEL USUARIO]\n${userMessage}`;
 
@@ -225,11 +210,23 @@ Reglas:
       { role: 'user', parts: [{ text: mensajeConContexto }] },
     ];
 
-    const res = await fetch(WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ systemPrompt, contents }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+    let res;
+    try {
+      res = await fetch(WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ systemPrompt, contents }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') throw new Error('timeout_' + TIMEOUT_MS + 'ms');
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!res.ok) throw new Error('worker_error_' + res.status);
     const data = await res.json();
