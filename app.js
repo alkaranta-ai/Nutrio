@@ -1077,9 +1077,11 @@ const VoiceInput = {
 
 // ==========================================================================
 // NUTRIOAVATAR - Carita animada de Nutrio en el header del chat (100% SVG +
-// CSS, sin imágenes externas). Versión mejorada: más grande, más expresiva
-// (cejas, cachetes, distintas formas de boca según el ánimo) y con más
-// estados/reacciones que antes.
+// CSS, sin imágenes externas). Versión PREMIUM / LIQUID GLASS: burbuja
+// vidriada con blur real (backdrop-filter), luces y reflejos en capas,
+// sombra suave "flotante" y transiciones más orgánicas que la versión
+// anterior (planita, sin profundidad). La lógica de estados/reacciones es
+// la misma de siempre; lo que cambia es 100% visual.
 //
 // Estados:
 //  - 'dormido'     : sin actividad hace rato, ojitos cerrados + "z" flotando.
@@ -1101,7 +1103,7 @@ const NutrioAvatar = {
   _idleTimer: null,
   _IDLE_MS: 18000, // 18s sin actividad en el chat y se vuelve a dormir
   _el: null,
-  _SIZE: 48, // antes 36px: le damos más presencia en el header
+  _SIZE: 50, // burbuja de vidrio: un pelín más grande para que el blur respire
 
   _FACES: {
     dormido: `
@@ -1157,6 +1159,8 @@ const NutrioAvatar = {
 
   // Crea el avatar (una sola vez) como primer hijo del header del chat, así
   // queda a la izquierda del nombre "Nutrio" sin tener que tocar index.html.
+  // Estructura: .nutrio-avatar-glass (la burbuja de vidrio, con blur real
+  // vía backdrop-filter + bordes/sombras en capas) > svg (cuerpo + cara).
   _ensureEl() {
     if (this._el) return this._el;
     const header = document.querySelector('.chat-header');
@@ -1165,18 +1169,27 @@ const NutrioAvatar = {
     const size = this._SIZE;
     const wrap = document.createElement('div');
     wrap.id = 'nutrioAvatar';
+    wrap.className = 'nutrio-avatar-glass';
     wrap.title = 'Nutrio';
-    wrap.style.cssText = `width:${size}px; height:${size}px; flex-shrink:0; margin-right:10px;`;
+    wrap.style.cssText = `width:${size}px; height:${size}px; flex-shrink:0; margin-right:12px;`;
     wrap.innerHTML = `
       <svg viewBox="0 0 44 44" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <radialGradient id="nutrioBodyGradient" cx="35%" cy="30%" r="75%">
-            <stop offset="0%" stop-color="var(--primary-dim, #eef7ee)" />
-            <stop offset="100%" stop-color="var(--primary-dim, #dcf0dc)" />
+          <radialGradient id="nutrioBodyGradient" cx="32%" cy="26%" r="80%">
+            <stop offset="0%" stop-color="var(--primary-dim, #eef7ee)" stop-opacity="0.95" />
+            <stop offset="55%" stop-color="var(--primary-dim, #dcf0dc)" stop-opacity="0.55" />
+            <stop offset="100%" stop-color="var(--primary, #4caf50)" stop-opacity="0.18" />
           </radialGradient>
+          <linearGradient id="nutrioRimGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="rgba(255,255,255,0.9)" />
+            <stop offset="45%" stop-color="var(--primary, #4caf50)" stop-opacity="0.55" />
+            <stop offset="100%" stop-color="rgba(255,255,255,0.15)" />
+          </linearGradient>
         </defs>
-        <circle cx="22" cy="22" r="20" class="nutrio-avatar-body" />
-        <circle cx="15.5" cy="13" r="4" class="nutrio-avatar-shine" />
+        <circle cx="22" cy="22" r="19.2" class="nutrio-avatar-body" />
+        <circle cx="22" cy="22" r="19.2" class="nutrio-avatar-rim" />
+        <ellipse cx="14.5" cy="11.5" rx="6.5" ry="4.2" class="nutrio-avatar-shine-big" />
+        <circle cx="16" cy="12.5" r="2.6" class="nutrio-avatar-shine" />
         <g id="nutrioAvatarFace"></g>
       </svg>`;
 
@@ -1191,30 +1204,60 @@ const NutrioAvatar = {
     const style = document.createElement('style');
     style.id = 'nutrioAvatarStyles';
     style.textContent = `
+      /* --- Burbuja de vidrio (liquid glass) --- */
+      .nutrio-avatar-glass {
+        position: relative;
+        border-radius: 50%;
+        cursor: pointer;
+        background: linear-gradient(150deg, rgba(255,255,255,0.55), rgba(255,255,255,0.12));
+        -webkit-backdrop-filter: blur(14px) saturate(160%);
+        backdrop-filter: blur(14px) saturate(160%);
+        box-shadow:
+          0 1px 1px rgba(255,255,255,0.85) inset,
+          0 -6px 10px rgba(76,175,80,0.10) inset,
+          0 10px 22px -8px rgba(20,83,45,0.28),
+          0 2px 6px rgba(20,83,45,0.12);
+        transition: transform 0.18s cubic-bezier(.34,1.56,.64,1), box-shadow 0.25s ease;
+        will-change: transform;
+      }
+      .nutrio-avatar-glass:active {
+        transform: scale(0.94);
+      }
+      .nutrio-avatar-glass svg { display:block; overflow:visible; }
+
       .nutrio-avatar-body {
         fill: url(#nutrioBodyGradient);
-        stroke: var(--primary, #4caf50);
-        stroke-width: 1.6;
       }
-      .nutrio-avatar-shine {
-        fill: rgba(255,255,255,0.5);
+      .nutrio-avatar-rim {
+        fill: none;
+        stroke: url(#nutrioRimGradient);
+        stroke-width: 1.4;
+        opacity: 0.9;
+      }
+      .nutrio-avatar-shine-big {
+        fill: rgba(255,255,255,0.55);
+        filter: blur(1.5px);
         pointer-events: none;
       }
-      #nutrioAvatar { cursor: pointer; }
-      #nutrioAvatar svg { display:block; overflow:visible; }
+      .nutrio-avatar-shine {
+        fill: rgba(255,255,255,0.85);
+        pointer-events: none;
+      }
+
+      /* --- Cara --- */
       .nutrio-face path, .nutrio-face circle, .nutrio-face ellipse {
-        stroke: var(--primary, #4caf50);
+        stroke: var(--primary-ink, var(--primary, #2f6b32));
         stroke-width: 1.9;
         fill: none;
         stroke-linecap: round;
       }
-      .nutrio-face .nutrio-eye, .nutrio-face .nutrio-mouth-o { fill: var(--primary, #4caf50); }
+      .nutrio-face .nutrio-eye, .nutrio-face .nutrio-mouth-o { fill: var(--primary-ink, var(--primary, #2f6b32)); }
       .nutrio-face .nutrio-cheek {
         fill: var(--accent-desayuno, #ffb74d);
         stroke: none;
-        opacity: 0.35;
+        opacity: 0.4;
       }
-      .nutrio-face .nutrio-cheek-bright { opacity: 0.55; }
+      .nutrio-face .nutrio-cheek-bright { opacity: 0.6; }
       .nutrio-face .nutrio-eyebrow { stroke-width: 2; }
       .nutrio-face .nutrio-mouth-smirk { stroke-width: 2; }
       .nutrio-face .nutrio-sparkle {
@@ -1223,23 +1266,50 @@ const NutrioAvatar = {
       }
       .nutrio-zzz {
         font-size: 7px;
-        fill: var(--primary, #4caf50);
+        fill: var(--primary-ink, var(--primary, #2f6b32));
         opacity: 0;
       }
       .nutrio-zzz1 { animation: nutrioZzzFloat 2.4s ease-in-out infinite; }
       .nutrio-zzz2 { animation: nutrioZzzFloat 2.4s ease-in-out infinite 0.7s; }
 
-      #nutrioAvatar.is-dormido svg { animation: nutrioBreathe 3s ease-in-out infinite; transform-origin: center; }
-      #nutrioAvatar.is-despierto .nutrio-eye { animation: nutrioBlink 4.5s ease-in-out infinite; transform-origin: center; }
-      #nutrioAvatar.is-pensando svg { animation: nutrioThinkTilt 1.6s ease-in-out infinite; transform-origin: center; }
-      #nutrioAvatar.is-feliz svg { animation: nutrioBounce 0.55s ease-in-out; transform-origin: center; }
-      #nutrioAvatar.is-sorprendido svg { animation: nutrioPop 0.7s cubic-bezier(.34,1.56,.64,1); transform-origin: center; }
+      /* --- Estados: animación en la burbuja entera, más orgánica que un
+         simple scale plano, para que se sienta "viva" y con peso/gelatina --- */
+      #nutrioAvatar.is-dormido {
+        animation: nutrioGlassBreathe 3.2s ease-in-out infinite;
+      }
+      #nutrioAvatar.is-despierto .nutrio-eye {
+        animation: nutrioBlink 4.5s ease-in-out infinite;
+        transform-origin: center;
+      }
+      #nutrioAvatar.is-despierto {
+        box-shadow:
+          0 1px 1px rgba(255,255,255,0.85) inset,
+          0 -6px 10px rgba(76,175,80,0.14) inset,
+          0 10px 22px -8px rgba(20,83,45,0.32),
+          0 0 0 3px rgba(76,175,80,0.10);
+      }
+      #nutrioAvatar.is-pensando {
+        animation: nutrioGlassTilt 1.6s ease-in-out infinite;
+      }
+      #nutrioAvatar.is-feliz {
+        animation: nutrioGlassBounce 0.55s cubic-bezier(.34,1.56,.64,1);
+      }
+      #nutrioAvatar.is-sorprendido {
+        animation: nutrioGlassPop 0.7s cubic-bezier(.34,1.56,.64,1);
+        box-shadow:
+          0 1px 1px rgba(255,255,255,0.9) inset,
+          0 -6px 10px rgba(255,183,77,0.22) inset,
+          0 10px 26px -8px rgba(20,83,45,0.32),
+          0 0 0 4px rgba(255,183,77,0.20);
+      }
       #nutrioAvatar.is-sorprendido .nutrio-sparkle { animation: nutrioTwinkle 0.7s ease-in-out infinite; transform-origin: center; }
-      #nutrioAvatar.is-guino svg { animation: nutrioWinkPop 0.4s ease-out; transform-origin: center; }
+      #nutrioAvatar.is-guino {
+        animation: nutrioGlassWink 0.4s ease-out;
+      }
 
-      @keyframes nutrioBreathe {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.05); }
+      @keyframes nutrioGlassBreathe {
+        0%, 100% { transform: scale(1); filter: brightness(1); }
+        50% { transform: scale(1.035); filter: brightness(1.03); }
       }
       @keyframes nutrioZzzFloat {
         0% { opacity: 0; transform: translateY(0); }
@@ -1250,30 +1320,36 @@ const NutrioAvatar = {
         0%, 92%, 100% { transform: scaleY(1); }
         96% { transform: scaleY(0.1); }
       }
-      @keyframes nutrioThinkTilt {
-        0%, 100% { transform: rotate(0deg); }
-        50% { transform: rotate(-7deg); }
+      @keyframes nutrioGlassTilt {
+        0%, 100% { transform: rotate(0deg) scale(1); }
+        50% { transform: rotate(-6deg) scale(1.02); }
       }
-      @keyframes nutrioBounce {
+      @keyframes nutrioGlassBounce {
         0% { transform: scale(1) translateY(0); }
-        30% { transform: scale(1.16) translateY(-5px); }
-        60% { transform: scale(0.95) translateY(1px); }
+        30% { transform: scale(1.14) translateY(-6px); }
+        60% { transform: scale(0.96) translateY(1px); }
         100% { transform: scale(1) translateY(0); }
       }
-      @keyframes nutrioPop {
+      @keyframes nutrioGlassPop {
         0% { transform: scale(1) rotate(0deg); }
-        35% { transform: scale(1.3) rotate(-4deg); }
-        65% { transform: scale(0.92) rotate(3deg); }
+        35% { transform: scale(1.28) rotate(-4deg); }
+        65% { transform: scale(0.93) rotate(3deg); }
         100% { transform: scale(1) rotate(0deg); }
       }
       @keyframes nutrioTwinkle {
         0%, 100% { opacity: 0.3; }
         50% { opacity: 1; }
       }
-      @keyframes nutrioWinkPop {
+      @keyframes nutrioGlassWink {
         0% { transform: scale(1); }
         50% { transform: scale(1.08) rotate(-3deg); }
         100% { transform: scale(1); }
+      }
+
+      /* Fallback: si el navegador no soporta backdrop-filter, que igual se
+         vea sólido y prolijo en vez de transparente/roto. */
+      @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        .nutrio-avatar-glass { background: var(--primary-dim, #eef7ee); }
       }
     `;
     document.head.appendChild(style);
@@ -1359,6 +1435,7 @@ const NutrioAvatar = {
     }
   }
 };
+
 
 const UI = {
 
