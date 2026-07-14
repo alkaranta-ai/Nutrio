@@ -256,7 +256,9 @@ Reglas:
       /que comi hoy|que comi en el dia|cuanto comi|cuanto llevo comido|cuantas calorias llevo|cuantas kcal llevo|mi registro de hoy|que anote hoy|resumen del dia|resumen de hoy/,
       /mi racha|cual es mi racha|racha tengo|cuantos dias llevo/,
       /mis logros|mis insignias|que logros tengo|mis medallas/,
-      /dia libre|modo dia libre|activa dia libre|quiero mi dia libre/
+      /dia libre|modo dia libre|activa dia libre|quiero mi dia libre/,
+      /^ayuda$|^help$|menu de ayuda|que podes hacer|que sabes hacer|que comandos hay/, // comando "ayuda" (chips)
+      /receta argentina|comida argentina|algo argentino|plato argentino|cocina argentina|recetas argentinas/ // recetas AR
     ];
 
     // Excluimos preguntas tipo "qué puedo comer" para no confundirlas con
