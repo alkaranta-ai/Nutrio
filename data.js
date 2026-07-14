@@ -15,7 +15,7 @@
 
 const RECIPES_DB = [
 
-  // ---------- DESAYUNOS (40) ----------
+  // ---------- DESAYUNOS (50) ----------
   { id: "d1", name: "Pancakes de Avena y Claras", category: "desayuno", kcal: 350, country: "General", tags: ["saludable"], allergens: [], avoidFor: [],
     ingredients: ["40g Avena", "3 Claras de huevo", "100g Frutillas"],
     instructions: ["Licuar la avena con las claras hasta lograr una masa homogénea.", "Cocinar de a pequeñas porciones en sartén antiadherente, 2 minutos por lado.", "Servir apilados con las frutillas cortadas por encima."] },
@@ -210,7 +210,48 @@ const RECIPES_DB = [
     ingredients: ["1 taza de frutas de estación", "15g Almendras", "Un hilo de Aceite de oliva", "Jugo de limón"],
     instructions: ["Cortar las frutas en cubos parejos.", "Rociar con jugo de limón y un hilo de aceite de oliva.", "Espolvorear las almendras picadas antes de servir."] },
 
-  // ---------- ALMUERZOS (40) ----------
+  // ---------- DESAYUNOS ADICIONALES (nuevas) ----------
+  { id: "d41", name: "Bowl de Requesón con Duraznos", category: "desayuno", kcal: 340, country: "General", tags: ["vegetariano", "sin_gluten"], allergens: ["lactosa"], avoidFor: [],
+    ingredients: ["150g Requesón o cottage", "1 Durazno en cubos", "1 cdita Miel"],
+    instructions: ["Colocar el requesón en un bowl.", "Agregar el durazno cortado en cubos.", "Rociar con la miel antes de servir."] },
+
+  { id: "d42", name: "Tostadas Francesas Integrales Light", category: "desayuno", kcal: 400, country: "General", tags: ["vegetariano"], allergens: ["huevo", "gluten", "lactosa"], avoidFor: ["diabetes"],
+    ingredients: ["2 rodajas de pan integral", "1 Huevo", "50ml Leche descremada", "Canela"],
+    instructions: ["Batir el huevo con la leche y la canela.", "Remojar el pan en la mezcla unos segundos por lado.", "Cocinar en sartén antiadherente hasta dorar de ambos lados."] },
+
+  { id: "d43", name: "Bowl Verde de Palta, Espinaca y Huevo Poché", category: "desayuno", kcal: 400, country: "General", tags: ["sin_gluten", "sin_lactosa"], allergens: ["huevo"], avoidFor: [],
+    ingredients: ["Media palta", "1 puñado de espinaca fresca", "1 Huevo poché"],
+    instructions: ["Colocar la espinaca fresca como base del bowl.", "Agregar la palta en láminas.", "Coronar con el huevo poché recién hecho."] },
+
+  { id: "d44", name: "Muesli Casero con Leche y Frutas", category: "desayuno", kcal: 380, country: "General", tags: ["vegetariano"], allergens: ["lactosa", "frutos_secos"], avoidFor: [],
+    ingredients: ["50g Muesli casero", "200ml Leche descremada", "Media manzana en cubos", "10g Almendras"],
+    instructions: ["Colocar el muesli en un bowl.", "Agregar la leche y mezclar.", "Sumar la manzana y las almendras por encima."] },
+
+  { id: "d45", name: "Roll de Avena, Cacao y Banana", category: "desayuno", kcal: 350, country: "General", tags: ["vegano", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["50g Avena", "1 Banana", "1 cda Cacao amargo", "Agua c/n"],
+    instructions: ["Pisar la banana hasta hacer puré.", "Mezclar con la avena y el cacao, agregando agua hasta lograr una masa manejable.", "Cocinar en sartén antiadherente de a porciones, 2 minutos por lado."] },
+
+  { id: "d46", name: "Sándwich de Queso Crema y Pepino", category: "desayuno", kcal: 320, country: "General", tags: ["vegetariano"], allergens: ["lactosa", "gluten"], avoidFor: [],
+    ingredients: ["2 rodajas de pan integral", "2 cdas Queso crema light", "Pepino en rodajas finas"],
+    instructions: ["Untar las rodajas de pan con el queso crema.", "Distribuir el pepino en rodajas finas.", "Cerrar el sándwich y cortar al medio."] },
+
+  { id: "d47", name: "Bowl de Avena con Cacao y Frutos Rojos", category: "desayuno", kcal: 360, country: "General", tags: ["vegetariano", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["50g Avena", "1 cda Cacao amargo", "200ml Leche vegetal", "80g Frutos rojos"],
+    instructions: ["Cocinar la avena con la leche vegetal y el cacao a fuego bajo, revolviendo.", "Cocinar 5 minutos hasta espesar.", "Servir coronado con los frutos rojos frescos."] },
+
+  { id: "d48", name: "Huevos a la Plancha con Champiñones", category: "desayuno", kcal: 380, country: "General", tags: ["sin_carbo", "sin_gluten", "sin_lactosa"], allergens: ["huevo"], avoidFor: [],
+    ingredients: ["2 Huevos", "5 Champiñones fileteados", "Perejil fresco"],
+    instructions: ["Saltear los champiñones en una sartén hasta dorar.", "Cocinar los huevos a la plancha por separado o encima de los champiñones.", "Espolvorear perejil fresco picado antes de servir."] },
+
+  { id: "d49", name: "Bagel Integral con Palta y Semillas", category: "desayuno", kcal: 420, country: "General", tags: ["vegano"], allergens: ["gluten"], avoidFor: [],
+    ingredients: ["1 Bagel integral", "Media palta", "1 cda Semillas mixtas (chía, girasol, sésamo)"],
+    instructions: ["Cortar el bagel al medio y tostarlo levemente.", "Untar con la palta pisada.", "Espolvorear las semillas mixtas antes de cerrar o servir abierto."] },
+
+  { id: "d50", name: "Batido de Avena, Dátil y Canela", category: "desayuno", kcal: 330, country: "General", tags: ["vegano", "sin_lactosa"], allergens: [], avoidFor: ["diabetes"],
+    ingredients: ["40g Avena", "2 Dátiles", "200ml Leche vegetal", "Canela"],
+    instructions: ["Colocar todos los ingredientes en la licuadora.", "Licuar hasta lograr una textura homogénea.", "Servir bien frío espolvoreado con canela."] },
+
+  // ---------- ALMUERZOS (50) ----------
   { id: "a1", name: "Pechuga Grillé con Arroz Integral", category: "almuerzo", kcal: 550, country: "General", tags: ["sin_lactosa", "sin_gluten"], allergens: [], avoidFor: [],
     ingredients: ["150g Pechuga de pollo", "70g Arroz integral", "Mix de vegetales verdes"],
     instructions: ["Cocinar el arroz integral según las indicaciones del paquete.", "Grillar la pechuga sazonada 5-6 minutos por lado.", "Servir junto a los vegetales salteados o al vapor."] },
@@ -413,7 +454,48 @@ const RECIPES_DB = [
     ingredients: ["150g Filete de pescado blanco", "100g Garbanzos cocidos", "Tomate, ajo y pimentón", "Aceite de oliva"],
     instructions: ["Rehogar el ajo en aceite de oliva y agregar el tomate y el pimentón.", "Sumar los garbanzos y un poco de agua, cocinar 10 minutos.", "Agregar el pescado en trozos y cocinar 8 minutos más hasta que esté cocido."] },
 
-  // ---------- MERIENDAS (40) ----------
+  // ---------- ALMUERZOS ADICIONALES (nuevas) ----------
+  { id: "a41", name: "Pollo al Romero con Papas al Horno", category: "almuerzo", kcal: 560, country: "General", tags: ["sin_lactosa", "sin_gluten"], allergens: [], avoidFor: [],
+    ingredients: ["200g Pechuga de pollo", "3 Papas medianas", "Romero y aceite de oliva"],
+    instructions: ["Cortar las papas en gajos y condimentarlas con romero y aceite.", "Hornear el pollo junto a las papas a 200°C durante 30-35 minutos.", "Servir caliente recién salido del horno."] },
+
+  { id: "a42", name: "Ensalada de Garbanzos, Atún y Huevo", category: "almuerzo", kcal: 480, country: "General", tags: ["sin_gluten", "sin_lactosa"], allergens: ["mariscos", "huevo"], avoidFor: [],
+    ingredients: ["150g Garbanzos cocidos", "1 Lata de atún al natural", "1 Huevo duro", "Tomate cherry"],
+    instructions: ["Mezclar los garbanzos con el atún escurrido en un bowl.", "Agregar el huevo duro en cuartos y los tomates cherry.", "Aliñar con aceite de oliva y sal a gusto."] },
+
+  { id: "a43", name: "Guiso de Arroz con Pollo y Vegetales", category: "almuerzo", kcal: 550, country: "General", tags: ["sin_lactosa", "sin_gluten"], allergens: [], avoidFor: [],
+    ingredients: ["150g Pollo en cubos", "100g Arroz", "Zanahoria, morrón y arvejas"],
+    instructions: ["Sellar el pollo en una olla hasta dorar.", "Agregar los vegetales y el arroz, cubrir con caldo.", "Cocinar a fuego medio 18-20 minutos hasta que el arroz esté tierno."] },
+
+  { id: "a44", name: "Milanesas de Merluza al Horno con Puré", category: "almuerzo", kcal: 520, country: "General", tags: [], allergens: ["huevo", "gluten"], avoidFor: [],
+    ingredients: ["2 Filetes de merluza", "1 Huevo", "Pan rallado", "3 Papas para puré"],
+    instructions: ["Pasar los filetes por huevo batido y pan rallado.", "Hornear a 200°C durante 15-18 minutos, dando vuelta a mitad de cocción.", "Servir con puré de papas casero."] },
+
+  { id: "a45", name: "Wok de Camarones y Vegetales", category: "almuerzo", kcal: 460, country: "Asiático", tags: ["sin_lactosa", "sin_gluten"], allergens: ["mariscos"], avoidFor: [],
+    ingredients: ["200g Camarones pelados", "Brócoli, morrón y zanahoria", "Salsa de soja sin gluten"],
+    instructions: ["Saltear los camarones en el wok hasta que tomen color.", "Agregar los vegetales cortados y cocinar 4-5 minutos a fuego fuerte.", "Sumar la salsa de soja, mezclar 1 minuto más y servir."] },
+
+  { id: "a46", name: "Cazuela de Pollo y Batata", category: "almuerzo", kcal: 540, country: "General", tags: ["sin_lactosa", "sin_gluten"], allergens: [], avoidFor: [],
+    ingredients: ["200g Muslo de pollo sin piel", "1 Batata grande en cubos", "Cebolla y caldo de verduras"],
+    instructions: ["Sellar el pollo en una cazuela hasta dorar.", "Agregar la batata en cubos, la cebolla y el caldo.", "Cocinar tapado a fuego medio 25-30 minutos hasta que todo esté tierno."] },
+
+  { id: "a47", name: "Ensalada Tibia de Pollo, Espinaca y Pera", category: "almuerzo", kcal: 460, country: "General", tags: ["sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["150g Pechuga de pollo grillada", "Espinaca fresca", "Media pera en láminas"],
+    instructions: ["Grillar la pechuga y cortarla en tiras.", "Armar la ensalada con la espinaca como base y la pera en láminas.", "Agregar el pollo por encima y aliñar a gusto."] },
+
+  { id: "a48", name: "Arroz Integral con Lentejas y Vegetales Salteados", category: "almuerzo", kcal: 500, country: "General", tags: ["vegano", "sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["80g Arroz integral", "80g Lentejas cocidas", "Zanahoria y morrón salteados"],
+    instructions: ["Cocinar el arroz integral según las indicaciones del paquete.", "Saltear la zanahoria y el morrón en una sartén.", "Mezclar todo con las lentejas cocidas y servir tibio."] },
+
+  { id: "a49", name: "Pastel de Papa con Carne Magra", category: "almuerzo", kcal: 580, country: "Argentina", tags: [], allergens: ["lactosa"], avoidFor: ["colesterol_alto"],
+    ingredients: ["300g Carne molida magra", "4 Papas para puré", "Cebolla y morrón"],
+    instructions: ["Cocinar la carne molida con la cebolla y el morrón picados.", "Colocar la carne en una fuente y cubrir con el puré de papas.", "Gratinar en horno a 200°C durante 15 minutos hasta dorar la superficie."] },
+
+  { id: "a50", name: "Pollo Grillado con Ensalada Tricolor", category: "almuerzo", kcal: 480, country: "General", tags: ["sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["180g Pechuga de pollo", "Tomate, lechuga y choclo", "Aceite de oliva"],
+    instructions: ["Grillar la pechuga sazonada 5-6 minutos por lado.", "Armar la ensalada con el tomate, la lechuga y el choclo.", "Servir el pollo en tiras sobre la ensalada, aliñado con aceite de oliva."] },
+
+  // ---------- MERIENDAS (50) ----------
   { id: "m1", name: "Yogur Griego con Nueces y Banana", category: "meriendas", kcal: 300, country: "General", tags: ["vegetariano"], allergens: ["lactosa", "frutos_secos"], avoidFor: [],
     ingredients: ["200g Yogur natural descremado", "15g Nueces", "Media banana"],
     instructions: ["Colocar el yogur en un bowl o vaso.", "Cortar la banana en rodajas y agregarla encima.", "Coronar con las nueces picadas."] },
@@ -604,7 +686,48 @@ const RECIPES_DB = [
     ingredients: ["1 rodaja de pan integral", "50g Ricota", "1 cdita Miel", "10g Nueces"],
     instructions: ["Tostar el pan integral.", "Untar con la ricota.", "Agregar un hilo de miel y las nueces picadas por encima."] },
 
-  // ---------- CENAS (40) ----------
+  // ---------- MERIENDAS ADICIONALES (nuevas) ----------
+  { id: "m41", name: "Tostadas de Arroz con Queso Untable", category: "meriendas", kcal: 220, country: "General", tags: ["vegetariano", "sin_gluten"], allergens: ["lactosa"], avoidFor: [],
+    ingredients: ["3 Tostadas de arroz", "2 cdas Queso untable light", "Semillas de sésamo"],
+    instructions: ["Untar las tostadas de arroz con el queso untable.", "Espolvorear las semillas de sésamo por encima.", "Servir enseguida para que no pierdan la textura crocante."] },
+
+  { id: "m42", name: "Batido de Kiwi y Manzana", category: "meriendas", kcal: 200, country: "General", tags: ["vegano", "sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["2 Kiwis", "1 Manzana", "150ml Agua fría"],
+    instructions: ["Pelar y cortar el kiwi y la manzana en trozos.", "Licuar con el agua fría hasta lograr una textura homogénea.", "Servir inmediatamente bien frío."] },
+
+  { id: "m43", name: "Yogur con Granola y Miel", category: "meriendas", kcal: 300, country: "General", tags: ["vegetariano"], allergens: ["lactosa", "gluten"], avoidFor: ["diabetes"],
+    ingredients: ["150g Yogur natural", "30g Granola", "1 cdita Miel"],
+    instructions: ["Colocar el yogur como base en un vaso o bowl.", "Agregar la granola por encima.", "Rociar con la miel antes de servir."] },
+
+  { id: "m44", name: "Palitos de Pepino con Queso Crema", category: "meriendas", kcal: 180, country: "General", tags: ["vegetariano", "sin_gluten"], allergens: ["lactosa"], avoidFor: [],
+    ingredients: ["1 Pepino grande en bastones", "3 cdas Queso crema light"],
+    instructions: ["Cortar el pepino en bastones parejos.", "Servir con el queso crema light como dip.", "Ideal para picar entre comidas."] },
+
+  { id: "m45", name: "Barrita de Avena y Manteca de Maní", category: "meriendas", kcal: 320, country: "General", tags: ["vegetariano"], allergens: ["frutos_secos"], avoidFor: [],
+    ingredients: ["60g Avena", "2 cdas Manteca de maní", "1 cda Miel"],
+    instructions: ["Mezclar la avena con la manteca de maní y la miel hasta integrar.", "Formar una barra compacta en un molde.", "Enfriar en la heladera al menos 1 hora antes de cortar en porciones."] },
+
+  { id: "m46", name: "Ensalada de Frutas de Estación", category: "meriendas", kcal: 160, country: "General", tags: ["vegano", "sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["1 taza de frutas de estación mixtas", "Jugo de medio limón"],
+    instructions: ["Cortar las frutas en cubos parejos.", "Rociar con el jugo de limón para evitar que se oxiden.", "Servir bien fría en un bowl."] },
+
+  { id: "m47", name: "Sándwich Integral de Atún", category: "meriendas", kcal: 340, country: "General", tags: [], allergens: ["gluten", "mariscos"], avoidFor: [],
+    ingredients: ["2 rodajas de pan integral", "1 Lata de atún al natural", "Tomate en rodajas"],
+    instructions: ["Escurrir el atún y mezclarlo con un poco de aceite de oliva.", "Untar el pan con el atún y agregar el tomate.", "Cerrar el sándwich y cortar al medio."] },
+
+  { id: "m48", name: "Chips de Batata al Horno", category: "meriendas", kcal: 240, country: "General", tags: ["vegano", "sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["1 Batata mediana en láminas finas", "Aceite de oliva en spray", "Sal y pimentón"],
+    instructions: ["Cortar la batata en láminas bien finas.", "Colocarlas en una placa con aceite en spray, sal y pimentón.", "Hornear a 200°C durante 20-25 minutos hasta que estén crocantes."] },
+
+  { id: "m49", name: "Licuado de Avena y Manzana", category: "meriendas", kcal: 260, country: "General", tags: ["vegano", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["40g Avena", "1 Manzana", "200ml Leche vegetal", "Canela"],
+    instructions: ["Colocar todos los ingredientes en la licuadora.", "Licuar hasta lograr una textura homogénea.", "Servir frío espolvoreado con canela."] },
+
+  { id: "m50", name: "Torta de Ricota y Limón (porción)", category: "meriendas", kcal: 320, country: "Argentina", tags: ["vegetariano"], allergens: ["huevo", "lactosa"], avoidFor: ["diabetes"],
+    ingredients: ["150g Ricota descremada", "1 Huevo", "Ralladura y jugo de 1 limón"],
+    instructions: ["Batir la ricota con el huevo y la ralladura de limón hasta integrar.", "Colocar la mezcla en un molde y hornear a 180°C durante 30 minutos.", "Dejar enfriar antes de desmoldar y servir en porciones."] },
+
+  // ---------- CENAS (50) ----------
   { id: "c1", name: "Filete de Pescado con Ensalada Completa", category: "cena", kcal: 400, country: "General", tags: ["sin_lactosa", "sin_gluten"], allergens: [], avoidFor: [],
     ingredients: ["150g Pescado blanco", "Tomate", "Lechuga", "Zanahoria"],
     instructions: ["Sellar el pescado en sartén caliente con un poco de aceite, 3-4 minutos por lado.", "Cortar los vegetales de la ensalada y mezclarlos en un bowl.", "Servir el pescado junto a la ensalada, aliñada a gusto."] },
@@ -798,6 +921,47 @@ const RECIPES_DB = [
   { id: "cm4", name: "Pollo al Horno con Limón, Aceitunas y Romero", category: "cena", kcal: 460, country: "Mediterráneo", tags: ["mediterraneo", "sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
     ingredients: ["200g Muslo de pollo sin piel", "Aceitunas verdes", "Limón en rodajas", "Romero y aceite de oliva"],
     instructions: ["Colocar el pollo en una fuente para horno con las aceitunas y el limón en rodajas.", "Condimentar con romero y un buen chorro de aceite de oliva.", "Hornear a 200°C durante 30-35 minutos hasta dorar."] },
+
+  // ---------- CENAS ADICIONALES (nuevas) ----------
+  { id: "c41", name: "Sopa Minestrone Liviana", category: "cena", kcal: 340, country: "General", tags: ["vegano", "sin_lactosa"], allergens: ["gluten"], avoidFor: [],
+    ingredients: ["Zanahoria, apio y zapallito", "80g Fideos chicos", "150g Porotos cocidos"],
+    instructions: ["Rehogar los vegetales picados en una olla.", "Agregar caldo de verduras y los porotos, cocinar 15 minutos.", "Sumar los fideos y cocinar 8-10 minutos más hasta que estén al dente."] },
+
+  { id: "c42", name: "Pollo al Verdeo con Puré de Calabaza", category: "cena", kcal: 460, country: "General", tags: ["sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["180g Pechuga de pollo", "Cebolla de verdeo", "300g Calabaza"],
+    instructions: ["Saltear el pollo en tiras con la cebolla de verdeo hasta dorar.", "Hervir la calabaza y hacer un puré.", "Servir el pollo sobre el puré de calabaza."] },
+
+  { id: "c43", name: "Ensalada de Salmón Ahumado y Rúcula", category: "cena", kcal: 400, country: "General", tags: ["sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["100g Salmón ahumado", "Rúcula fresca", "Tomate cherry y limón"],
+    instructions: ["Armar la base de la ensalada con la rúcula y los tomates cherry.", "Distribuir el salmón ahumado en láminas por encima.", "Aliñar con jugo de limón y aceite de oliva."] },
+
+  { id: "c44", name: "Guiso Liviano de Pollo y Arroz Integral", category: "cena", kcal: 480, country: "General", tags: ["sin_lactosa", "sin_gluten"], allergens: [], avoidFor: [],
+    ingredients: ["150g Pollo en cubos", "60g Arroz integral", "Zanahoria y apio"],
+    instructions: ["Sellar el pollo en una olla hasta dorar.", "Agregar los vegetales y el arroz, cubrir con caldo de verduras.", "Cocinar tapado a fuego medio 25 minutos hasta que el arroz esté tierno."] },
+
+  { id: "c45", name: "Zapallitos Rellenos de Carne", category: "cena", kcal: 420, country: "General", tags: ["sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["3 Zapallitos redondos", "150g Carne molida magra", "Cebolla y morrón"],
+    instructions: ["Ahuecar los zapallitos y reservar la pulpa.", "Saltear la carne con la cebolla, el morrón y la pulpa reservada.", "Rellenar los zapallitos y hornear a 190°C durante 25 minutos."] },
+
+  { id: "c46", name: "Wrap Vegano de Garbanzos y Vegetales", category: "cena", kcal: 420, country: "General", tags: ["vegano"], allergens: ["gluten"], avoidFor: [],
+    ingredients: ["1 Tortilla integral", "150g Garbanzos pisados", "Lechuga, tomate y zanahoria rallada"],
+    instructions: ["Pisar los garbanzos con un tenedor y condimentar a gusto.", "Colocar el puré de garbanzos sobre la tortilla junto a los vegetales.", "Enrollar bien apretado y cortar al medio para servir."] },
+
+  { id: "c47", name: "Merluza a la Romana Ligera", category: "cena", kcal: 400, country: "General", tags: [], allergens: ["huevo", "gluten"], avoidFor: [],
+    ingredients: ["2 Filetes de merluza", "1 Huevo", "2 cdas Harina"],
+    instructions: ["Pasar los filetes por harina y luego por huevo batido.", "Cocinar en sartén con poco aceite hasta dorar de ambos lados.", "Servir caliente con una guarnición de ensalada."] },
+
+  { id: "c48", name: "Cazuela de Pollo y Vegetales de Estación", category: "cena", kcal: 440, country: "General", tags: ["sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["180g Muslo de pollo sin piel", "Zapallo, zanahoria y apio", "Caldo de verduras"],
+    instructions: ["Sellar el pollo en una cazuela hasta dorar.", "Agregar los vegetales cortados y el caldo.", "Cocinar tapado a fuego medio 30 minutos hasta que todo esté tierno."] },
+
+  { id: "c49", name: "Tortilla de Papa y Cebolla Liviana", category: "cena", kcal: 380, country: "España", tags: ["vegetariano", "sin_gluten", "sin_lactosa"], allergens: ["huevo"], avoidFor: [],
+    ingredients: ["2 Papas medianas", "1 Cebolla", "3 Huevos"],
+    instructions: ["Cortar las papas y la cebolla en láminas finas y cocinarlas en sartén con poco aceite hasta que estén tiernas.", "Batir los huevos e integrarlos con las papas y la cebolla.", "Volcar en la sartén y cocinar tapado a fuego bajo, dando vuelta para dorar ambos lados."] },
+
+  { id: "c50", name: "Brochettes de Pollo y Vegetales a la Parrilla", category: "cena", kcal: 420, country: "General", tags: ["sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["200g Pechuga de pollo en cubos", "Morrón, cebolla y zucchini", "Limón y hierbas"],
+    instructions: ["Armar las brochettes intercalando el pollo con los vegetales.", "Marinar con jugo de limón, aceite de oliva y hierbas 15 minutos.", "Cocinar a la parrilla o plancha 10-12 minutos, girando hasta dorar por todos lados."] },
 ];
 
 // Helper: devuelve todas las recetas de una categoría ("desayuno", "almuerzo", "meriendas", "cena")
@@ -825,43 +989,60 @@ const BEBIDAS_DB = {
     sinAlcohol: [
       "Agua saborizada con menta y limón", "Infusión de jengibre y limón", "Café con leche descremada",
       "Té verde", "Agua de coco fría", "Jugo de naranja exprimido", "Mate cocido",
-      "Licuado de frutas sin azúcar agregada"
+      "Licuado de frutas sin azúcar agregada", "Té negro con limón", "Infusión de rooibos",
+      "Café cortado con leche vegetal", "Jugo de pomelo rosado exprimido", "Agua tibia con limón y jengibre",
+      "Licuado de banana y avena sin azúcar", "Té chai con leche descremada", "Agua saborizada con frutilla"
     ],
     conAlcohol: [
       "Mimosa (jugo de naranja con espumante)", "Bellini (jugo de durazno con espumante)",
-      "Copa de espumante bien frío", "Café irlandés (café con whisky)"
+      "Copa de espumante bien frío", "Café irlandés (café con whisky)",
+      "Kir Royale (espumante con licor de cassis)", "Mimosa de pomelo (pomelo con espumante)",
+      "Bloody Mary suave (jugo de tomate con vodka)", "Sgroppino (espumante con sorbete de limón)"
     ]
   },
   almuerzo: {
     sinAlcohol: [
       "Agua con gas y rodajas de limón", "Limonada casera sin azúcar", "Agua saborizada con pepino y menta",
       "Té helado sin azúcar", "Soda con hielo", "Jugo de pomelo diluido con agua", "Agua tónica light",
-      "Infusión fría de hibisco"
+      "Infusión fría de hibisco", "Limonada de jengibre sin azúcar", "Agua saborizada con naranja y romero",
+      "Té helado de durazno sin azúcar", "Soda con lima y menta", "Agua de Jamaica (hibisco frío)",
+      "Jugo de arándanos diluido con agua", "Mocktail de frutilla y limón (sin alcohol)"
     ],
     conAlcohol: [
       "Copa de vino tinto (150ml)", "Copa de vino blanco frío (150ml)", "Cerveza rubia chica",
-      "Clericó con frutas (con moderación)", "Copa de rosado bien frío"
+      "Clericó con frutas (con moderación)", "Copa de rosado bien frío",
+      "Spritz de aperol (con moderación)", "Sangría liviana con frutas (con moderación)",
+      "Copa de malbec (150ml)", "Tinto de verano (vino tinto con gaseosa cítrica)",
+      "Copa de torrontés bien frío", "Gin tonic suave (con moderación)"
     ]
   },
   meriendas: {
     sinAlcohol: [
       "Mate cebado", "Té con limón", "Infusión de manzanilla", "Agua saborizada natural",
-      "Licuado liviano de frutas", "Café cortado", "Agua de hierbas frías", "Jugo de manzana natural"
+      "Licuado liviano de frutas", "Café cortado", "Agua de hierbas frías", "Jugo de manzana natural",
+      "Té de frutos rojos", "Infusión de boldo y menta", "Café con hielo (frappé liviano)",
+      "Agua saborizada con pera y canela", "Mate con hierbas serranas", "Té blanco con limón"
     ],
     conAlcohol: [
       "Copa pequeña de vino dulce (de postre)", "Espumante dulce (frizzante) en copa chica",
-      "Sidra bien fría (brindis liviano)"
+      "Sidra bien fría (brindis liviano)", "Vermú dulce con hielo y naranja",
+      "Copa chica de oporto", "Cóctel de espumante con jarabe de frutilla"
     ]
   },
   cena: {
     sinAlcohol: [
       "Agua con gas y jengibre", "Infusión digestiva de menta", "Té negro sin azúcar",
       "Agua saborizada con frutos rojos", "Soda con lima", "Jugo de arándanos sin azúcar",
-      "Agua tibia con limón", "Kombucha sin alcohol"
+      "Agua tibia con limón", "Kombucha sin alcohol", "Infusión de manzanilla y anís",
+      "Agua saborizada con pepino y jengibre", "Té verde helado sin azúcar",
+      "Mocktail de arándanos y soda", "Agua tónica con lima (sin alcohol)"
     ],
     conAlcohol: [
       "Copa de vino tinto (150ml)", "Cerveza artesanal chica", "Copa de espumante seco",
-      "Fernet con cola (con moderación)", "Aperitivo tipo vermú con soda"
+      "Fernet con cola (con moderación)", "Aperitivo tipo vermú con soda",
+      "Negroni suave (con moderación)", "Old Fashioned liviano (con moderación)",
+      "Copa de vino tinto joven (150ml)", "Mulled wine (vino caliente especiado, de estación)",
+      "Whisky sour suave (con moderación)"
     ]
   }
 };
