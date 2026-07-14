@@ -2670,13 +2670,17 @@ const UI = {
   },
 
   // ----------------------------------------------------------------------
-  // Rellena el input del chat con un comando predefinido y lo envía, tal
-  // cual si el usuario lo hubiera tipeado. Usado por los chips del mensaje
-  // de "ayuda" (activar/desactivar Argentina, día libre, modo barman).
-  sendQuickChat(text) {
+  // Envía un mensaje "de un toque" (usado por los chips del comando
+  // "ayuda": Argentina / Barman / Día libre). Mismo patrón que
+  // _sendTranscribed: pinta el texto en el input y dispara sendChat(),
+  // así el mensaje pasa por exactamente el mismo camino que si el
+  // usuario lo hubiera tipeado a mano.
+  sendQuickReply(text) {
     const input = document.getElementById('chatInput');
-    if (!input) return;
-    input.value = text;
+    if (input) {
+      input.value = text;
+      input.dispatchEvent(new Event('input'));
+    }
     this.sendChat();
   },
 
@@ -3077,11 +3081,6 @@ window.ChatApp = {
   // para saber a qué se refiere un "dame otra opción" genérico.
   _lastTopic: null,
 
-  // Recuerda si el usuario está en modo "quiero recetas de Argentina", para
-  // que un "dame otra opción" post-Argentina siga trayendo recetas argentinas
-  // en vez de volver al pool general. Se resetea cuando pide comida "normal".
-  _lastCountryFocus: null,
-
   // true mientras el chat está esperando que el usuario confirme los
   // ingredientes que tiene a mano (ver UI.openIngredientPicker).
   _awaitingIngredients: false,
@@ -3093,6 +3092,10 @@ window.ChatApp = {
   // de las reglas de comida. _lastCocktail evita repetir el mismo dos veces seguidas.
   _barmanMode: false,
   _lastCocktail: null,
+
+  // Última receta "argentina" mostrada en el chat, para no repetir la misma
+  // dos veces seguidas cuando se pide "otra receta argentina".
+  _lastArgentina: null,
 
   // Saca tildes y pasa a minúsculas para que el matching de palabras clave
   // sea más flexible ("qué puedo comer" == "que puedo comer").
@@ -3141,6 +3144,88 @@ window.ChatApp = {
   },
 
   // --------------------------------------------------------------------
+  // RECETAS ARGENTINAS: filtra el pool normal (ya respeta alergias,
+  // restricciones y condiciones de salud vía MealEngine.filterRecipesForProfile)
+  // quedándose solo con las que "suenan" a comida argentina.
+  //
+  // Si en data.js le agregás a una receta un campo `pais: 'argentina'` (o
+  // `origen: 'argentina'`, o un array `tags` que incluya 'argentina'), eso
+  // se usa primero y es 100% preciso. Si la receta no tiene ese campo,
+  // caemos a esta lista de palabras clave típicas como heurística (por
+  // nombre e ingredientes) — no es perfecta, pero anda bien sin tener que
+  // tocar toda la base de datos a mano.
+  // --------------------------------------------------------------------
+  _ARGENTINE_KEYWORDS: [
+    'asado', 'milanesa', 'empanada', 'locro', 'choripan', 'chori pan',
+    'matambre', 'provoleta', 'humita', 'pastel de papa', 'bife de chorizo',
+    'vacio', 'guiso criollo', 'puchero', 'noquis del 29',
+    'tortilla de papas', 'canelones', 'ravioles', 'chimichurri',
+    'medialunas', 'facturas', 'dulce de leche', 'alfajor', 'mate',
+    'chinchulin', 'morcilla', 'achuras', 'sorrentinos',
+    'bondiola', 'carbonada', 'estofado criollo'
+  ],
+
+  _esRecetaArgentina(recipe) {
+    if (!recipe) return false;
+
+    // 1) Campo explícito en data.js, si existe (más preciso que adivinar).
+    const camposPosibles = [recipe.pais, recipe.origen, recipe.country];
+    if (camposPosibles.some(v => v && this._normalize(String(v)) === 'argentina')) return true;
+    if (Array.isArray(recipe.tags) && recipe.tags.some(t => {
+      const tt = this._normalize(String(t));
+      return tt === 'argentina' || tt === 'argentino';
+    })) return true;
+
+    // 2) Heurística por nombre + ingredientes.
+    const texto = this._normalize(
+      recipe.name + ' ' + (Array.isArray(recipe.ingredients) ? recipe.ingredients.join(' ') : '')
+    );
+    return this._ARGENTINE_KEYWORDS.some(k => texto.includes(k));
+  },
+
+  // Igual que _getRandomRecipeForSlot, pero restringido a recetas argentinas
+  // (ver _esRecetaArgentina). Devuelve null si no encuentra ninguna para
+  // esa franja dentro de lo que el perfil puede comer.
+  _getRandomArgentineRecipeForSlot(slotKey, profile, forceCheatDay) {
+    if (typeof MealEngine === 'undefined' || typeof RECIPES_DB === 'undefined') return null;
+    const category = SLOT_TO_CATEGORY[slotKey] || 'meriendas';
+
+    const isSunday = forceCheatDay !== undefined ? forceCheatDay : MealEngine.isCheatDay(new Date());
+    let pool = MealEngine.filterRecipesForProfile(category, profile, isSunday) || [];
+    pool = pool.filter(r => this._esRecetaArgentina(r));
+    if (!pool.length) return null;
+
+    let choices = pool;
+    if (pool.length > 1 && this._lastArgentina) {
+      const withoutLast = pool.filter(r => r.id !== this._lastArgentina);
+      if (withoutLast.length) choices = withoutLast;
+    }
+
+    const pick = choices[Math.floor(Math.random() * choices.length)];
+    this._lastArgentina = pick.id;
+    return pick;
+  },
+
+  // Arma la respuesta del chat para "quiero una receta argentina".
+  _respondArgentina(profile) {
+    const slot = this._getMealSlot();
+    const recipe = this._getRandomArgentineRecipeForSlot(slot.key, profile);
+    this._lastTopic = 'comida';
+
+    if (!recipe) {
+      return this.pickVariant('argentina_sin_receta', [
+        `Che, para ${slot.label.toLowerCase()} no tengo ninguna receta bien argenta cargada que te calce con tu perfil ahora mismo. Fijate en Inicio o Semana, o pedime "qué puedo comer" para una opción normal. 🇦🇷`
+      ]);
+    }
+
+    const ing = recipe.ingredients ? recipe.ingredients.join(', ') : '';
+    return this.pickVariant('argentina', [
+      (r, i) => `¡Dale, receta bien argenta! 🇦🇷 Para ${slot.label.toLowerCase()} te tiro: **${r.name}** (${r.kcal} kcal) con ${i}. Si querés otra, pedime "otra receta argentina". 🔄`,
+      (r, i) => `Va esta, bien nuestra 🇦🇷: **${r.name}** (${r.kcal} kcal), con ${i}. ¿Te copa o probamos otra?`
+    ], recipe, ing);
+  },
+
+  // --------------------------------------------------------------------
   // VARIEDAD DE COMIDA: arma el pool filtrado (respeta alergias, dislikes,
   // restricciones y condiciones de salud vía MealEngine.filterRecipesForProfile)
   // y elige una receta al azar, evitando repetir la última mostrada en el chat.
@@ -3165,75 +3250,6 @@ window.ChatApp = {
     const pick = choices[Math.floor(Math.random() * choices.length)];
     this._lastChatRecipe[category] = pick.id;
     return pick;
-  },
-
-  // --------------------------------------------------------------------
-  // RECETAS EXCLUSIVAS DE ARGENTINA: mismo criterio de seguridad que el
-  // resto (respeta alergias/restricciones/salud vía MealEngine), pero
-  // además filtra por country === "Argentina". Si el cruce perfil+país
-  // queda vacío, cae a todas las recetas argentinas de esa franja (mejor
-  // mostrar algo que nada, mismo criterio que usa el resto del archivo).
-  // --------------------------------------------------------------------
-  _normalizeCountry(str) {
-    return (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  },
-
-  _getRandomArgentinaRecipeForSlot(slotKey, profile, forceCheatDay) {
-    if (typeof MealEngine === 'undefined' || typeof RECIPES_DB === 'undefined') return null;
-    const category = SLOT_TO_CATEGORY[slotKey] || 'meriendas';
-
-    const isSunday = forceCheatDay !== undefined ? forceCheatDay : MealEngine.isCheatDay(new Date());
-    let pool = MealEngine.filterRecipesForProfile(category, profile, isSunday);
-    pool = pool.filter(r => this._normalizeCountry(r.country) === 'argentina');
-
-    if (!pool.length) {
-      pool = (typeof getRecipesByCountryAndCategory === 'function')
-        ? getRecipesByCountryAndCategory('Argentina', category)
-        : getRecipesByCategory(category).filter(r => this._normalizeCountry(r.country) === 'argentina');
-    }
-    if (!pool.length) return null;
-
-    const key = `ar_${category}`;
-    const lastId = this._lastChatRecipe[key];
-    let choices = pool;
-    if (pool.length > 1 && lastId) {
-      const withoutLast = pool.filter(r => r.id !== lastId);
-      if (withoutLast.length) choices = withoutLast;
-    }
-
-    const pick = choices[Math.floor(Math.random() * choices.length)];
-    this._lastChatRecipe[key] = pick.id;
-    return pick;
-  },
-
-  _getRandomArgentinaRecipesForSlot(slotKey, profile, count, forceCheatDay) {
-    if (typeof MealEngine === 'undefined' || typeof RECIPES_DB === 'undefined') return [];
-    const category = SLOT_TO_CATEGORY[slotKey] || 'meriendas';
-
-    const isSunday = forceCheatDay !== undefined ? forceCheatDay : MealEngine.isCheatDay(new Date());
-    let pool = MealEngine.filterRecipesForProfile(category, profile, isSunday);
-    pool = pool.filter(r => this._normalizeCountry(r.country) === 'argentina');
-
-    if (!pool.length) {
-      pool = (typeof getRecipesByCountryAndCategory === 'function')
-        ? getRecipesByCountryAndCategory('Argentina', category)
-        : getRecipesByCategory(category).filter(r => this._normalizeCountry(r.country) === 'argentina');
-    }
-    if (!pool.length) return [];
-
-    const key = `ar_${category}`;
-    const lastIds = this._lastChatRecipes[key] || [];
-    let choices = pool;
-    if (pool.length > count) {
-      const withoutLast = pool.filter(r => !lastIds.includes(r.id));
-      if (withoutLast.length >= count) choices = withoutLast;
-    }
-
-    const shuffled = [...choices].sort(() => Math.random() - 0.5);
-    const picked = shuffled.slice(0, Math.min(count, shuffled.length));
-
-    this._lastChatRecipes[key] = picked.map(r => r.id);
-    return picked;
   },
 
   // --------------------------------------------------------------------
@@ -3604,6 +3620,48 @@ window.ChatApp = {
       return this._respondBarman(true);
     }
 
+    // --- Comando "ayuda": muestra chips tocables con los modos/comandos
+    // especiales del chat (recetas argentinas, modo barman, día libre).
+    // Al tocar un chip se manda ese mismo mensaje como si el usuario lo
+    // hubiera escrito (ver UI.sendQuickReply en app.js).
+    const pideAyuda =
+      msg === 'ayuda' ||
+      msg === 'help' ||
+      msg.includes('menu de ayuda') ||
+      msg.includes('que podes hacer') ||
+      msg.includes('que sabes hacer') ||
+      msg.includes('que comandos hay') ||
+      (msg.includes('ayuda') && (msg.includes('chat') || msg.includes('nutrio') || msg.includes('opciones')));
+
+    if (pideAyuda) {
+      this._lastTopic = null;
+      const chips = [
+        { label: '🇦🇷 Recetas argentinas', msg: 'receta argentina' },
+        { label: '🍸 Modo barman', msg: 'modo barman' },
+        { label: '🎉 Día libre', msg: 'dia libre' }
+      ].map(c =>
+        `<span class="chip-sm tap-feedback" onclick="UI.sendQuickReply('${c.msg}')">${c.label}</span>`
+      ).join('');
+
+      return this.pickVariant('ayuda', [
+        (h) => `Esto es lo que puedo hacer${h}, además de armarte el día a día: tocá alguno 👇<div class="ingredient-picker-chips">${chips}</div>`
+      ], name);
+    }
+
+    // --- Pedido de una receta argentina puntual ---
+    const pideArgentina =
+      msg.includes('receta argentina') ||
+      msg.includes('comida argentina') ||
+      msg.includes('algo argentino') ||
+      msg.includes('plato argentino') ||
+      msg.includes('cocina argentina') ||
+      msg.includes('recetas argentinas') ||
+      (msg.includes('argentin') && (msg.includes('comer') || msg.includes('receta') || msg.includes('comida')));
+
+    if (pideArgentina) {
+      return this._respondArgentina(profile);
+    }
+
     // --- Caso especial: pregunta por el mate (antes de todo lo demás) ---
     const hablaDeMate = /\bmate\b/.test(msg) && !msg.includes('matematica');
     if (hablaDeMate && !msg.includes('no me gusta')) {
@@ -3615,65 +3673,6 @@ window.ChatApp = {
         (h) => `A las ${h} el mate pega bien con algo simple: tostadas, un pancito con queso, o una fruta si querés ir más liviano. En la solapa de **Inicio** tenés el resto del día armado. 🧉`,
         (h) => `Mate a las ${h}... buena elección. Acompañalo con algo tostado o una fruta, y si querés algo más armado fijate en **Inicio** o **Semana**. 🧉`
       ], horaTxt);
-    }
-
-    // --- Comando "desactivar Argentina": apaga el foco en recetas argentinas
-    // y vuelve al pool general. Se chequea ANTES de la activación para que
-    // "desactivar argentina" / "salir de argentina" no dispare el modo por
-    // contener la palabra "argentina". ---
-    const desactivaArgentina =
-      /\bargentin\w*\b/.test(msg) &&
-      (msg.includes('desactiv') || msg.includes('apaga') || msg.includes('salir de argentina') ||
-       msg.includes('sacar argentina') || msg.includes('quitar argentina') || msg.includes('sin argentina'));
-
-    if (desactivaArgentina) {
-      this._lastCountryFocus = null;
-      return this.pickVariant('argentina_desactivada', [
-        `Listo, desactivé el modo Argentina 🇦🇷➡️🌎. Volvemos al pool general de recetas. Pedime "qué puedo comer" cuando quieras.`,
-        `Dale, apagado el foco en Argentina. Ahora te tiro de todo el mundo otra vez. Pedime cuando quieras "qué puedo comer". 🌎`
-      ]);
-    }
-
-    // --- Caso especial: recetas exclusivas de Argentina (palabra "Argentina"
-    // o variantes como "argentino/a/os/as"). Tiene prioridad sobre las reglas
-    // genéricas de "qué puedo comer/tomar" para que, aunque el usuario mezcle
-    // frases ("quiero comer algo de argentina"), gane el filtro por país. ---
-    const hablaDeArgentina = /\bargentin\w*\b/.test(msg);
-    if (hablaDeArgentina && !msg.includes('no me gusta')) {
-      const slot = this._getRequestedSlot(msg);
-      const recipes = this._getRandomArgentinaRecipesForSlot(slot.key, profile, 3);
-      const drink = this._getRandomDrinkForSlot(slot.key, profile);
-      const now = new Date();
-      const horaTxt = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
-      this._lastTopic = 'comida';
-      this._lastCountryFocus = 'Argentina';
-
-      if (!recipes.length) {
-        return this.pickVariant('argentina_sin_receta', [
-          (l) => `Che, para **${l}** todavía no tengo recetas argentinas cargadas en esa franja. Fijate en Inicio o en la Semana, o pedime otra comida y vemos qué te tiro. 🇦🇷`
-        ], slot.label);
-      }
-
-      let restriccionesNote = '';
-      if (profile && profile.restrictions && profile.restrictions.length) {
-        restriccionesNote = ` (ya tuve en cuenta que sos ${profile.restrictions.join(', ')})`;
-      }
-
-      let drinkTxt = '';
-      if (drink && drink.sinAlcohol) {
-        drinkTxt = ` Para acompañar, va bien con ${drink.sinAlcohol}`;
-        drinkTxt += drink.conAlcohol
-          ? `, o si querés date el gusto con ${drink.conAlcohol} (hoy es día permitido 🍷).`
-          : '.';
-      }
-
-      const cardsHTML = (typeof UI !== 'undefined' && UI._buildChatRecipeCardsHTML) ? UI._buildChatRecipeCardsHTML(recipes) : '';
-
-      return this.pickVariant('argentina', [
-        (h, l, note, d, cards) => `¡Che, buena elección! 🇦🇷 Son las ${h}, para **${l}** te tiro 3 recetas bien argentinas${note}:${cards}${d} Tocá la que te copa para ver la receta completa. Si ninguna te cierra, pedime "otra opción". 🍽️`,
-        (h, l, note, d, cards) => `A las ${h}, con onda criolla para **${l}**${note}, van estas 3:${cards}${d} Tocá alguna para el paso a paso. 🥩🇦🇷`,
-        (h, l, note, d, cards) => `Dale, sabor bien nuestro para **${l}** (son las ${h})${note}:${cards}${d} Si ninguna te tienta, pedime otra tanda argenta. 🇦🇷`
-      ], horaTxt, slot.label, restriccionesNote, drinkTxt, cardsHTML);
     }
 
     // --- Despedidas: chau, nos vemos, hasta luego, me voy, etc. ---
@@ -3888,10 +3887,7 @@ window.ChatApp = {
 
     if (pideOtraComida || (pideOtraGenerica && this._lastTopic !== 'bebida')) {
       const slot = this._getMealSlot();
-      const usaArgentina = this._lastCountryFocus === 'Argentina';
-      const recipe = usaArgentina
-        ? this._getRandomArgentinaRecipeForSlot(slot.key, profile)
-        : this._getRandomRecipeForSlot(slot.key, profile);
+      const recipe = this._getRandomRecipeForSlot(slot.key, profile);
       this._lastTopic = 'comida';
       if (!recipe) {
         return this.pickVariant('otra_comida_sin_datos', [
@@ -3986,7 +3982,6 @@ window.ChatApp = {
       const now = new Date();
       const horaTxt = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
       this._lastTopic = 'comida';
-      this._lastCountryFocus = null;
 
       if (!recipes.length) {
         return this.pickVariant('que_comer_sin_receta', [
@@ -4014,23 +4009,6 @@ window.ChatApp = {
         (h, l, note, d, cards) => `Mirá la hora, son las ${h}: momento de **${l}**${note}. Estas son 3 ideas:${cards}${d} Tocá alguna para ver el paso a paso. 😋`,
         (h, l, note, d, cards) => `A las ${h} te toca **${l}**${note}. Elegí entre estas 3:${cards}${d} Si ninguna te tienta, pedime otra tanda. 🍽️`
       ], horaTxt, slot.label, restriccionesNote, drinkTxt, cardsHTML);
-    }
-
-    // --- Comando "ayuda": lista los comandos especiales (Argentina, día libre,
-    // modo barman) como chips clickeables. Tocar un chip manda el comando
-    // solo, vía UI.sendQuickChat(), sin que el usuario tenga que tipearlo. ---
-    if (msg.includes('ayuda')) {
-      const chipsHTML = `
-        <div class="ingredient-picker-chips">
-          <span class="chip-sm tap-feedback" onclick="UI.sendQuickChat('Quiero recetas de Argentina')">🇦🇷 Activar Argentina</span>
-          <span class="chip-sm tap-feedback" onclick="UI.sendQuickChat('Desactivar Argentina')">🌎 Desactivar Argentina</span>
-          <span class="chip-sm tap-feedback" onclick="UI.sendQuickChat('Quiero mi día libre')">🍷 Día libre</span>
-          <span class="chip-sm tap-feedback" onclick="UI.sendQuickChat('Activar modo barman')">🍸 Modo barman</span>
-        </div>`;
-      this._lastTopic = null;
-      return this.pickVariant('ayuda', [
-        () => `Estos son los comandos especiales que tengo. Tocá cualquiera para probarlo, o escribilo directo si preferís tipear:${chipsHTML}Y cuando quieras volver a lo de siempre, pedime "qué puedo comer" o "qué puedo tomar". 🙌`
-      ]);
     }
 
     // --- Saludos ---
@@ -4063,7 +4041,6 @@ window.ChatApp = {
     // --- Recetas / cocinar / comer ---
     if (msg.includes('receta') || msg.includes('cocinar') || msg.includes('comer')) {
       this._lastTopic = 'comida';
-      this._lastCountryFocus = null;
       if (profile && profile.restrictions && profile.restrictions.length) {
         return this.pickVariant('receta_con_restricciones', [
           (p) => `Ya agendé tus mañas de alimentación: "${p.restrictions.join(', ')}". Si vas a las pestañas de **Inicio** o **Semana**, vas a ver las recetas ricas que armé cuidando tu perfil. Y si querés que te tire alguna acá mismo, preguntame qué puedo comer. 🥗`,
