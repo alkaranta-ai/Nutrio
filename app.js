@@ -2478,6 +2478,142 @@ const UI = {
     const dislikeBtn = container.querySelector('[data-role="dislike"]');
     if (likeBtn) likeBtn.classList.toggle('active', liked);
     if (dislikeBtn) dislikeBtn.classList.toggle('active', !liked);
+
+    // Feedback visual: 👍 tira una explosión de papelitos de color desde el
+    // botón; 👎 hace llover sobre el chat. Todo queda contenido dentro del
+    // área visible de #chatScroll (no tapa el resto de la app).
+    if (liked) {
+      this._confettiBurst(likeBtn);
+    } else {
+      this._rainEffect();
+    }
+  },
+
+  // ======================================================================
+  // EFECTOS VISUALES DE FEEDBACK DEL CHAT (👍 papelitos / 👎 lluvia)
+  //
+  // Ambos crean un overlay temporal (position:fixed) del mismo tamaño y
+  // posición que #chatScroll en pantalla, le insertan partículas animadas
+  // con CSS, y se auto-eliminan al terminar la animación. No dependen de
+  // la estructura del HTML de afuera: solo necesitan que exista #chatScroll.
+  // ======================================================================
+  _ensureChatFxStyles() {
+    if (document.getElementById('chatFxStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'chatFxStyles';
+    style.textContent = `
+      .chat-fx-overlay { position: fixed; pointer-events: none; overflow: hidden; z-index: 9999; }
+      .confetti-piece {
+        position: absolute;
+        border-radius: 2px;
+        transform: translate(-50%, -50%) rotate(0deg);
+        animation: confetti-fly 1.1s cubic-bezier(.25,.75,.4,1) forwards;
+      }
+      @keyframes confetti-fly {
+        0%   { transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
+        100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)); opacity: 0; }
+      }
+      .rain-drop {
+        position: absolute;
+        top: -20px;
+        width: 2px;
+        border-radius: 2px;
+        background: linear-gradient(to bottom, rgba(80,150,255,0.05), rgba(80,150,255,0.85));
+        animation-name: rain-fall;
+        animation-timing-function: ease-in;
+        animation-iteration-count: 1;
+        animation-fill-mode: forwards;
+      }
+      @keyframes rain-fall {
+        0%   { transform: translateY(0); opacity: 0.9; }
+        100% { transform: translateY(var(--fall)); opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+  },
+
+  _makeChatFxOverlay() {
+    const scroll = document.getElementById('chatScroll');
+    if (!scroll) return null;
+    this._ensureChatFxStyles();
+
+    const rect = scroll.getBoundingClientRect();
+    const overlay = document.createElement('div');
+    overlay.className = 'chat-fx-overlay';
+    overlay.style.left = rect.left + 'px';
+    overlay.style.top = rect.top + 'px';
+    overlay.style.width = rect.width + 'px';
+    overlay.style.height = rect.height + 'px';
+    document.body.appendChild(overlay);
+    return { overlay, rect };
+  },
+
+  _confettiBurst(originEl) {
+    const fx = this._makeChatFxOverlay();
+    if (!fx) return;
+    const { overlay, rect } = fx;
+
+    let originX = rect.width / 2;
+    let originY = rect.height / 2;
+    if (originEl && originEl.getBoundingClientRect) {
+      const oRect = originEl.getBoundingClientRect();
+      originX = oRect.left + oRect.width / 2 - rect.left;
+      originY = oRect.top + oRect.height / 2 - rect.top;
+    }
+
+    const COLORS = ['#ff6b6b', '#feca57', '#48dbfb', '#1dd1a1', '#5f27cd', '#ff9ff3', '#54a0ff'];
+    const PIECES = 34;
+    for (let i = 0; i < PIECES; i++) {
+      const piece = document.createElement('span');
+      piece.className = 'confetti-piece';
+
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 60 + Math.random() * 130;
+      const dx = Math.cos(angle) * distance;
+      const dy = Math.sin(angle) * distance - 50; // sesgo hacia arriba, como explosión
+
+      piece.style.left = originX + 'px';
+      piece.style.top = originY + 'px';
+      piece.style.setProperty('--dx', dx + 'px');
+      piece.style.setProperty('--dy', dy + 'px');
+      piece.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+      piece.style.background = COLORS[Math.floor(Math.random() * COLORS.length)];
+      const size = 5 + Math.random() * 6;
+      piece.style.width = size + 'px';
+      piece.style.height = (size * 0.45) + 'px';
+      piece.style.animationDelay = (Math.random() * 0.12) + 's';
+
+      overlay.appendChild(piece);
+    }
+
+    setTimeout(() => overlay.remove(), 1400);
+  },
+
+  _rainEffect() {
+    const fx = this._makeChatFxOverlay();
+    if (!fx) return;
+    const { overlay, rect } = fx;
+
+    const DROPS = 28;
+    for (let i = 0; i < DROPS; i++) {
+      const drop = document.createElement('span');
+      drop.className = 'rain-drop';
+
+      const x = Math.random() * rect.width;
+      const height = 14 + Math.random() * 16;
+      const duration = 0.6 + Math.random() * 0.5;
+      const delay = Math.random() * 0.5;
+
+      drop.style.left = x + 'px';
+      drop.style.height = height + 'px';
+      drop.style.setProperty('--fall', (rect.height + 40) + 'px');
+      drop.style.animationDuration = duration + 's';
+      drop.style.animationDelay = delay + 's';
+
+      overlay.appendChild(drop);
+    }
+
+    setTimeout(() => overlay.remove(), 1700);
   },
 
   // ======================================================================
