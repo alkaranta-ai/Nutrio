@@ -811,17 +811,28 @@
   function applyKeyboardOffset() {
     if (!window.visualViewport) return;
     const offset = window.visualViewport.offsetTop || 0;
+    // El header se compensa con translateY (sigue estando "arriba" del todo).
     if (chatHeader) chatHeader.style.transform = offset ? `translateY(${offset}px)` : '';
-    if (inputBar)   inputBar.style.transform   = offset ? `translateY(${offset}px)` : '';
   }
 
-  function onKeyboardOpen(visibleHeight) {
+  function repositionInputBar() {
+    if (!inputBar) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    // gap = distancia entre el borde inferior de la pantalla VISIBLE real
+    // (offsetTop + height del visual viewport) y el borde inferior del
+    // layout viewport (window.innerHeight). En iOS, ese hueco es
+    // básicamente la altura del teclado; en Android también funciona
+    // porque offsetTop suele ser 0. bottom:0 del CSS ancla al layout
+    // viewport, así que sumando este gap el cajón queda justo arriba
+    // del teclado en ambas plataformas.
+    const gap = window.innerHeight - (vv.offsetTop + vv.height);
+    inputBar.style.bottom = (gap + 8) + 'px';
+  }
+
+  function onKeyboardOpen() {
     dockWrap.style.display = 'none';
-    if (inputBar && !isIOS) {
-      // En Android el teclado empuja el viewport: calculamos el espacio libre
-      const gap = window.innerHeight - visibleHeight;
-      inputBar.style.bottom = (gap + 8) + 'px';
-    }
+    repositionInputBar();
     applyKeyboardOffset();
   }
 
@@ -836,21 +847,25 @@
     window.visualViewport.addEventListener('resize', function() {
       const vv = window.visualViewport;
       if (vv.height < baseHeight * 0.85) {
-        onKeyboardOpen(vv.height);
+        onKeyboardOpen();
       } else {
         onKeyboardClose();
       }
     });
-    // iOS puede desplazar (scroll) el visual viewport sin disparar 'resize':
-    // ese es el corrimiento que "tira para arriba" al header. Lo compensamos
-    // en cada evento de scroll del visual viewport.
-    window.visualViewport.addEventListener('scroll', applyKeyboardOffset);
+    // iOS puede desplazar (scroll) el visual viewport sin disparar 'resize',
+    // y ese desplazamiento cambia tanto la posición del header como el hueco
+    // real que le queda al cajón de texto. Recalculamos ambos en cada scroll.
+    window.visualViewport.addEventListener('scroll', function() {
+      const vv = window.visualViewport;
+      if (vv.height < baseHeight * 0.85) repositionInputBar();
+      applyKeyboardOffset();
+    });
   } else {
     // Fallback para Safari antiguo sin visualViewport
     document.addEventListener('focusin', function(e) {
       if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
         setTimeout(function() {
-          if (window.innerHeight < baseHeight * 0.85) onKeyboardOpen(window.innerHeight);
+          if (window.innerHeight < baseHeight * 0.85) onKeyboardOpen();
         }, 300);
       }
     });
@@ -869,6 +884,7 @@
       const reset = function() {
         if (window.scrollY !== 0) window.scrollTo(0, 0);
         applyKeyboardOffset();
+        repositionInputBar();
         tries++;
         if (tries < 10) requestAnimationFrame(reset);
       };
