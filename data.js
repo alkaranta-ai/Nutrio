@@ -454,6 +454,27 @@ const RECIPES_DB = [
     ingredients: ["150g Filete de pescado blanco", "100g Garbanzos cocidos", "Tomate, ajo y pimentón", "Aceite de oliva"],
     instructions: ["Rehogar el ajo en aceite de oliva y agregar el tomate y el pimentón.", "Sumar los garbanzos y un poco de agua, cocinar 10 minutos.", "Agregar el pescado en trozos y cocinar 8 minutos más hasta que esté cocido."] },
 
+  // ---------- DESAYUNOS ARGENTINOS (nuevas) ----------
+  { id: "dar1", name: "Facturas Caseras (Vigilantes)", category: "desayuno", kcal: 420, country: "Argentina", tags: ["vegetariano"], allergens: ["gluten", "lactosa", "huevo"], avoidFor: ["diabetes"],
+    ingredients: ["150g Harina", "30g Manteca", "Dulce de membrillo", "Levadura"],
+    instructions: ["Armar la masa con la harina, la manteca y la levadura, dejar leudar 1 hora.", "Estirar, rellenar con dulce de membrillo y dar forma de vigilante.", "Hornear a 190°C durante 15-18 minutos hasta dorar."] },
+
+  { id: "dar2", name: "Mate con Bizcochitos de Grasa", category: "desayuno", kcal: 350, country: "Argentina", tags: ["vegetariano"], allergens: ["gluten"], avoidFor: ["colesterol_alto"],
+    ingredients: ["Yerba mate", "Agua caliente", "4 Bizcochitos de grasa"],
+    instructions: ["Cebar el mate con agua caliente (no hirviendo).", "Servir junto a los bizcochitos de grasa.", "Acompañar de a sorbos, alternando con los bizcochitos."] },
+
+  { id: "dar3", name: "Torta Frita Casera", category: "desayuno", kcal: 400, country: "Argentina", tags: ["vegetariano"], allergens: ["gluten"], avoidFor: ["colesterol_alto"],
+    ingredients: ["200g Harina", "1 cdita Grasa o aceite", "Agua tibia y sal", "Aceite para freír"],
+    instructions: ["Formar una masa simple con la harina, la grasa, sal y agua tibia.", "Estirar en discos finos y hacerles un agujero en el centro.", "Freír en aceite caliente hasta dorar de ambos lados y escurrir sobre papel absorbente."] },
+
+  { id: "dar4", name: "Tostado de Jamón y Queso con Café con Leche", category: "desayuno", kcal: 420, country: "Argentina", tags: [], allergens: ["gluten", "lactosa"], avoidFor: [],
+    ingredients: ["2 rodajas de pan de miga o lactal", "2 fetas de jamón cocido", "2 fetas de queso", "Café con leche"],
+    instructions: ["Armar el sándwich con el jamón y el queso entre el pan.", "Tostar en sandwichera hasta que el queso funda.", "Acompañar con un café con leche caliente."] },
+
+  { id: "dar5", name: "Chipá Casero", category: "desayuno", kcal: 380, country: "Argentina", tags: ["vegetariano", "sin_gluten"], allergens: ["huevo", "lactosa"], avoidFor: [],
+    ingredients: ["200g Almidón de mandioca", "80g Queso rallado", "1 Huevo", "50ml Leche"],
+    instructions: ["Mezclar el almidón con el queso rallado.", "Agregar el huevo y la leche, amasar hasta formar una masa uniforme.", "Formar bollitos y hornear a 200°C durante 20 minutos hasta dorar."] },
+
   // ---------- ALMUERZOS ADICIONALES (nuevas) ----------
   { id: "a41", name: "Pollo al Romero con Papas al Horno", category: "almuerzo", kcal: 560, country: "General", tags: ["sin_lactosa", "sin_gluten"], allergens: [], avoidFor: [],
     ingredients: ["200g Pechuga de pollo", "3 Papas medianas", "Romero y aceite de oliva"],
@@ -962,11 +983,48 @@ const RECIPES_DB = [
   { id: "c50", name: "Brochettes de Pollo y Vegetales a la Parrilla", category: "cena", kcal: 420, country: "General", tags: ["sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
     ingredients: ["200g Pechuga de pollo en cubos", "Morrón, cebolla y zucchini", "Limón y hierbas"],
     instructions: ["Armar las brochettes intercalando el pollo con los vegetales.", "Marinar con jugo de limón, aceite de oliva y hierbas 15 minutos.", "Cocinar a la parrilla o plancha 10-12 minutos, girando hasta dorar por todos lados."] },
+
+  // ---------- CENAS ARGENTINAS (nuevas) ----------
+  { id: "car1", name: "Asado Liviano con Ensalada Mixta", category: "cena", kcal: 550, country: "Argentina", tags: ["sin_gluten", "sin_lactosa"], allergens: [], avoidFor: ["colesterol_alto"],
+    ingredients: ["200g Corte magro de asado (vacío o entraña)", "Lechuga, tomate y cebolla", "Chimichurri casero"],
+    instructions: ["Cocinar la carne a la parrilla o plancha a fuego medio hasta el punto deseado.", "Armar la ensalada mixta con lechuga, tomate y cebolla.", "Servir la carne junto a la ensalada y un toque de chimichurri."] },
+
+  { id: "car2", name: "Empanadas de Carne al Horno", category: "cena", kcal: 480, country: "Argentina", tags: [], allergens: ["gluten", "huevo"], avoidFor: [],
+    ingredients: ["6 Tapas de empanada", "200g Carne cortada a cuchillo", "Cebolla, huevo duro y aceitunas"],
+    instructions: ["Rehogar la carne con la cebolla hasta cocinar bien.", "Agregar el huevo duro picado y las aceitunas, mezclar y dejar enfriar.", "Rellenar las tapas, cerrar con repulgue y hornear a 200°C durante 15-18 minutos."] },
+
+  { id: "car3", name: "Milanesas a la Napolitana Livianas", category: "cena", kcal: 540, country: "Argentina", tags: [], allergens: ["huevo", "gluten", "lactosa"], avoidFor: [],
+    ingredients: ["2 Milanesas de pollo al horno", "Salsa de tomate", "Jamón y queso mozzarella light"],
+    instructions: ["Cocinar las milanesas de pollo al horno hasta dorar.", "Cubrir cada una con salsa de tomate, una feta de jamón y queso mozzarella.", "Gratinar en horno a 200°C durante 8-10 minutos hasta que funda el queso."] },
+
+  { id: "car4", name: "Locro Liviano de Verano", category: "cena", kcal: 500, country: "Argentina", tags: ["sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["100g Maíz blanco", "100g Porotos", "150g Zapallo", "150g Carne magra"],
+    instructions: ["Remojar el maíz y los porotos la noche anterior.", "Cocinar todos los ingredientes juntos a fuego bajo durante 1 hora y media hasta espesar.", "Servir bien caliente en un bowl hondo."] },
+
+  { id: "car5", name: "Pollo a la Parrilla con Provenzal", category: "cena", kcal: 460, country: "Argentina", tags: ["sin_gluten", "sin_lactosa"], allergens: [], avoidFor: [],
+    ingredients: ["200g Pechuga de pollo", "Ajo y perejil picado (provenzal)", "Limón"],
+    instructions: ["Marinar el pollo con el provenzal y jugo de limón 15 minutos.", "Cocinar a la parrilla o plancha 6-7 minutos por lado.", "Servir caliente con un extra de provenzal fresco por encima."] },
 ];
 
 // Helper: devuelve todas las recetas de una categoría ("desayuno", "almuerzo", "meriendas", "cena")
 function getRecipesByCategory(category) {
   return RECIPES_DB.filter(r => r.category === category);
+}
+
+// Helper: devuelve todas las recetas de un país dado (ej: "Argentina", "México", "Mediterráneo").
+// La comparación ignora mayúsculas/acentos simples para que "argentina" o "Argentina" matcheen igual.
+function getRecipesByCountry(country) {
+  const normalize = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const target = normalize(country);
+  return RECIPES_DB.filter(r => normalize(r.country) === target);
+}
+
+// Helper: igual que getRecipesByCountry pero además filtrado por categoría (opcional).
+// Pensado para el chat: si el usuario escribe "Argentina", se puede llamar
+// getRecipesByCountry("Argentina") para traer todas, o pasar una categoría puntual.
+function getRecipesByCountryAndCategory(country, category) {
+  const byCountry = getRecipesByCountry(country);
+  return category ? byCountry.filter(r => r.category === category) : byCountry;
 }
 
 // Metadata visual por categoría (usada por app.js para íconos y etiquetas)
