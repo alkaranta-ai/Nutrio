@@ -2670,6 +2670,16 @@ const UI = {
   },
 
   // ----------------------------------------------------------------------
+  // Rellena el input del chat con un comando predefinido y lo envía, tal
+  // cual si el usuario lo hubiera tipeado. Usado por los chips del mensaje
+  // de "ayuda" (activar/desactivar Argentina, día libre, modo barman).
+  sendQuickChat(text) {
+    const input = document.getElementById('chatInput');
+    if (!input) return;
+    input.value = text;
+    this.sendChat();
+  },
+
   // sendChat(): ahora es async porque ChatApp.getBotResponseSmart puede
   // llamar a la IA (Gemini) antes de contestar. Mientras se resuelve, se
   // muestra el indicador de "escribiendo..." (ver _showTypingIndicator).
@@ -3607,6 +3617,23 @@ window.ChatApp = {
       ], horaTxt);
     }
 
+    // --- Comando "desactivar Argentina": apaga el foco en recetas argentinas
+    // y vuelve al pool general. Se chequea ANTES de la activación para que
+    // "desactivar argentina" / "salir de argentina" no dispare el modo por
+    // contener la palabra "argentina". ---
+    const desactivaArgentina =
+      /\bargentin\w*\b/.test(msg) &&
+      (msg.includes('desactiv') || msg.includes('apaga') || msg.includes('salir de argentina') ||
+       msg.includes('sacar argentina') || msg.includes('quitar argentina') || msg.includes('sin argentina'));
+
+    if (desactivaArgentina) {
+      this._lastCountryFocus = null;
+      return this.pickVariant('argentina_desactivada', [
+        `Listo, desactivé el modo Argentina 🇦🇷➡️🌎. Volvemos al pool general de recetas. Pedime "qué puedo comer" cuando quieras.`,
+        `Dale, apagado el foco en Argentina. Ahora te tiro de todo el mundo otra vez. Pedime cuando quieras "qué puedo comer". 🌎`
+      ]);
+    }
+
     // --- Caso especial: recetas exclusivas de Argentina (palabra "Argentina"
     // o variantes como "argentino/a/os/as"). Tiene prioridad sobre las reglas
     // genéricas de "qué puedo comer/tomar" para que, aunque el usuario mezcle
@@ -3987,6 +4014,23 @@ window.ChatApp = {
         (h, l, note, d, cards) => `Mirá la hora, son las ${h}: momento de **${l}**${note}. Estas son 3 ideas:${cards}${d} Tocá alguna para ver el paso a paso. 😋`,
         (h, l, note, d, cards) => `A las ${h} te toca **${l}**${note}. Elegí entre estas 3:${cards}${d} Si ninguna te tienta, pedime otra tanda. 🍽️`
       ], horaTxt, slot.label, restriccionesNote, drinkTxt, cardsHTML);
+    }
+
+    // --- Comando "ayuda": lista los comandos especiales (Argentina, día libre,
+    // modo barman) como chips clickeables. Tocar un chip manda el comando
+    // solo, vía UI.sendQuickChat(), sin que el usuario tenga que tipearlo. ---
+    if (msg.includes('ayuda')) {
+      const chipsHTML = `
+        <div class="ingredient-picker-chips">
+          <span class="chip-sm tap-feedback" onclick="UI.sendQuickChat('Quiero recetas de Argentina')">🇦🇷 Activar Argentina</span>
+          <span class="chip-sm tap-feedback" onclick="UI.sendQuickChat('Desactivar Argentina')">🌎 Desactivar Argentina</span>
+          <span class="chip-sm tap-feedback" onclick="UI.sendQuickChat('Quiero mi día libre')">🍷 Día libre</span>
+          <span class="chip-sm tap-feedback" onclick="UI.sendQuickChat('Activar modo barman')">🍸 Modo barman</span>
+        </div>`;
+      this._lastTopic = null;
+      return this.pickVariant('ayuda', [
+        () => `Estos son los comandos especiales que tengo. Tocá cualquiera para probarlo, o escribilo directo si preferís tipear:${chipsHTML}Y cuando quieras volver a lo de siempre, pedime "qué puedo comer" o "qué puedo tomar". 🙌`
+      ]);
     }
 
     // --- Saludos ---
