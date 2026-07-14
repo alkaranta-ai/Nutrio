@@ -249,10 +249,40 @@
     width: 42px; height: 42px; border-radius: 50%;
     background: #f3e2c7;
     display: flex; align-items: center; justify-content: center;
-    font-size: 20px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(139,90,43,0.3);
-    overflow: hidden;
+    font-size: 22px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(139,90,43,0.3);
+    animation: avatarIdle 2.6s ease-in-out infinite;
+    transform-origin: 50% 80%;
   }
-  .chat-avatar svg { width: 100%; height: 100%; }
+  @keyframes avatarIdle {
+    0%, 100% { transform: rotate(0deg) translateY(0); }
+    25% { transform: rotate(-6deg) translateY(-1px); }
+    50% { transform: rotate(0deg) translateY(-2px); }
+    75% { transform: rotate(6deg) translateY(-1px); }
+  }
+  .chat-avatar.avatar-think {
+    animation: avatarThink 0.6s ease-in-out infinite;
+  }
+  @keyframes avatarThink {
+    0%, 100% { transform: rotate(-4deg); }
+    50% { transform: rotate(4deg); }
+  }
+  .chat-avatar.avatar-bounce {
+    animation: avatarBounce 0.5s cubic-bezier(.34,1.6,.4,1) 2;
+  }
+  @keyframes avatarBounce {
+    0% { transform: scale(1) translateY(0); }
+    30% { transform: scale(1.25) translateY(-10px) rotate(-8deg); }
+    55% { transform: scale(0.95) translateY(2px) rotate(6deg); }
+    100% { transform: scale(1) translateY(0); }
+  }
+  .chat-avatar.avatar-shake {
+    animation: avatarShake 0.4s ease-in-out 2;
+  }
+  @keyframes avatarShake {
+    0%, 100% { transform: translateX(0) rotate(0deg); }
+    25% { transform: translateX(-4px) rotate(-10deg); }
+    75% { transform: translateX(4px) rotate(10deg); }
+  }
   .chat-header-name { font-size: 16px; font-weight: 700; color: var(--text); font-family: var(--font-display); }
   .chat-header-status { font-size: 12px; color: var(--primary); font-weight: 500; display: flex; align-items: center; gap: 5px; }
   .chat-header-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); display: inline-block; }
@@ -658,31 +688,7 @@
 
   <div class="view" id="view-chat">
     <div class="chat-header">
-      <div class="chat-avatar">
-        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <!-- orejas -->
-          <ellipse cx="22" cy="52" rx="14" ry="24" fill="#8b5a2b"/>
-          <ellipse cx="78" cy="52" rx="14" ry="24" fill="#8b5a2b"/>
-          <!-- cabeza -->
-          <ellipse cx="50" cy="48" rx="34" ry="30" fill="#c17f45"/>
-          <!-- hocico -->
-          <ellipse cx="50" cy="62" rx="17" ry="13" fill="#e8c79a"/>
-          <!-- nariz -->
-          <ellipse cx="50" cy="58" rx="6" ry="4.5" fill="#2b1a10"/>
-          <!-- boca (grupo animable) -->
-          <g id="avatarMouth">
-            <path d="M50 62 Q50 68 44 69" stroke="#2b1a10" stroke-width="2" fill="none" stroke-linecap="round"/>
-            <path d="M50 62 Q50 68 56 69" stroke="#2b1a10" stroke-width="2" fill="none" stroke-linecap="round"/>
-          </g>
-          <!-- ojos (grupo animable) -->
-          <g id="avatarEyes">
-            <circle cx="37" cy="42" r="4.5" fill="#2b1a10"/>
-            <circle cx="63" cy="42" r="4.5" fill="#2b1a10"/>
-            <circle cx="38.5" cy="40.5" r="1.3" fill="#fff"/>
-            <circle cx="64.5" cy="40.5" r="1.3" fill="#fff"/>
-          </g>
-        </svg>
-      </div>
+      <div class="chat-avatar" id="chatAvatar">🤪</div>
       <div>
         <div class="chat-header-name">Nutrio</div>
         <div class="chat-header-status"><span class="dot"></span>en línea</div>
@@ -819,66 +825,27 @@
 
 <script>
 (function() {
-  const expressions = {
-    neutral: {
-      eyes: '<circle cx="37" cy="42" r="4.5" fill="#2b1a10"/><circle cx="63" cy="42" r="4.5" fill="#2b1a10"/><circle cx="38.5" cy="40.5" r="1.3" fill="#fff"/><circle cx="64.5" cy="40.5" r="1.3" fill="#fff"/>',
-      mouth: '<path d="M50 62 Q50 68 44 69" stroke="#2b1a10" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M50 62 Q50 68 56 69" stroke="#2b1a10" stroke-width="2" fill="none" stroke-linecap="round"/>'
-    },
-    happy: {
-      eyes: '<path d="M32 42 Q37 37 42 42" stroke="#2b1a10" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M58 42 Q63 37 68 42" stroke="#2b1a10" stroke-width="3" fill="none" stroke-linecap="round"/>',
-      mouth: '<path d="M50 62 Q50 71 40 68" stroke="#2b1a10" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M50 62 Q50 71 60 68" stroke="#2b1a10" stroke-width="2" fill="none" stroke-linecap="round"/><ellipse cx="50" cy="70" rx="5" ry="6" fill="#e8748a"/>'
-    },
-    thinking: {
-      eyes: '<circle cx="38" cy="40" r="4" fill="#2b1a10"/><circle cx="64" cy="40" r="4" fill="#2b1a10"/><circle cx="39.5" cy="38" r="1.1" fill="#fff"/><circle cx="65.5" cy="38" r="1.1" fill="#fff"/>',
-      mouth: '<circle cx="50" cy="66" r="3" fill="#2b1a10"/>'
-    },
-    sad: {
-      eyes: '<circle cx="37" cy="43" r="4.5" fill="#2b1a10"/><circle cx="63" cy="43" r="4.5" fill="#2b1a10"/><path d="M31 37 Q37 34 42 38" stroke="#2b1a10" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M58 38 Q63 34 69 37" stroke="#2b1a10" stroke-width="2" fill="none" stroke-linecap="round"/>',
-      mouth: '<path d="M44 68 Q50 63 56 68" stroke="#2b1a10" stroke-width="2" fill="none" stroke-linecap="round"/>'
-    },
-    blink: {
-      eyes: '<path d="M32 42 L42 42" stroke="#2b1a10" stroke-width="3" stroke-linecap="round"/><path d="M58 42 L68 42" stroke="#2b1a10" stroke-width="3" stroke-linecap="round"/>'
+  const avatar = document.getElementById('chatAvatar');
+  if (!avatar) return;
+
+  const DEFAULT_EMOJI = '🤪';
+  let emojiRevertTimer = null;
+
+  function pulse(className, ms, emoji) {
+    avatar.classList.remove('avatar-think', 'avatar-bounce', 'avatar-shake');
+    void avatar.offsetWidth; // reinicia la animación aunque se repita la misma clase
+    if (className) avatar.classList.add(className);
+    if (emoji) {
+      avatar.textContent = emoji;
+      if (emojiRevertTimer) clearTimeout(emojiRevertTimer);
+      emojiRevertTimer = setTimeout(function() { avatar.textContent = DEFAULT_EMOJI; }, ms || 2000);
     }
-  };
-
-  let current = 'neutral';
-  let revertTimer = null;
-
-  function eyesEl() { return document.getElementById('avatarEyes'); }
-  function mouthEl() { return document.getElementById('avatarMouth'); }
-
-  function render(name) {
-    const exp = expressions[name];
-    if (!exp) return;
-    if (exp.eyes !== undefined && eyesEl()) eyesEl().innerHTML = exp.eyes;
-    if (exp.mouth !== undefined && mouthEl()) mouthEl().innerHTML = exp.mouth;
-  }
-
-  function setExpression(name, autoRevertMs) {
-    current = name;
-    render(name);
-    if (revertTimer) clearTimeout(revertTimer);
-    if (autoRevertMs) {
-      revertTimer = setTimeout(function() { current = 'neutral'; render('neutral'); }, autoRevertMs);
+    if (className) {
+      setTimeout(function() { avatar.classList.remove(className); }, ms || 2000);
     }
   }
 
-  function blink() {
-    if (eyesEl()) eyesEl().innerHTML = expressions.blink.eyes;
-    setTimeout(function() { render(current); }, 140);
-  }
-
-  function scheduleBlink() {
-    const delay = 2800 + Math.random() * 3500;
-    setTimeout(function() { blink(); scheduleBlink(); }, delay);
-  }
-
-  window.DachshundAvatar = { setExpression: setExpression };
-
-  render('neutral');
-  scheduleBlink();
-
-  // Reacciona a mensajes nuevos en el chat: "piensa" cuando el usuario escribe, se alegra cuando responde el bot
+  // Reacciona a mensajes nuevos en el chat
   const chatScroll = document.getElementById('chatScroll');
   if (chatScroll && window.MutationObserver) {
     const observer = new MutationObserver(function(mutations) {
@@ -886,9 +853,9 @@
         m.addedNodes.forEach(function(node) {
           if (!node.classList) return;
           if (node.classList.contains('msg-row') && node.classList.contains('user')) {
-            setExpression('thinking');
+            pulse('avatar-think', 1400);
           } else if (node.classList.contains('msg-row') && node.classList.contains('bot')) {
-            setExpression('happy', 2500);
+            pulse('avatar-bounce', 1000, '🤩');
           }
         });
       });
@@ -901,8 +868,8 @@
     const btn = e.target.closest ? e.target.closest('.chat-feedback button') : null;
     if (!btn) return;
     const txt = btn.textContent || '';
-    if (txt.indexOf('👍') !== -1) setExpression('happy', 2000);
-    else if (txt.indexOf('👎') !== -1) setExpression('sad', 2000);
+    if (txt.indexOf('👍') !== -1) pulse('avatar-bounce', 1200, '🥳');
+    else if (txt.indexOf('👎') !== -1) pulse('avatar-shake', 1200, '😵');
   });
 })();
 </script>
