@@ -1733,11 +1733,100 @@ const UI = {
     if (Notifications.isEnabled()) Notifications.start();
   },
 
+  // ----------------------------------------------------------------------
+  // EFECTO DE ESCRITURA (typewriter): revela un HTML letra por letra dentro
+  // de un elemento, respetando los tags (<b>, <br>, etc. se insertan
+  // enteros de una, no se "escriben" caracter a caracter, para no romper
+  // el marcado a la mitad). Se usa tanto en sendChat como en
+  // _pushBotMessage para que TODAS las respuestas del bot tengan el mismo
+  // efecto.
+  //
+  // Devuelve una Promise que resuelve cuando terminó de escribir todo.
+  // "onTick" (opcional) se llama en cada caracter agregado, útil para
+  // mantener el scroll del chat pegado abajo mientras se escribe.
+  // ----------------------------------------------------------------------
+  TYPEWRITER_SPEED_MS: 16,
+
+  _typeWriterEffect(el, html, onTick) {
+    if (!el) return Promise.resolve();
+
+    // Inyecta el CSS del cursor parpadeante una sola vez (mismo patrón que
+    // typingIndicatorStyles), así no hace falta tocar el CSS a mano.
+    if (!document.getElementById('typewriterStyles')) {
+      const style = document.createElement('style');
+      style.id = 'typewriterStyles';
+      style.textContent = `
+        .msg-bubble.bot.is-typing::after {
+          content: '';
+          display: inline-block;
+          width: 2px;
+          height: 1em;
+          margin-left: 2px;
+          vertical-align: text-bottom;
+          background: currentColor;
+          opacity: 0.6;
+          animation: nutrioCursorBlink 0.8s step-start infinite;
+        }
+        @keyframes nutrioCursorBlink { 50% { opacity: 0; } }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Si el usuario tiene activado "reducir movimiento" en su sistema,
+    // no tiene sentido forzar la animación: se pinta todo de una.
+    const prefersReducedMotion = window.matchMedia
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      el.innerHTML = html;
+      return Promise.resolve();
+    }
+
+    const tokens = html.match(/(<[^>]+>|[^<]+)/g) || [];
+    let revealed = '';
+    let tokenIdx = 0;
+    let charIdx = 0;
+
+    el.innerHTML = '';
+    el.classList.add('is-typing');
+
+    return new Promise((resolve) => {
+      const tick = () => {
+        if (tokenIdx >= tokens.length) {
+          el.innerHTML = html; // asegura que quede EXACTAMENTE el HTML original
+          el.classList.remove('is-typing');
+          resolve();
+          return;
+        }
+        const token = tokens[tokenIdx];
+        if (token.charAt(0) === '<') {
+          // Tag completo (ej. <b>, </b>, <br>): se agrega entero, sin demora
+          // caracter a caracter, para no dejarlo a medio escribir.
+          revealed += token;
+          el.innerHTML = revealed;
+          tokenIdx++;
+          charIdx = 0;
+          tick();
+          return;
+        }
+        revealed += token[charIdx];
+        el.innerHTML = revealed;
+        if (onTick) onTick();
+        charIdx++;
+        if (charIdx >= token.length) {
+          tokenIdx++;
+          charIdx = 0;
+        }
+        setTimeout(tick, this.TYPEWRITER_SPEED_MS);
+      };
+      tick();
+    });
+  },
+
   // Inserta un mensaje del bot en el chat sin pasar por sendChat (para
   // mensajes automáticos como racha/logros, no respuestas a algo escrito).
   // "reaction" controla qué animación pega el avatar: 'happy' (default,
   // saltito normal) o 'excited' (reacción grande, para racha/logros).
-  _pushBotMessage(text, reaction) {
+  async _pushBotMessage(text, reaction) {
     const scroll = document.getElementById('chatScroll');
     if (!scroll) return;
     const msgId = 'chatmsg_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
@@ -1746,7 +1835,7 @@ const UI = {
     scroll.innerHTML += `
       <div class="msg-row bot" id="${msgId}">
         <div class="msg-wrap">
-          <div class="msg-bubble bot">${text}</div>
+          <div class="msg-bubble bot" id="${msgId}_bubble"></div>
           <div class="msg-time">${this._formatTime(now)}</div>
           <div class="chat-feedback">
             <button type="button" data-role="speak" title="Escuchar" onclick="UI.speakMessage('${msgId}')">🔊</button>
@@ -1757,6 +1846,11 @@ const UI = {
     if (reaction === 'excited') NutrioAvatar.excited();
     else NutrioAvatar.happy();
     if (Speech.enabled) Speech.speak(text);
+
+    const bubble = document.getElementById(`${msgId}_bubble`);
+    await this._typeWriterEffect(bubble, text, () => {
+      scroll.scrollTop = scroll.scrollHeight;
+    });
   },
 
   // ----------------------------------------------------------------------
@@ -2555,9 +2649,9 @@ const UI = {
         scroll.innerHTML += `
           <div class="msg-row bot" id="${msgId}">
             <div class="msg-wrap">
-              <div class="msg-bubble bot">${response.text}</div>
+              <div class="msg-bubble bot" id="${msgId}_bubble"></div>
               <div class="msg-time">${this._formatTime(botTime)}</div>
-              <div class="chat-feedback">
+              <div class="chat-feedback" id="${msgId}_feedback" style="opacity:0; transition:opacity .2s ease;">
                 <button type="button" data-role="speak" title="Escuchar" onclick="UI.speakMessage('${msgId}')">🔊</button>
                 ${feedbackButtonsHTML}
               </div>
@@ -2567,6 +2661,19 @@ const UI = {
       }
 
       if (Speech.enabled) Speech.speak(response.text);
+
+      // Efecto de escritura letra por letra: la bubble se pinta vacía
+      // arriba y acá se va revelando de a poco. Los botones de feedback
+      // (👍👎🔊) aparecen recién cuando terminó de "escribir", para que no
+      // queden clickeables sobre un mensaje a medio pintar.
+      if (scroll) {
+        const bubble = document.getElementById(`${msgId}_bubble`);
+        await this._typeWriterEffect(bubble, response.text, () => {
+          scroll.scrollTop = scroll.scrollHeight;
+        });
+        const feedbackEl = document.getElementById(`${msgId}_feedback`);
+        if (feedbackEl) feedbackEl.style.opacity = '1';
+      }
     } catch (err) {
       // Red de seguridad extra: si algo inesperado explota acá (no debería,
       // porque getBotResponseSmart nunca rechaza su promesa), no dejamos el
