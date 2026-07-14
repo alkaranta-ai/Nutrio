@@ -164,25 +164,29 @@
   .view { display: none; }
   .view.active { display: block; }
 
-  /* ---- Chat: layout flex column para que el header no se mueva con el teclado ---- */
-  /* Funciona en iOS Safari y Android Chrome sin depender de position:fixed */
+  /*
+   * CHAT: pantalla independiente con position:fixed
+   * El teclado en iOS mueve el visual viewport pero NO el layout viewport,
+   * así que un fixed top:0 siempre queda anclado sin importar el teclado.
+   */
   #view-chat {
-    display: flex;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    bottom: 80px; /* encima del dock */
+    max-width: 500px;
+    margin: 0 auto;
+    display: none; /* app.js lo activa con .active */
     flex-direction: column;
-    /* Ocupa el alto disponible menos el dock (≈80px) */
-    height: calc(100dvh - 80px);
-    /* dvh respeta el área visible real en iOS cuando el teclado está abierto */
-    overflow: hidden;
+    background: var(--bg);
+    z-index: 10;
   }
+  #view-chat.active { display: flex; }
 
   .chat-header {
     display: flex; align-items: center; gap: 12px;
     padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top));
     border-bottom: 1px solid var(--border);
-    margin-bottom: 0;
-    /* sticky dentro del flex container: nunca se va con el scroll */
-    position: sticky; top: 0;
-    z-index: 200;
     background: var(--surface);
     flex-shrink: 0;
   }
@@ -230,8 +234,10 @@
   /* ---- Chat mensajes ---- */
   .chat-scroll {
     flex: 1;
-    min-height: 0; /* esencial para que flex-child pueda scrollear */
-    overflow-y: auto; padding: 14px 10px; border-radius: 18px;
+    min-height: 0; /* esencial: sin esto flex-child no puede hacer scroll */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* scroll suave en iOS */
+    padding: 14px 10px; border-radius: 18px;
     background-color: #eef2e9;
     background-image:
       radial-gradient(rgba(34,197,94,0.07) 1.4px, transparent 1.4px),
@@ -294,7 +300,9 @@
   .mini-ing { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
 
   /* ---- Barra de input del chat ---- */
-  .chat-input-bar { position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 460px; padding: 0 16px; z-index: 1001; transition: bottom 0.15s ease; }
+  /* chat-input-bar: al estar dentro del flex column de #view-chat,
+     se pega al fondo automáticamente en iOS y Android sin JS */
+  .chat-input-bar { flex-shrink: 0; padding: 8px 12px 12px; background: var(--surface); border-top: 1px solid var(--border); }
   .chat-input-inner { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); padding: 6px; border-radius: 20px; box-shadow: 0 4px 14px rgba(0,0,0,0.08); }
   .chat-input-inner textarea, .chat-input-inner input {
     flex: 1; border: none; padding: 12px 14px; font-size: 16px; outline: none;
@@ -654,7 +662,6 @@
 <div id="app">
 
   <div class="view" id="view-chat">
-    <!-- Header fijo sin avatar -->
     <div class="chat-header">
       <div>
         <div class="chat-header-name">Nutrio</div>
@@ -667,6 +674,13 @@
           <div class="msg-bubble bot">¡Hola! Contame, ¿en qué puedo ayudarte con tu alimentación o tus comidas de hoy? También podés tocar el 🥕 y te ayudo a buscar recetas con lo que tenés a mano.</div>
           <div class="msg-time" id="chatFirstMsgTime"></div>
         </div>
+      </div>
+    </div>
+    <!-- Barra de input DENTRO del contenedor fijo: se mueve sola con el teclado -->
+    <div class="chat-input-bar" id="chatInputBar">
+      <div class="chat-input-inner">
+        <textarea id="chatInput" placeholder="Escribí un mensaje..." rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); UI.sendChat();}"></textarea>
+        <button class="send-btn" onclick="UI.sendChat()">➔</button>
       </div>
     </div>
   </div>
@@ -716,11 +730,7 @@
 
 </div>
 
-<div class="chat-input-bar" id="chatInputBar" style="display:none;">
-  <div class="chat-input-inner">
-    <textarea id="chatInput" placeholder="Escribí un mensaje..." rows="1" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); UI.sendChat();}"></textarea>
-    <button class="send-btn" onclick="UI.sendChat()">➔</button>
-  </div>
+
 </div>
 
 <div class="dock-wrap">
@@ -763,57 +773,24 @@
 <script src="js/nutrioChatAI.js"></script>
 <script src="js/nutrioChatAI-fotos.js"></script>
 
-<!-- Teclado virtual: sube la barra de input, oculta el dock -->
-<!-- Estrategia: visualViewport para Android; fallback de window.resize para iOS -->
+<!-- Ocultar el dock cuando el teclado está abierto (Android + iOS) -->
 <script>
 (function() {
-  const chatInputBar = document.getElementById('chatInputBar');
-  const dockWrap    = document.querySelector('.dock-wrap');
-  const app         = document.getElementById('app');
-
-  // Altura inicial de referencia (antes de que abra el teclado)
+  const dockWrap = document.querySelector('.dock-wrap');
   let baseHeight = window.innerHeight;
 
-  function applyKeyboardOpen(bottomOffset) {
-    chatInputBar.style.bottom = bottomOffset + 'px';
-    dockWrap.style.display    = 'none';
-    app.style.paddingBottom   = '80px';
-  }
-
-  function applyKeyboardClosed() {
-    chatInputBar.style.bottom = '85px';
-    dockWrap.style.display    = '';
-    app.style.paddingBottom   = '';
-    baseHeight = window.innerHeight; // actualiza por si rotó la pantalla
+  function onViewportChange() {
+    const vv = window.visualViewport || { height: window.innerHeight };
+    const keyboardOpen = vv.height < baseHeight * 0.85;
+    dockWrap.style.display = keyboardOpen ? 'none' : '';
+    if (!keyboardOpen) baseHeight = window.innerHeight;
   }
 
   if (window.visualViewport) {
-    // Android Chrome y iOS 15.4+ con visualViewport
-    window.visualViewport.addEventListener('resize', function() {
-      const vv          = window.visualViewport;
-      const keyboardOpen = vv.height < baseHeight * 0.85;
-      if (keyboardOpen) {
-        // Distancia desde el borde inferior del viewport visible hasta el borde de la pantalla
-        const gap = window.innerHeight - (vv.offsetTop + vv.height);
-        applyKeyboardOpen(gap + 8);
-      } else {
-        applyKeyboardClosed();
-      }
-    });
+    window.visualViewport.addEventListener('resize', onViewportChange);
   } else {
-    // Fallback iOS Safari antiguo: escuchar focus/blur de inputs
-    document.addEventListener('focusin', function(e) {
-      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
-        // Pequeño delay para que el teclado termine de abrirse
-        setTimeout(function() {
-          const gap = baseHeight - window.innerHeight;
-          if (gap > 100) applyKeyboardOpen(gap + 8);
-        }, 300);
-      }
-    });
-    document.addEventListener('focusout', function() {
-      setTimeout(applyKeyboardClosed, 100);
-    });
+    document.addEventListener('focusin',  function(e) { if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') setTimeout(onViewportChange, 300); });
+    document.addEventListener('focusout', function()  { setTimeout(onViewportChange, 100); });
   }
 })();
 </script>
