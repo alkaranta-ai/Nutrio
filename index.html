@@ -164,25 +164,28 @@
   .view { display: none; }
   .view.active { display: block; }
 
-  /* ---- Chat header fijo — funciona en Android e iOS ---- */
-  .chat-header {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 16px 12px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 12px;
-    /* Fixed en lugar de sticky para que no se mueva con el teclado */
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 200;
-    background: var(--surface);
-    max-width: 500px;
-    margin-left: auto; margin-right: auto;
-    /* Respeta el notch en iOS */
-    padding-top: max(12px, env(safe-area-inset-top));
+  /* ---- Chat: layout flex column para que el header no se mueva con el teclado ---- */
+  /* Funciona en iOS Safari y Android Chrome sin depender de position:fixed */
+  #view-chat {
+    display: flex;
+    flex-direction: column;
+    /* Ocupa el alto disponible menos el dock (≈80px) */
+    height: calc(100dvh - 80px);
+    /* dvh respeta el área visible real en iOS cuando el teclado está abierto */
+    overflow: hidden;
   }
 
-  /* Compensar el espacio que ocupa el header fijo */
-  #view-chat { padding-top: 72px; }
+  .chat-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+    /* sticky dentro del flex container: nunca se va con el scroll */
+    position: sticky; top: 0;
+    z-index: 200;
+    background: var(--surface);
+    flex-shrink: 0;
+  }
 
   .chat-header-name { font-size: 16px; font-weight: 700; color: var(--text); font-family: var(--font-display); }
   .chat-header-status { font-size: 12px; color: var(--primary); font-weight: 500; display: flex; align-items: center; gap: 5px; }
@@ -226,7 +229,8 @@
 
   /* ---- Chat mensajes ---- */
   .chat-scroll {
-    height: 74vh; min-height: 480px; max-height: 680px;
+    flex: 1;
+    min-height: 0; /* esencial para que flex-child pueda scrollear */
     overflow-y: auto; padding: 14px 10px; border-radius: 18px;
     background-color: #eef2e9;
     background-image:
@@ -760,32 +764,57 @@
 <script src="js/nutrioChatAI-fotos.js"></script>
 
 <!-- Teclado virtual: sube la barra de input, oculta el dock -->
+<!-- Estrategia: visualViewport para Android; fallback de window.resize para iOS -->
 <script>
 (function() {
-  if (!window.visualViewport) return;
-  const app = document.getElementById('app');
   const chatInputBar = document.getElementById('chatInputBar');
-  const dockWrap = document.querySelector('.dock-wrap');
+  const dockWrap    = document.querySelector('.dock-wrap');
+  const app         = document.getElementById('app');
 
-  function handleViewport() {
-    const vv = window.visualViewport;
-    const keyboardOpen = vv.height < window.innerHeight * 0.85;
+  // Altura inicial de referencia (antes de que abra el teclado)
+  let baseHeight = window.innerHeight;
 
-    if (keyboardOpen) {
-      // Calcula cuánto subir la barra para que quede justo sobre el teclado
-      const offsetFromBottom = window.innerHeight - vv.height - vv.offsetTop;
-      chatInputBar.style.bottom = (offsetFromBottom + 8) + 'px';
-      dockWrap.style.display = 'none';
-      app.style.paddingBottom = '80px';
-    } else {
-      chatInputBar.style.bottom = '85px';
-      dockWrap.style.display = '';
-      app.style.paddingBottom = '';
-    }
+  function applyKeyboardOpen(bottomOffset) {
+    chatInputBar.style.bottom = bottomOffset + 'px';
+    dockWrap.style.display    = 'none';
+    app.style.paddingBottom   = '80px';
   }
 
-  window.visualViewport.addEventListener('resize', handleViewport);
-  window.visualViewport.addEventListener('scroll', handleViewport);
+  function applyKeyboardClosed() {
+    chatInputBar.style.bottom = '85px';
+    dockWrap.style.display    = '';
+    app.style.paddingBottom   = '';
+    baseHeight = window.innerHeight; // actualiza por si rotó la pantalla
+  }
+
+  if (window.visualViewport) {
+    // Android Chrome y iOS 15.4+ con visualViewport
+    window.visualViewport.addEventListener('resize', function() {
+      const vv          = window.visualViewport;
+      const keyboardOpen = vv.height < baseHeight * 0.85;
+      if (keyboardOpen) {
+        // Distancia desde el borde inferior del viewport visible hasta el borde de la pantalla
+        const gap = window.innerHeight - (vv.offsetTop + vv.height);
+        applyKeyboardOpen(gap + 8);
+      } else {
+        applyKeyboardClosed();
+      }
+    });
+  } else {
+    // Fallback iOS Safari antiguo: escuchar focus/blur de inputs
+    document.addEventListener('focusin', function(e) {
+      if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
+        // Pequeño delay para que el teclado termine de abrirse
+        setTimeout(function() {
+          const gap = baseHeight - window.innerHeight;
+          if (gap > 100) applyKeyboardOpen(gap + 8);
+        }, 300);
+      }
+    });
+    document.addEventListener('focusout', function() {
+      setTimeout(applyKeyboardClosed, 100);
+    });
+  }
 })();
 </script>
 
