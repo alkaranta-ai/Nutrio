@@ -2528,13 +2528,17 @@ const UI = {
     }
 
     // Chiquito delay antes de mostrar "escribiendo...", para que no se vea
-    // como un parpadeo instantáneo en respuestas súper rápidas.
-    setTimeout(() => this._showTypingIndicator(), 150);
+    // como un parpadeo instantáneo en respuestas súper rápidas. Guardamos
+    // el id del timeout para poder cancelarlo si la respuesta ya llegó
+    // antes de que se cumplan los 150ms (si no, el indicador se terminaba
+    // pintando DESPUÉS de la respuesta y se quedaba colgado en pantalla).
+    const typingTimeoutId = setTimeout(() => this._showTypingIndicator(), 150);
     NutrioAvatar.thinking();
 
     try {
       const profile = StorageApp.getProfile();
       const response = await ChatApp.getBotResponseSmart(msg, profile);
+      clearTimeout(typingTimeoutId);
       this._hideTypingIndicator();
       NutrioAvatar.happy();
 
@@ -2567,6 +2571,7 @@ const UI = {
       // Red de seguridad extra: si algo inesperado explota acá (no debería,
       // porque getBotResponseSmart nunca rechaza su promesa), no dejamos el
       // indicador de "escribiendo..." colgado para siempre.
+      clearTimeout(typingTimeoutId);
       this._hideTypingIndicator();
       console.error('NutrIO: error inesperado en sendChat', err);
     }
@@ -2587,25 +2592,24 @@ const UI = {
     if (dislikeBtn) dislikeBtn.classList.toggle('active', !liked);
 
     // Feedback visual: 👍 tira una explosión de papelitos de color desde el
-    // botón (y el avatar se agranda y se ríe); 👎 hace llover sobre el chat
-    // (y el avatar se cae y llora). Todo queda contenido dentro del área
+    // botón (y el avatar se agranda y se ríe); 👎 hace que el avatar se
+    // caiga y se ponga a llorar. Todo queda contenido dentro del área
     // visible de #chatScroll (no tapa el resto de la app).
     if (liked) {
       this._confettiBurst(likeBtn);
       NutrioAvatar.laugh();
     } else {
-      this._rainEffect();
       NutrioAvatar.cryFall();
     }
   },
 
   // ======================================================================
-  // EFECTOS VISUALES DE FEEDBACK DEL CHAT (👍 papelitos / 👎 lluvia)
+  // EFECTOS VISUALES DE FEEDBACK DEL CHAT (👍 papelitos de colores)
   //
-  // Ambos crean un overlay temporal (position:fixed) del mismo tamaño y
-  // posición que #chatScroll en pantalla, le insertan partículas animadas
-  // con CSS, y se auto-eliminan al terminar la animación. No dependen de
-  // la estructura del HTML de afuera: solo necesitan que exista #chatScroll.
+  // Crea un overlay temporal (position:fixed) del mismo tamaño y posición
+  // que #chatScroll en pantalla, le inserta partículas animadas con CSS,
+  // y se auto-elimina al terminar la animación. No depende de la
+  // estructura del HTML de afuera: solo necesita que exista #chatScroll.
   // ======================================================================
   _ensureChatFxStyles() {
     if (document.getElementById('chatFxStyles')) return;
@@ -2622,21 +2626,6 @@ const UI = {
       @keyframes confetti-fly {
         0%   { transform: translate(-50%, -50%) rotate(0deg); opacity: 1; }
         100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)); opacity: 0; }
-      }
-      .rain-drop {
-        position: absolute;
-        top: -20px;
-        width: 2px;
-        border-radius: 2px;
-        background: linear-gradient(to bottom, rgba(80,150,255,0.05), rgba(80,150,255,0.85));
-        animation-name: rain-fall;
-        animation-timing-function: ease-in;
-        animation-iteration-count: 1;
-        animation-fill-mode: forwards;
-      }
-      @keyframes rain-fall {
-        0%   { transform: translateY(0); opacity: 0.9; }
-        100% { transform: translateY(var(--fall)); opacity: 0; }
       }
     `;
     document.head.appendChild(style);
@@ -2697,33 +2686,6 @@ const UI = {
     }
 
     setTimeout(() => overlay.remove(), 1500);
-  },
-
-  _rainEffect() {
-    const fx = this._makeChatFxOverlay();
-    if (!fx) return;
-    const { overlay, rect } = fx;
-
-    const DROPS = 140;
-    for (let i = 0; i < DROPS; i++) {
-      const drop = document.createElement('span');
-      drop.className = 'rain-drop';
-
-      const x = Math.random() * rect.width;
-      const height = 14 + Math.random() * 16;
-      const duration = 0.6 + Math.random() * 0.5;
-      const delay = Math.random() * 0.9; // ventana más larga = lluvia sostenida, no un solo golpe
-
-      drop.style.left = x + 'px';
-      drop.style.height = height + 'px';
-      drop.style.setProperty('--fall', (rect.height + 40) + 'px');
-      drop.style.animationDuration = duration + 's';
-      drop.style.animationDelay = delay + 's';
-
-      overlay.appendChild(drop);
-    }
-
-    setTimeout(() => overlay.remove(), 2100);
   },
 
   // ======================================================================
