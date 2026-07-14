@@ -165,9 +165,12 @@
   .view.active { display: block; }
 
   /*
-   * CHAT HEADER: position:fixed anclado al layout viewport de iOS.
-   * El teclado mueve el visual viewport pero NO el layout viewport,
-   * entonces este header NUNCA se mueve cuando se abre el teclado.
+   * CHAT HEADER: position:fixed. En Android esto alcanza para que quede
+   * anclado al abrir el teclado. En iOS Safari, position:fixed NO es
+   * suficiente: al enfocar el input, la página suele hacer scroll para
+   * acercarlo al teclado, y ese scroll arrastra visualmente al header
+   * (bug conocido de WebKit). La compensación real ocurre en el script
+   * final del archivo, vía visualViewport + reset de scroll.
    * NutrioAvatar lo inserta dinámicamente como primer hijo, así que
    * el header queda: [avatar SVG] [nombre + estado] [controles]
    */
@@ -788,46 +791,62 @@
 <script src="js/nutrioChatAI-fotos.js"></script>
 
 <!-- Teclado: oculta el dock y sube la barra de input en Android.
-     En iOS position:fixed ya ancla la barra al layout viewport, así que
-     no necesitamos calcular nada — solo ocultamos el dock. -->
+     En iOS, position:fixed NO alcanza para anclar el header/input bar:
+     cuando el teclado aparece, Safari suele hacer scroll de toda la
+     página para acercar el input enfocado, y ese scroll arrastra
+     visualmente a los elementos fixed (bug conocido de WebKit). Por eso
+     compensamos con visualViewport.offsetTop (translateY en vivo) y,
+     además, forzamos el scroll de la página de vuelta a 0 al enfocar
+     el textarea, que es lo que dispara el corrimiento en iOS. -->
 <script>
 (function() {
   const dockWrap   = document.querySelector('.dock-wrap');
   const inputBar   = document.getElementById('chatInputBar');
+  const chatHeader = document.querySelector('.chat-header');
+  const chatInput  = document.getElementById('chatInput');
+  const isIOS      = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   let baseHeight   = window.innerHeight;
+
+  function applyKeyboardOffset() {
+    if (!window.visualViewport) return;
+    const offset = window.visualViewport.offsetTop || 0;
+    if (chatHeader) chatHeader.style.transform = offset ? `translateY(${offset}px)` : '';
+    if (inputBar)   inputBar.style.transform   = offset ? `translateY(${offset}px)` : '';
+  }
 
   function onKeyboardOpen(visibleHeight) {
     dockWrap.style.display = 'none';
-    if (inputBar) {
+    if (inputBar && !isIOS) {
       // En Android el teclado empuja el viewport: calculamos el espacio libre
       const gap = window.innerHeight - visibleHeight;
       inputBar.style.bottom = (gap + 8) + 'px';
     }
+    applyKeyboardOffset();
   }
 
   function onKeyboardClose() {
     dockWrap.style.display = '';
-    if (inputBar) inputBar.style.bottom = '';
+    if (inputBar) { inputBar.style.bottom = ''; inputBar.style.transform = ''; }
+    if (chatHeader) chatHeader.style.transform = '';
     baseHeight = window.innerHeight;
   }
 
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', function() {
       const vv = window.visualViewport;
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       if (vv.height < baseHeight * 0.85) {
-        // En iOS no movemos la barra (fixed ya la ancla); solo ocultamos el dock
-        if (isIOS) {
-          dockWrap.style.display = 'none';
-        } else {
-          onKeyboardOpen(vv.height);
-        }
+        onKeyboardOpen(vv.height);
       } else {
         onKeyboardClose();
       }
     });
+    // iOS puede desplazar (scroll) el visual viewport sin disparar 'resize':
+    // ese es el corrimiento que "tira para arriba" al header. Lo compensamos
+    // en cada evento de scroll del visual viewport.
+    window.visualViewport.addEventListener('scroll', applyKeyboardOffset);
   } else {
-    // Fallback para Safari antiguo
+    // Fallback para Safari antiguo sin visualViewport
     document.addEventListener('focusin', function(e) {
       if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') {
         setTimeout(function() {
@@ -837,6 +856,23 @@
     });
     document.addEventListener('focusout', function() {
       setTimeout(onKeyboardClose, 150);
+    });
+  }
+
+  // En iOS, al enfocar el textarea del chat, Safari intenta "acercarlo" al
+  // teclado haciendo scroll de la página completa. Ese scroll es lo que
+  // arrastra al header. Lo contrarrestamos devolviendo el scroll a 0 en los
+  // primeros frames posteriores al focus.
+  if (chatInput && isIOS) {
+    chatInput.addEventListener('focus', function() {
+      let tries = 0;
+      const reset = function() {
+        if (window.scrollY !== 0) window.scrollTo(0, 0);
+        applyKeyboardOffset();
+        tries++;
+        if (tries < 10) requestAnimationFrame(reset);
+      };
+      requestAnimationFrame(reset);
     });
   }
 })();
