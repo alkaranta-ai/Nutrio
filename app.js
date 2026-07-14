@@ -1170,6 +1170,26 @@ const NutrioAvatar = {
         <circle cx="30.1" cy="16.9" r="0.85" class="nutrio-eye-shine" />
         <ellipse cx="15" cy="24.5" rx="2.2" ry="1.3" class="nutrio-cheek" />
         <path d="M16 26.5 q6 3 11 0" class="nutrio-mouth-smirk" />
+      </g>`,
+    riendo: `
+      <g class="nutrio-face nutrio-face-riendo">
+        <path d="M8.5 17 q4.5 -7 9 0" class="nutrio-eye-happy" />
+        <path d="M24.5 17 q4.5 -7 9 0" class="nutrio-eye-happy" />
+        <ellipse cx="13.5" cy="25.5" rx="3" ry="1.9" class="nutrio-cheek nutrio-cheek-bright" />
+        <ellipse cx="30.5" cy="25.5" rx="3" ry="1.9" class="nutrio-cheek nutrio-cheek-bright" />
+        <path d="M10.5 23.5 q11 13 21 0" class="nutrio-mouth-big" />
+        <text x="2" y="8" class="nutrio-haha nutrio-haha1">ja</text>
+        <text x="34" y="6" class="nutrio-haha nutrio-haha2">ja</text>
+      </g>`,
+    llorando: `
+      <g class="nutrio-face nutrio-face-llorando">
+        <path d="M10.5 14.5 q3.5 3 7 0" class="nutrio-eyebrow" />
+        <path d="M26.5 14.5 q3.5 3 7 0" class="nutrio-eyebrow" />
+        <circle cx="14" cy="19.5" r="2.3" class="nutrio-eye" />
+        <circle cx="30" cy="19.5" r="2.3" class="nutrio-eye" />
+        <path d="M13 31 q9 -6.5 18 0" class="nutrio-mouth-sad" />
+        <path d="M13.3 22.5 q-1 3 -0.6 6" class="nutrio-tear nutrio-tear-l" />
+        <path d="M30.7 22.5 q1 3 0.6 6" class="nutrio-tear nutrio-tear-r" />
       </g>`
   },
 
@@ -1367,6 +1387,30 @@ const NutrioAvatar = {
       .nutrio-zzz1 { animation: nutrioZzzFloat 2.4s ease-in-out infinite; }
       .nutrio-zzz2 { animation: nutrioZzzFloat 2.4s ease-in-out infinite 0.7s; }
 
+      /* --- Cara riendo (👍) --- */
+      .nutrio-haha {
+        font-size: 6px;
+        font-weight: 700;
+        fill: #ffb74d;
+        opacity: 0;
+      }
+      .nutrio-haha1 { animation: nutrioHahaFloat 0.9s ease-out infinite; }
+      .nutrio-haha2 { animation: nutrioHahaFloat 0.9s ease-out infinite 0.25s; }
+
+      /* --- Cara llorando (👎) --- */
+      .nutrio-face .nutrio-mouth-sad {
+        stroke: #5b636d;
+        fill: none;
+      }
+      .nutrio-face .nutrio-tear {
+        stroke: #54a0ff;
+        stroke-width: 1.7;
+        fill: none;
+        opacity: 0;
+        animation: nutrioTearFall 1.1s ease-in infinite;
+      }
+      .nutrio-tear-r { animation-delay: 0.35s; }
+
       /* --- Estados: animación en la burbuja entera, más orgánica que un
          simple scale plano, para que se sienta "viva" y con peso/gelatina --- */
       #nutrioAvatar.is-dormido {
@@ -1403,6 +1447,19 @@ const NutrioAvatar = {
       #nutrioAvatar.is-sorprendido .nutrio-sparkle { animation: nutrioTwinkle 0.7s ease-in-out infinite; transform-origin: center; }
       #nutrioAvatar.is-guino {
         animation: nutrioGlassWink 0.4s ease-out;
+      }
+      /* 👍 "me gusta": se agranda un montón y se ríe a las carcajadas */
+      #nutrioAvatar.is-riendo {
+        animation: nutrioGlassLaugh 1.1s cubic-bezier(.34,1.56,.64,1);
+        box-shadow:
+          0 1px 1px rgba(255,255,255,0.9) inset,
+          0 -6px 10px rgba(255,183,77,0.22) inset,
+          0 12px 28px -8px rgba(20,83,45,0.34),
+          0 0 0 4px rgba(76,175,80,0.18);
+      }
+      /* 👎 "no me gusta": se cae de costado y se pone a llorar */
+      #nutrioAvatar.is-llorando {
+        animation: nutrioGlassFall 1.4s cubic-bezier(.36,.07,.19,.97);
       }
 
       @keyframes nutrioFloatIdle {
@@ -1458,6 +1515,32 @@ const NutrioAvatar = {
         50% { transform: scale(1.08) rotate(-3deg); }
         100% { transform: scale(1); }
       }
+      @keyframes nutrioGlassLaugh {
+        0% { transform: scale(1) rotate(0deg); }
+        18% { transform: scale(1.4) rotate(-8deg); }
+        38% { transform: scale(1.28) rotate(7deg); }
+        58% { transform: scale(1.34) rotate(-6deg); }
+        78% { transform: scale(1.16) rotate(4deg); }
+        100% { transform: scale(1) rotate(0deg); }
+      }
+      @keyframes nutrioGlassFall {
+        0% { transform: translateY(0) rotate(0deg); }
+        25% { transform: translateY(2px) rotate(20deg); }
+        45% { transform: translateY(13px) rotate(78deg); }
+        65% { transform: translateY(15px) rotate(92deg); }
+        85% { transform: translateY(15px) rotate(88deg); }
+        100% { transform: translateY(0) rotate(0deg); }
+      }
+      @keyframes nutrioTearFall {
+        0% { opacity: 0; transform: translateY(0); }
+        15% { opacity: 1; }
+        100% { opacity: 0; transform: translateY(7px); }
+      }
+      @keyframes nutrioHahaFloat {
+        0% { opacity: 0; transform: translateY(0) scale(0.8); }
+        30% { opacity: 1; transform: translateY(-3px) scale(1); }
+        100% { opacity: 0; transform: translateY(-10px) scale(1.1); }
+      }
 
       /* Fallback: si el navegador no soporta backdrop-filter, que igual se
          vea sólido y prolijo en vez de transparente/roto. */
@@ -1483,7 +1566,7 @@ const NutrioAvatar = {
     const wrap = this._ensureEl();
     if (!wrap) return;
     this._state = state;
-    wrap.classList.remove('is-dormido', 'is-despierto', 'is-pensando', 'is-feliz', 'is-sorprendido', 'is-guino');
+    wrap.classList.remove('is-dormido', 'is-despierto', 'is-pensando', 'is-feliz', 'is-sorprendido', 'is-guino', 'is-riendo', 'is-llorando');
     wrap.classList.add(`is-${state}`);
     const faceContainer = wrap.querySelector('#nutrioAvatarFace');
     if (faceContainer) faceContainer.innerHTML = this._FACES[state] || this._FACES.despierto;
@@ -1540,6 +1623,30 @@ const NutrioAvatar = {
       if (this._state === 'guino') this.setState(previous === 'dormido' ? 'despierto' : previous);
       this._resetIdleTimer();
     }, 800);
+  },
+
+  // Reacción al 👍 "Me gusta" de una respuesta del chat: la burbuja se
+  // agranda bastante y la carita se ríe a las carcajadas (con "ja ja"
+  // flotando). Después vuelve sola a 'despierto'.
+  laugh() {
+    if (this._idleTimer) clearTimeout(this._idleTimer);
+    this.setState('riendo');
+    setTimeout(() => {
+      if (this._state === 'riendo') this.setState('despierto');
+      this._resetIdleTimer();
+    }, 1200);
+  },
+
+  // Reacción al 👎 "No me gusta" de una respuesta del chat: la burbuja se
+  // cae de costado y la carita llora (lagrimitas cayendo). Después se
+  // reincorpora sola y vuelve a 'despierto'.
+  cryFall() {
+    if (this._idleTimer) clearTimeout(this._idleTimer);
+    this.setState('llorando');
+    setTimeout(() => {
+      if (this._state === 'llorando') this.setState('despierto');
+      this._resetIdleTimer();
+    }, 1600);
   },
 
   init() {
@@ -2480,12 +2587,15 @@ const UI = {
     if (dislikeBtn) dislikeBtn.classList.toggle('active', !liked);
 
     // Feedback visual: 👍 tira una explosión de papelitos de color desde el
-    // botón; 👎 hace llover sobre el chat. Todo queda contenido dentro del
-    // área visible de #chatScroll (no tapa el resto de la app).
+    // botón (y el avatar se agranda y se ríe); 👎 hace llover sobre el chat
+    // (y el avatar se cae y llora). Todo queda contenido dentro del área
+    // visible de #chatScroll (no tapa el resto de la app).
     if (liked) {
       this._confettiBurst(likeBtn);
+      NutrioAvatar.laugh();
     } else {
       this._rainEffect();
+      NutrioAvatar.cryFall();
     }
   },
 
