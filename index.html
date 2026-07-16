@@ -879,8 +879,16 @@
 
     select: function(section) {
       this.close();
-      if (window.UI && typeof UI.goto === 'function') UI.goto(section);
-      this.markActive(section);
+      // Reintenta hasta que UI.goto esté disponible (app.js puede tardar en cargar)
+      var tryGoto = function(tries) {
+        if (window.UI && typeof UI.goto === 'function') {
+          UI.goto(section);
+          DockMenu.markActive(section);
+        } else if (tries < 20) {
+          setTimeout(function() { tryGoto(tries + 1); }, 50);
+        }
+      };
+      tryGoto(0);
     },
 
     // Sincroniza la clase "active" del dock. Se llama tanto al elegir una
