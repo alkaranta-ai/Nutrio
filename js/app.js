@@ -1209,30 +1209,27 @@ const NutrioAvatar = {
     wrap.title = 'Nutrio';
     wrap.style.cssText = `width:${size}px; height:${size}px; flex-shrink:0; margin-right:12px;`;
     wrap.innerHTML = `
-      <svg viewBox="0 0 44 44" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="-8 -8 60 60" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <radialGradient id="nutrioBodyGradient" cx="32%" cy="26%" r="80%">
-            <stop offset="0%" stop-color="#f2f4f6" stop-opacity="0.97" />
-            <stop offset="55%" stop-color="#c7ccd1" stop-opacity="0.65" />
-            <stop offset="100%" stop-color="#8a919b" stop-opacity="0.30" />
+          <radialGradient id="nutrioBodyGradient" cx="32%" cy="24%" r="82%">
+            <stop offset="0%" stop-color="#eafff6" stop-opacity="0.98" />
+            <stop offset="45%" stop-color="#4fcf9a" stop-opacity="0.95" />
+            <stop offset="100%" stop-color="#127a5c" stop-opacity="0.92" />
           </radialGradient>
           <linearGradient id="nutrioRimGradient" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="rgba(255,255,255,0.95)" />
-            <stop offset="45%" stop-color="#9aa3ad" stop-opacity="0.65" />
+            <stop offset="45%" stop-color="#6fd9ae" stop-opacity="0.55" />
             <stop offset="100%" stop-color="rgba(255,255,255,0.15)" />
           </linearGradient>
         </defs>
-        <!-- Antena de robot -->
-        <line x1="22" y1="3.5" x2="22" y2="-1.5" class="nutrio-avatar-antenna-stem" />
-        <circle cx="22" cy="-2.2" r="1.9" class="nutrio-avatar-antenna-tip" />
+        <!-- Halo de anillos suaves, como en el ícono de referencia -->
+        <circle cx="22" cy="22" r="27" class="nutrio-avatar-halo nutrio-avatar-halo-3" />
+        <circle cx="22" cy="22" r="23.5" class="nutrio-avatar-halo nutrio-avatar-halo-2" />
+        <circle cx="22" cy="22" r="20.8" class="nutrio-avatar-halo nutrio-avatar-halo-1" />
         <circle cx="22" cy="22" r="19.2" class="nutrio-avatar-body" />
         <circle cx="22" cy="22" r="19.2" class="nutrio-avatar-rim" />
-        <!-- Auriculares/laterales de robot -->
-        <rect x="1.2" y="18" width="3" height="8" rx="1.5" class="nutrio-avatar-earpiece" />
-        <rect x="39.8" y="18" width="3" height="8" rx="1.5" class="nutrio-avatar-earpiece" />
         <ellipse cx="14.5" cy="11.5" rx="6.5" ry="4.2" class="nutrio-avatar-shine-big" />
         <circle cx="16" cy="12.5" r="2.6" class="nutrio-avatar-shine" />
-        <ellipse cx="30" cy="32" rx="4.5" ry="2.4" class="nutrio-avatar-shine-low" />
         <g id="nutrioAvatarFace"></g>
       </svg>`;
 
@@ -1326,31 +1323,21 @@ const NutrioAvatar = {
         filter: blur(2px);
         pointer-events: none;
       }
-      .nutrio-avatar-antenna-stem {
-        stroke: #9aa3ad;
-        stroke-width: 1.6;
-        stroke-linecap: round;
+      .nutrio-avatar-halo {
+        fill: rgba(120,220,180,0.16);
+        pointer-events: none;
       }
-      .nutrio-avatar-antenna-tip {
-        fill: var(--primary, #4caf50);
-        stroke: #9aa3ad;
-        stroke-width: 1;
-        animation: nutrioTwinkle 2.4s ease-in-out infinite;
-      }
-      .nutrio-avatar-earpiece {
-        fill: #c7ccd1;
-        stroke: #9aa3ad;
-        stroke-width: 1;
-      }
+      .nutrio-avatar-halo-2 { fill: rgba(120,220,180,0.13); }
+      .nutrio-avatar-halo-3 { fill: rgba(120,220,180,0.08); }
 
       /* --- Cara --- */
       .nutrio-face path, .nutrio-face circle, .nutrio-face ellipse {
-        stroke: #5b636d;
+        stroke: #123d31;
         stroke-width: 1.9;
         fill: none;
         stroke-linecap: round;
       }
-      .nutrio-face .nutrio-eye, .nutrio-face .nutrio-mouth-o { fill: #5b636d; }
+      .nutrio-face .nutrio-eye, .nutrio-face .nutrio-mouth-o { fill: #123d31; }
       .nutrio-face .nutrio-eye-shine {
         fill: rgba(255,255,255,0.95);
         stroke: none;
@@ -1369,7 +1356,7 @@ const NutrioAvatar = {
         stroke-width: 1.6;
       }
       .nutrio-face .nutrio-dot {
-        fill: #5b636d;
+        fill: #123d31;
         stroke: none;
         transform-box: fill-box;
         transform-origin: center;
@@ -1381,7 +1368,7 @@ const NutrioAvatar = {
       .nutrio-zzz {
         font-size: 6px;
         font-weight: 700;
-        fill: #5b636d;
+        fill: #123d31;
         opacity: 0;
       }
       .nutrio-zzz1 { animation: nutrioZzzFloat 2.4s ease-in-out infinite; }
@@ -1399,7 +1386,7 @@ const NutrioAvatar = {
 
       /* --- Cara llorando (👎) --- */
       .nutrio-face .nutrio-mouth-sad {
-        stroke: #5b636d;
+        stroke: #123d31;
         fill: none;
       }
       .nutrio-face .nutrio-tear {
