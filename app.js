@@ -2051,10 +2051,11 @@ const UI = {
     const targetView = document.getElementById(`view-${viewName}`);
     if (targetView) targetView.classList.add('active');
 
-    const viewsOrder = ['chat', 'inicio', 'semana', 'carrito', 'perfil'];
-    const idx = viewsOrder.indexOf(viewName);
-    const buttons = document.querySelectorAll('.dock-item');
-    if (buttons[idx]) buttons[idx].classList.add('active');
+    // Activa el dock-item por data-section en vez de por índice de posición,
+    // así carrito y perfil (que viven en el popup y no en el dock principal)
+    // no rompen la lógica cuando el array de botones tiene menos elementos.
+    const activeBtn = document.querySelector(`.dock-item[data-section="${viewName}"]`);
+    if (activeBtn) activeBtn.classList.add('active');
 
     const inputBar = document.getElementById('chatInputBar');
     if (inputBar) inputBar.style.display = viewName === 'chat' ? 'block' : 'none';
