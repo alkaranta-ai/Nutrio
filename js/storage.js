@@ -17,9 +17,19 @@ const StorageApp = {
     const cart = localStorage.getItem('nutrio_cart');
     return cart ? JSON.parse(cart) : [];
   },
+  // Guarda la lista de recetas favoritas (las que el usuario marcó con el corazón)
+  saveFavorites(favoritesData) {
+    localStorage.setItem('nutrio_favorites', JSON.stringify(favoritesData));
+  },
+  // Obtiene las recetas favoritas guardadas (si no existen, devuelve un arreglo vacío)
+  getFavorites() {
+    const favorites = localStorage.getItem('nutrio_favorites');
+    return favorites ? JSON.parse(favorites) : [];
+  },
   // Borra por completo la memoria local para reiniciar la aplicación desde cero
   clearAll() {
     localStorage.removeItem('nutrio_profile');
     localStorage.removeItem('nutrio_cart');
+    localStorage.removeItem('nutrio_favorites');
   }
 };
