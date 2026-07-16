@@ -3038,6 +3038,13 @@ const UI = {
   }
 };
 
+// FIX BUG: UI estaba declarado como "const UI" (variable local del script),
+// nunca se convertía en window.UI, así que "window.UI && typeof UI.goto"
+// en index.html jamás era true y el goto() real no se ejecutaba nunca al
+// tocar Carrito/Perfil desde el menú. Se expone explícitamente en window,
+// igual que ya se hacía con ChatApp.
+window.UI = UI;
+
 // ==========================================================================
 // MÓDULO DE CHAT (única declaración global, sin duplicados)
 //
