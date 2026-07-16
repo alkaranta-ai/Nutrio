@@ -2583,16 +2583,29 @@ const UI = {
     container.innerHTML = html;
   },
 
-  // Arma un texto plano con toda la lista de supermercado y abre WhatsApp
-  // con ese texto ya cargado, para compartirla directo en un chat sin
-  // tener que sacar captura de pantalla.
+  // Arma un texto plano SOLO con los ingredientes que el usuario tildó
+  // (seleccionó) en la lista de hoy, y abre WhatsApp con ese texto ya
+  // cargado, para compartirla directo en un chat sin tener que sacar
+  // captura de pantalla.
   shareCartWhatsApp() {
     const cart = StorageApp.getCart();
     if (!cart.length) {
       alert('Todavía no hay ingredientes en tu lista de supermercado.');
       return;
     }
-    const lineas = cart.map(item => `• ${item}`).join('\n');
+
+    const hoyKey = new Date().toLocaleDateString('es-AR');
+    const tildadosHoy = JSON.parse(localStorage.getItem(`nutrio_checked_${hoyKey}`)) || [];
+
+    // Solo compartimos los ítems marcados; si no hay ninguno tildado,
+    // avisamos en vez de mandar toda la lista igual.
+    const seleccionados = cart.filter(item => tildadosHoy.includes(item));
+    if (!seleccionados.length) {
+      alert('Tildá primero los artículos que querés compartir de tu lista.');
+      return;
+    }
+
+    const lineas = seleccionados.map(item => `• ${item}`).join('\n');
     const texto = `🛒 *Mi lista de supermercado*\n\n${lineas}\n\nArmado con NutrIO 🥑`;
     window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
   },
