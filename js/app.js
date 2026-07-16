@@ -1654,6 +1654,52 @@ const NutrioAvatar = {
   }
 };
 
+// ==========================================================================
+// FAVORITOS: recetas que el usuario marca con el ❤️ desde el modal, para
+// tener acceso directo a las que más repite sin tener que volver a
+// buscarlas en Inicio/Semana/Chat. Se identifican con el mismo criterio que
+// usa Achievements (recipe.id si existe, o el nombre como respaldo), así
+// una misma receta se reconoce sin importar en qué tarjeta apareció.
+// ==========================================================================
+const Favorites = {
+  _getIdentifier(recipe) {
+    if (!recipe) return null;
+    return recipe.id !== undefined ? recipe.id : recipe.name;
+  },
+
+  getAll() {
+    return StorageApp.getFavorites();
+  },
+
+  isFavorite(recipe) {
+    const id = this._getIdentifier(recipe);
+    if (id === null || id === undefined) return false;
+    return this.getAll().some(f => f.id === id);
+  },
+
+  // Agrega o saca la receta de favoritos. Devuelve true si quedó marcada
+  // como favorita, o false si se sacó de la lista.
+  toggle(recipe, typeKey, drink) {
+    const id = this._getIdentifier(recipe);
+    if (id === null || id === undefined) return false;
+
+    const favs = this.getAll();
+    const idx = favs.findIndex(f => f.id === id);
+    let isNowFavorite;
+
+    if (idx !== -1) {
+      favs.splice(idx, 1);
+      isNowFavorite = false;
+    } else {
+      favs.unshift({ id, recipe, typeKey, drink: drink || null, savedAt: Date.now() });
+      isNowFavorite = true;
+    }
+
+    StorageApp.saveFavorites(favs);
+    return isNowFavorite;
+  }
+};
+
 const UI = {
 
   // Guarda referencias de recetas (y su bebida sugerida) para poder abrir
@@ -1689,6 +1735,7 @@ const UI = {
     this.renderHome();
     this.renderWeeklyPlan();
     this.renderCart();
+    this.renderFavorites();
     this.renderProfile();
     this.goto('chat');
 
@@ -2271,6 +2318,7 @@ const UI = {
   renderWeekDay(idx) {
     if (!this._weekData || !this._weekData[idx]) return;
     const data = this._weekData[idx];
+    this._currentWeekIdx = idx;
 
     document.querySelectorAll('#weekDayTabs .day-tab').forEach(tab => {
       tab.classList.toggle('active', parseInt(tab.dataset.idx, 10) === idx);
@@ -2292,6 +2340,53 @@ const UI = {
       this._buildMealCardHTML(`week-${idx}-cena`, 'cena', data.dinner, data.dinnerDrink);
   },
 
+  // Arma un texto plano con el menú del día que se está viendo en el Plan
+  // Semanal y abre WhatsApp con ese texto ya cargado, listo para compartir
+  // en un chat sin tener que sacar captura de pantalla.
+  shareWeekDayWhatsApp() {
+    const idx = this._currentWeekIdx;
+    if (idx === undefined || !this._weekData || !this._weekData[idx]) return;
+    const data = this._weekData[idx];
+
+    const lineas = [];
+    if (data.breakfast) lineas.push(`🌅 Desayuno: ${data.breakfast.name}${data.breakfast.kcal ? ` (${data.breakfast.kcal} kcal)` : ''}`);
+    if (data.lunch) lineas.push(`🍽️ Almuerzo: ${data.lunch.name}${data.lunch.kcal ? ` (${data.lunch.kcal} kcal)` : ''}`);
+    if (data.snack) lineas.push(`🍎 Merienda: ${data.snack.name}${data.snack.kcal ? ` (${data.snack.kcal} kcal)` : ''}`);
+    if (data.dinner) lineas.push(`🌙 Cena: ${data.dinner.name}${data.dinner.kcal ? ` (${data.dinner.kcal} kcal)` : ''}`);
+
+    if (!lineas.length) {
+      alert('Todavía no hay comidas cargadas para este día.');
+      return;
+    }
+
+    const texto = `🍽️ *Mi plan de comidas — ${data.day}*\n\n${lineas.join('\n')}\n\nArmado con NutrIO 🥑`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+  },
+
+  // --------------------------------------------------------------------
+  // Favoritos: recetas que el usuario guardó con el ❤️ desde el modal.
+  // Reusa _buildMealCardHTML (mismas tarjetas que Inicio/Semana) para que
+  // se vean y se abran igual, tocando la tarjeta se abre el modal completo.
+  // --------------------------------------------------------------------
+  renderFavorites() {
+    const container = document.getElementById('favoritesContainer');
+    const emptyState = document.getElementById('favoritesEmpty');
+    if (!container) return;
+
+    const favs = Favorites.getAll();
+
+    if (!favs.length) {
+      container.innerHTML = '';
+      if (emptyState) emptyState.style.display = 'block';
+      return;
+    }
+    if (emptyState) emptyState.style.display = 'none';
+
+    container.innerHTML = favs.map((f, idx) =>
+      this._buildMealCardHTML(`fav-${idx}`, f.typeKey, f.recipe, f.drink)
+    ).join('');
+  },
+
   // --------------------------------------------------------------------
   // Modal de receta: ingredientes + preparación + bebida sugerida
   // --------------------------------------------------------------------
@@ -2309,9 +2404,11 @@ const UI = {
     if (!content || !modal) return;
 
     // Guardamos la receta actual del modal para poder registrarla con
-    // "Ya lo comí" sin tener que meter objetos completos en el onclick.
-    this._modalRecipe = { recipe, typeKey };
+    // "Ya lo comí" o marcarla como favorita sin tener que meter objetos
+    // completos en el onclick.
+    this._modalRecipe = { recipe, typeKey, drink };
     const yaComidoHoy = MealLog.getToday().some(e => e.name === recipe.name);
+    const esFavorita = Favorites.isFavorite(recipe);
 
     const ingredientsHTML = (recipe.ingredients || [])
       .map(ing => `<span class="ingredient-chip">${ing}</span>`).join('');
@@ -2343,7 +2440,16 @@ const UI = {
     content.innerHTML = `
       <div class="recipe-modal-header">
         <span class="recipe-badge" style="background:${meta.dim}; color:${meta.color};">${meta.icon} ${meta.label}</span>
-        <button class="modal-close" onclick="UI.closeRecipeModal()">✕</button>
+        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+          <button type="button" id="favToggleBtn" class="tap-feedback" title="${esFavorita ? 'Sacar de favoritos' : 'Guardar en favoritos'}"
+            onclick="UI.toggleFavoriteCurrentModal()"
+            style="background:var(--bg); border:none; font-size:16px; line-height:1; cursor:pointer;
+            color:var(--text-muted); width:34px; height:34px; border-radius:50%;
+            display:flex; align-items:center; justify-content:center;">
+            ${esFavorita ? '❤️' : '🤍'}
+          </button>
+          <button class="modal-close" onclick="UI.closeRecipeModal()">✕</button>
+        </div>
       </div>
       <div class="modal-recipe-name">${recipe.name || ''}</div>
       <span class="modal-kcal-pill">${recipe.kcal || '—'} kcal</span>
@@ -2392,6 +2498,22 @@ const UI = {
     const modal = document.getElementById('recipeModal');
     if (modal) modal.classList.remove('active');
     document.body.style.overflow = '';
+  },
+
+  // Marca/desmarca como favorita la receta abierta actualmente en el modal,
+  // actualiza el corazón in situ y refresca la vista de Favoritos.
+  toggleFavoriteCurrentModal() {
+    if (!this._modalRecipe) return;
+    const { recipe, typeKey, drink } = this._modalRecipe;
+    const isNowFavorite = Favorites.toggle(recipe, typeKey, drink);
+
+    const btn = document.getElementById('favToggleBtn');
+    if (btn) {
+      btn.innerHTML = isNowFavorite ? '❤️' : '🤍';
+      btn.title = isNowFavorite ? 'Sacar de favoritos' : 'Guardar en favoritos';
+    }
+
+    this.renderFavorites();
   },
 
   closeRecipeModalOnOverlay(event) {
@@ -2459,6 +2581,20 @@ const UI = {
     }
     html += '</div>';
     container.innerHTML = html;
+  },
+
+  // Arma un texto plano con toda la lista de supermercado y abre WhatsApp
+  // con ese texto ya cargado, para compartirla directo en un chat sin
+  // tener que sacar captura de pantalla.
+  shareCartWhatsApp() {
+    const cart = StorageApp.getCart();
+    if (!cart.length) {
+      alert('Todavía no hay ingredientes en tu lista de supermercado.');
+      return;
+    }
+    const lineas = cart.map(item => `• ${item}`).join('\n');
+    const texto = `🛒 *Mi lista de supermercado*\n\n${lineas}\n\nArmado con NutrIO 🥑`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
   },
 
   handleCheck(cb, item) {
