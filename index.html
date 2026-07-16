@@ -375,7 +375,7 @@
   .cart-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 15px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; }
 
   /* ---- Dock inferior ---- */
-  .dock-wrap { position: fixed; bottom: 0; left: 0; width: 100%; padding: 0 16px 16px; z-index: 1000; pointer-events: none; }
+  .dock-wrap { position: fixed; bottom: 0; left: 0; width: 100%; padding: 0 16px 16px; z-index: 1500; pointer-events: none; }
   .dock-container { position: relative; max-width: 460px; margin: 0 auto; }
   .dock {
     display: flex; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -798,9 +798,9 @@
               <stop offset="100%" stop-color="currentColor"/>
             </radialGradient>
           </defs>
-          <circle cx="12" cy="5.5" r="2.1" fill="url(#dotVol)"/>
+          <circle cx="5.5" cy="12" r="2.1" fill="url(#dotVol)"/>
           <circle cx="12" cy="12" r="2.1" fill="url(#dotVol)"/>
-          <circle cx="12" cy="18.5" r="2.1" fill="url(#dotVol)"/>
+          <circle cx="18.5" cy="12" r="2.1" fill="url(#dotVol)"/>
         </svg>
         <span>Menú</span>
       </button>
