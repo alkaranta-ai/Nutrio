@@ -879,11 +879,15 @@
 
     select: function(section) {
       this.close();
-      // Reintenta hasta que UI.goto esté disponible (app.js puede tardar en cargar)
+      // Usamos setTimeout para que el evento click del popup termine de
+      // propagarse antes de que UI.goto cambie la vista. Sin este delay,
+      // el listener de cierre del document puede interferir.
       var tryGoto = function(tries) {
         if (window.UI && typeof UI.goto === 'function') {
-          UI.goto(section);
-          DockMenu.markActive(section);
+          setTimeout(function() {
+            UI.goto(section);
+            DockMenu.markActive(section);
+          }, 0);
         } else if (tries < 20) {
           setTimeout(function() { tryGoto(tries + 1); }, 50);
         }
